@@ -57,32 +57,46 @@ class FontsLocal
 	 */
 	public function preloadFontFiles()
 	{
-		$preloadFontFiles = trim(Main::instance()->settings['local_fonts_preload_files']);
+        // Don't apply any changes if not in the front-end view (e.g. Dashboard view)
+        // or test mode is enabled, and a guest user is accessing the page
+        if ( OptimizeCommon::preventAnyFrontendOptimization() ) {
+            return;
+        }
 
-		$preloadFontFilesArray = array();
+        if ( ! $preloadFontFiles = trim(Main::instance()->settings['local_fonts_preload_files']) ) {
+            return;
+        }
 
-		if (strpos($preloadFontFiles, "\n") !== false) {
-			foreach (explode("\n", $preloadFontFiles) as $preloadFontFile) {
-				$preloadFontFile = trim($preloadFontFile);
+        $preloadFontFilesArray = array();
 
-				if (! $preloadFontFile) {
-					continue;
-				}
+        if (strpos($preloadFontFiles, "\n") !== false) {
+            foreach (explode("\n", $preloadFontFiles) as $preloadFontFile) {
+                $preloadFontFile = esc_attr(trim($preloadFontFile));
 
-				$preloadFontFilesArray[] = $preloadFontFile;
-			}
-		} else {
-			$preloadFontFilesArray[] = $preloadFontFiles;
-		}
+                if ( ! $preloadFontFile ) {
+                    continue;
+                }
 
-		$preloadFontFilesArray = array_unique($preloadFontFilesArray);
+                $preloadFontFilesArray[] = $preloadFontFile;
+            }
+        } else {
+            $preloadFontFiles = esc_attr(trim($preloadFontFiles));
+
+            if ($preloadFontFiles) {
+                $preloadFontFilesArray[] = $preloadFontFiles;
+            }
+        }
+
+        $preloadFontFilesArray = array_unique($preloadFontFilesArray);
 
 		$preloadFontFilesOutput = '';
 
 		// Finally, go through the list
-		foreach ($preloadFontFilesArray as $preloadFontFile) {
-			$preloadFontFilesOutput .= '<link rel="preload" as="font" href="'.esc_attr($preloadFontFile).'" data-wpacu-preload-font="1" crossorigin>'."\n";
-		}
+        if ( ! empty($preloadFontFilesArray) ) {
+            foreach ($preloadFontFilesArray as $preloadFontFile) {
+                $preloadFontFilesOutput .= '<link rel="preload" as="font" href="' . $preloadFontFile . '" data-wpacu-preload-local-font="1" crossorigin>' . "\n";
+            }
+        }
 
 		echo apply_filters('wpacu_preload_local_font_files_output', $preloadFontFilesOutput);
 	}

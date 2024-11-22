@@ -38,6 +38,13 @@ if (isset($GLOBALS['wpacu_object_cache'])) {
 	$wpacu_object_cache = $GLOBALS['wpacu_object_cache']; // just in case
 }
 
+// Menu
+add_action('init', function() {
+    if (is_admin()) {
+        new \WpAssetCleanUp\Menu;
+    }
+});
+
 // Main Class (common code for both the front-end and /wp-admin/ views)
 \WpAssetCleanUp\Main::instance();
 \WpAssetCleanUp\Main::instance()->loadAllSettings();
@@ -59,13 +66,6 @@ if (is_admin()) {
 if ( ! is_admin() ) {
     \WpAssetCleanUp\MainFront::instance();
 }
-
-// Menu
-add_action('init', function() {
-    if (is_admin()) {
-        new \WpAssetCleanUp\Menu;
-    }
-});
 
 $wpacuSettingsClass = new \WpAssetCleanUp\Settings();
 

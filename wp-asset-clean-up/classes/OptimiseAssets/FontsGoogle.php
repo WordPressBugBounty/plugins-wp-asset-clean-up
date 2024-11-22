@@ -111,7 +111,7 @@ class FontsGoogle
 	 */
 	public function preloadFontFiles()
 	{
-		// don't apply any changes if not in the front-end view (e.g. Dashboard view)
+		// Don't apply any changes if not in the front-end view (e.g. Dashboard view)
 		// or test mode is enabled, and a guest user is accessing the page
 		if ( OptimizeCommon::preventAnyFrontendOptimization() ) {
 			return;
@@ -124,17 +124,21 @@ class FontsGoogle
 		$preloadFontFilesArray = array();
 
 		if (strpos($preloadFontFiles, "\n") !== false) {
-			foreach (explode("\n", $preloadFontFiles) as $preloadFontFile) {
-				$preloadFontFile = trim($preloadFontFile);
+            foreach (explode("\n", $preloadFontFiles) as $preloadFontFile) {
+                $preloadFontFile = esc_attr(trim($preloadFontFile));
 
-				if (! $preloadFontFile) {
-					continue;
-				}
+                if ( ! $preloadFontFile ) {
+                    continue;
+                }
 
-				$preloadFontFilesArray[] = $preloadFontFile;
-			}
+                $preloadFontFilesArray[] = $preloadFontFile;
+            }
 		} else {
-			$preloadFontFilesArray[] = $preloadFontFiles;
+            $preloadFontFiles = esc_attr(trim($preloadFontFiles));
+
+            if ($preloadFontFiles) {
+                $preloadFontFilesArray[] = $preloadFontFiles;
+            }
 		}
 
 		$preloadFontFilesArray = array_unique($preloadFontFilesArray);
@@ -142,9 +146,11 @@ class FontsGoogle
 		$preloadFontFilesOutput = '';
 
 		// Finally, go through the list
-		foreach ($preloadFontFilesArray as $preloadFontFile) {
-			$preloadFontFilesOutput .= '<link rel="preload" as="font" href="'.esc_attr($preloadFontFile).'" data-wpacu-preload-font="1" crossorigin>'."\n";
-		}
+        if ( ! empty($preloadFontFilesArray) ) {
+            foreach ($preloadFontFilesArray as $preloadFontFile) {
+                $preloadFontFilesOutput .= '<link rel="preload" as="font" href="' . $preloadFontFile . '" data-wpacu-preload-google-font="1" crossorigin>' . "\n";
+            }
+        }
 
 		echo apply_filters('wpacu_preload_google_font_files_output', $preloadFontFilesOutput);
 	}

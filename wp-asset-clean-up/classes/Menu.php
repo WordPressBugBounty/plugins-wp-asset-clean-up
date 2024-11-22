@@ -16,11 +16,6 @@ use WpAssetCleanUp\Admin\Tools;
 class Menu
 {
 	/**
-	 * @var array|string[]
-	 */
-	public static $allMenuPages = array();
-
-	/**
 	 * @var string
 	 */
 	public static $defaultAccessRole = 'administrator';
@@ -38,19 +33,6 @@ class Menu
      */
     public function __construct()
     {
-    	self::$allMenuPages = array(
-		    WPACU_PLUGIN_ID . '_getting_started',
-		    WPACU_PLUGIN_ID . '_settings',
-		    WPACU_PLUGIN_ID . '_assets_manager',
-		    WPACU_PLUGIN_ID . '_plugins_manager',
-		    WPACU_PLUGIN_ID . '_bulk_unloads',
-		    WPACU_PLUGIN_ID . '_overview',
-		    WPACU_PLUGIN_ID . '_tools',
-		    WPACU_PLUGIN_ID . '_license',
-		    WPACU_PLUGIN_ID . '_get_help',
-		    WPACU_PLUGIN_ID . '_go_pro'
-	    );
-
         add_action('admin_menu', array($this, 'activeMenu'));
 
         // Whenever the following option is on: "Settings" - "Plugin Usage Preferences" - "Visibility" - "Hide it from the left sidebar within the Dashboard"
@@ -71,6 +53,25 @@ class Menu
 	    add_filter( 'page_row_actions', array($this, 'editPostRowActions'), 10, 2 );
 
 	    add_action('admin_page_access_denied', array($this, 'pluginPagesAccessDenied'));
+    }
+
+    /**
+     * @return string[]
+     */
+    public static function getAllMenuPages()
+    {
+        return array(
+            WPACU_PLUGIN_ID . '_getting_started',
+            WPACU_PLUGIN_ID . '_settings',
+            WPACU_PLUGIN_ID . '_assets_manager',
+            WPACU_PLUGIN_ID . '_plugins_manager',
+            WPACU_PLUGIN_ID . '_bulk_unloads',
+            WPACU_PLUGIN_ID . '_overview',
+            WPACU_PLUGIN_ID . '_tools',
+            WPACU_PLUGIN_ID . '_license',
+            WPACU_PLUGIN_ID . '_get_help',
+            WPACU_PLUGIN_ID . '_go_pro'
+        );
     }
 
     /**
@@ -100,7 +101,7 @@ class Menu
         $slug = $parentSlug = WPACU_PLUGIN_ID . '_getting_started'; // default
 
         if (Main::instance()->settings['hide_from_side_bar']) {
-            $parentSlug = null;
+            $parentSlug = '';
         }
 
         add_menu_page(
@@ -268,7 +269,7 @@ class Menu
      */
     public static function isPluginPage()
 	{
-		return isset($_GET['page']) && is_string($_GET['page']) && in_array($_GET['page'], self::$allMenuPages)
+		return isset($_GET['page']) && is_string($_GET['page']) && in_array($_GET['page'], self::getAllMenuPages())
             ? str_replace(WPACU_PLUGIN_ID . '_', '', sanitize_text_field($_GET['page']))
             : false;
 	}

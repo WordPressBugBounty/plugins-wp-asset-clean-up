@@ -113,8 +113,7 @@ class OwnAssets
     public static function adminChosenScriptInline()
     {
         // Only in specific plugin's pages
-        if ( ! (isset($_GET['page']) && $_GET['page'] && is_string($_GET['page']) && strpos($_GET['page'],
-                'wpassetcleanup_') !== false)) {
+        if ( ! (isset($_GET['page']) && $_GET['page'] && is_string($_GET['page']) && strpos($_GET['page'], 'wpassetcleanup_') !== false) ) {
             return;
         }
 
@@ -838,7 +837,7 @@ HTML;
         } else {
             // Assets' List Show Status only applies for edit post/page/custom post type/category/custom taxonomy
             // Dashboard pages such as "Homepage" from plugin's "CSS/JavaScript Load Manager" will fetch the list on loading
-            if ($data['page'] === WPACU_PLUGIN_ID.'_assets_manager' && in_array($data['page_request_for'], array('homepage', 'pages', 'posts', 'custom_post_types', 'media_attachment'))) {
+            if (isset($data['page']) && $data['page'] === WPACU_PLUGIN_ID.'_assets_manager' && in_array($data['page_request_for'], array('homepage', 'pages', 'posts', 'custom_post_types', 'media_attachment'))) {
                 $wpacuObjectData['override_assets_list_load'] = true;
             }
 
@@ -1085,6 +1084,10 @@ CSS;
 		// "data-wpacu-plugin-script": Useful in case jQuery library is deferred too (rare situations)
 		if (in_array($handle, self::getOwnAssetsHandles('scripts'))) {
 			$tag = str_replace(' src=', ' data-wpacu-skip data-wpacu-plugin-script src=', $tag);
+
+            if ($handle === WPACU_PLUGIN_ID . '-chosen-script') {
+                $tag = str_replace(' src=', ' defer="defer" src=', $tag);
+            }
 		}
 
 		return $tag;

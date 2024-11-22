@@ -112,6 +112,19 @@ class MainAdmin
         }
 
 	    $this->wpacuHtmlNoticeForAdmin();
+
+        // Fix: When using Query Monitor, the "Update" button from the CSS/JS manager was showing up on top of the bottom Query Monitor data
+        if (Menu::isPluginPage() === 'assets_manager' && wpacuIsPluginActive('query-monitor/query-monitor.php')) {
+            add_action('admin_head', static function() {
+                ?>
+                <style>
+                    #query-monitor-main {
+                        z-index: 1000000 !important;
+                    }
+                </style>
+                <?php
+            });
+        }
     }
 
     /**
