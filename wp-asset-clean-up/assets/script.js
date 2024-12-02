@@ -811,45 +811,43 @@
 
                     let responseJson = JSON.parse(response);
 
+                    $('[data-wpacu-external-srcs-ref]').attr('data-wpacu-external-srcs-ref', responseJson.external_srcs_ref);
+
+                    $.fn.wpAssetCleanUp().wpacuCheckSourcesFor404Errors();
+
                     $($mainJQuerySelector).find('> .wpacu-assets-collapsible-content').html(responseJson.output);
                     $($mainJQuerySelector).find('a.wpacu-assets-collapsible').append(responseJson.after_hardcoded_title);
                 });
             },
 
             wpacuCheckSourcesFor404Errors: function() {
-                // Trigger on page load (front-end view)
-                let $targetSources = $('[data-wpacu-external-source]');
+                let targetExternalSrcsRefAttr = 'data-wpacu-external-srcs-ref';
 
-                if ($targetSources.length < 1) {
+                if ($('['+ targetExternalSrcsRefAttr +']').length < 1) {
                     return;
                 }
 
-                let totalExternalSources = $targetSources.length, checkUrlsToPass = '';
+                let externalSrcsRef = $('['+ targetExternalSrcsRefAttr +']').attr(targetExternalSrcsRefAttr);
 
-                $targetSources.each(function(wpacuIndex) {
-                    let $targetSource = $(this), sourceUrl = $targetSource.attr('data-wpacu-external-source');
+                if (externalSrcsRef) {
+                    $.post(wpacu_object.ajax_url, {
+                        'action'                  : wpacu_object.plugin_prefix + '_check_external_urls_for_status_code',
+                        'wpacu_nonce'             : wpacu_object.wpacu_ajax_check_external_urls_nonce,
+                        'wpacu_external_srcs_ref' : externalSrcsRef
+                    }, function(response) {
+                        let urlsList = $.parseJSON(response);
 
-                    checkUrlsToPass += sourceUrl + '-at-wpacu-at-';
-
-                    if (wpacuIndex === totalExternalSources - 1) {
-                        $.post(wpacu_object.ajax_url, {
-                            'action'            : wpacu_object.plugin_prefix + '_check_external_urls_for_status_code',
-                            'wpacu_check_urls'  : checkUrlsToPass,
-                            'wpacu_nonce'       : wpacu_object.wpacu_ajax_check_external_urls_nonce
-                        }, function(response) {
-                            let urlsList = $.parseJSON(response);
-
-                            $.each(urlsList, function(index, sourceToHi) {
-                                $('[data-wpacu-external-source="'+ sourceToHi +'"]')
-                                    .css({'color': '#cc0000'})
-                                    .parent('div')
-                                    .find('[data-wpacu-external-source-status]')
-                                    .html('<small>* <em style="font-weight: 600;">' + wpacu_object.source_load_error_msg + '</em></small>');
-                            });
+                        $.each(urlsList, function(index, sourceToHi) {
+                            $('[data-wpacu-external-source="'+ sourceToHi +'"]')
+                                .css({'color': '#cc0000'})
+                                .parent('div')
+                                .find('[data-wpacu-external-source-status]')
+                                .html('<small>* <em style="font-weight: 600;">' + wpacu_object.source_load_error_msg + '</em></small>');
                         });
-                    }
                     });
-            },
+                }
+
+                },
 
             wpacuBytesToSize: function(bytes) {
                 /**

@@ -37,6 +37,17 @@ class MiscAdmin
     );
 
     /**
+     * @return string
+     */
+    public static function generateUniqueString()
+    {
+        return substr(md5(date('Y')), 0, 10) .
+               sha1(uniqid(rand(), true)) .
+               substr(md5(date('m-d')), 0, 5) .
+               substr(md5(date('H-i-s')), 0, 5);
+    }
+
+    /**
      *
      */
     public function getActiveCachePlugins()
@@ -584,6 +595,36 @@ SQL;
         }
 
         return wp_kses($output, array('span' => array('style' => array(), 'class' => array())));
+    }
+
+    /**
+     * @param $src
+     *
+     * @return bool
+     */
+    public static function isExternalSrc($src)
+    {
+        // Starts with / but not with //
+        // Or starts with ../ (very rare cases)
+        $isRelInternalPath = ( strncmp($src, '/', 1) === 0 && strncmp($src, '//', 2) !== 0 ) ||
+                             ( strncmp($src, '../', 3) === 0 );
+
+        if ($isRelInternalPath) {
+            return false;
+        }
+
+        $isBase64EncodedSrc = stripos($src, 'data:text/css;base64,') !== false ||
+                              stripos($src, 'data:text/javascript;base64,') !== false;
+
+        if ( $isBase64EncodedSrc
+            || strpos($src, '/?') !== false // Dynamic Local URL
+            || strncmp(str_replace(site_url(), '', $src), '?', 1) === 0 // Starts with ? right after the site url (it's a local URL)
+            || Misc::isLocalSrc($src)
+        ) {
+            return false;
+        }
+
+        return true; // default
     }
 
     /**

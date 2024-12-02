@@ -40,6 +40,7 @@ class AssetsManager
 	public function __construct()
 	{
 		// Send an AJAX request to get the list of the loaded hardcoded scripts and styles and print it
+        // This is used only in the front-end view (bottom of the page)
 		add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_print_loaded_hardcoded_assets', array( $this, 'ajaxPrintLoadedHardcodedAssets' ) );
 
 		// "File Size:" value from the asset row
@@ -195,8 +196,8 @@ class AssetsManager
 			// External file? Use a different approach
 			// Return an HTML code that will be parsed via AJAX through JavaScript
 			$isExternalFile = ( ! $isRelInternalPath &&
-			                    ( ! ( isset( $obj->wp ) && $obj->wp === 1 ) )
-			                    && strpos( $src, $siteUrl ) !== 0 );
+			                  ( ! ( isset( $obj->wp ) && $obj->wp === 1 ) )
+			                  && strpos( $src, $siteUrl ) !== 0 );
 
 			// e.g. /?scss=1 (Simple Custom CSS Plugin) From External Domain
 			// /?custom-css (JetPack Custom CSS)
@@ -316,23 +317,113 @@ class AssetsManager
 			}
 
             $afterHardcodedTitle = ''; // will be added in the inclusion
-            $viewHardcodedMode = HardcodedAssets::viewHardcodedModeLayout($wpacuSettings['plugin_settings']);
+            $viewHardcodedMode   = HardcodedAssets::viewHardcodedModeLayout($wpacuSettings['plugin_settings']);
 
 			ob_start();
 			// $totalHardcodedTags is set here
 			include_once WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/view-hardcoded-'.$viewHardcodedMode.'.php'; // generate $hardcodedTagsOutput
 			$output = ob_get_clean();
 
-			return wp_json_encode( array(
-				'output'                => $output,
-				'after_hardcoded_title' => $afterHardcodedTitle
-			) );
+            $response = array(
+                'output'                => $output,
+                'after_hardcoded_title' => $afterHardcodedTitle
+            );
+
+            // [START] Set reference for checking external URLs
+            $anyExternalSrcsFromHardcodedAssets = HardcodedAssets::getAllExternalSrcsFromHardcodedAssets($data['all']['hardcoded']);
+
+            $response['external_srcs_ref'] = AssetsManager::setExternalSrcsRef($anyExternalSrcsFromHardcodedAssets, 'css_js_manager_hardcoded_frontend_view');
+            // [END] Set reference for checking external URLs
+
+			return wp_json_encode( $response );
 		}
 
 		echo wpacuPrintHardcodedManagementList( $jsonH, $wpacuSettings );
 
 		exit();
 	}
+
+    /**
+     *
+     * @param array $externalSrcsRef
+     * @param string $for
+     *
+     * @return string
+     */
+    public static function setExternalSrcsRef($array, $for = 'css_js_manager')
+    {
+        $allExternalSrcs = array(); // default
+
+        if ($for === 'css_js_manager') {
+            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array, $for);
+        } elseif (in_array($for, array('css_js_manager_hardcoded_frontend_view', 'bulk_changes'))) {
+            $allExternalSrcs = $array;
+        } elseif ($for === 'overview') {
+            $arrayOriginal = $array;
+
+            $array = array();
+
+            foreach (array('styles', 'scripts') as $assetType) {
+                if ( empty($arrayOriginal[$assetType]) ) {
+                    continue;
+                }
+
+                foreach ($arrayOriginal[$assetType] as $assetHandle => $values) {
+                    $isHardcoded = (strncmp($assetHandle, 'wpacu_hardcoded_', 16) === 0);
+
+                    if ( $isHardcoded ) {
+                        $output = isset($values['output']) ? $values['output'] : '';
+
+                        if ($output && ($maybeSrc = Misc::getValueFromTag($output)) && filter_var($maybeSrc, FILTER_VALIDATE_URL)) {
+                            $array[$assetType][] = (object)array('srcHref' => $maybeSrc);
+                        }
+                    } elseif (isset($values['src']) && filter_var($values['src'], FILTER_VALIDATE_URL)) {
+                        $array[$assetType][] = (object)array('srcHref' => $values['src']);
+                    }
+                }
+            }
+
+            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array, $for);
+        }
+
+        $externalSrcsRef = MiscAdmin::generateUniqueString();
+        set_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef, $allExternalSrcs, (60 * 15)); // expires in 15 minutes
+
+        // Re-update it in the hardcoded list (to include them as well in case there are any external assets loading there)
+        $GLOBALS[WPACU_PLUGIN_ID . '_external_srcs_ref'] = $externalSrcsRef;
+
+        return $externalSrcsRef;
+    }
+
+    /**
+     * Get all CSS/JS assets that are loaded from an external domain
+     *
+     * @param array $list
+     *
+     * @return void
+     */
+    public static function getAllExternalSrcsFromAssetsList($list)
+    {
+        $externalSrcs = array();
+
+        foreach ($list as $values) {
+            if ( empty($values) ) {
+                continue;
+            }
+
+            foreach ($values as $value) {
+                if ( ! isset($value->srcHref) ) {
+                    continue;
+                }
+
+                if (MiscAdmin::isExternalSrc($value->srcHref)) {
+                    $externalSrcs[] = $value->srcHref;
+                }
+            }
+        }
+
+        return $externalSrcs;
+    }
 
 	/**
 	 *
@@ -344,21 +435,29 @@ class AssetsManager
 			exit();
 		}
 
-		if (! isset($_POST['action'], $_POST['wpacu_check_urls'])) {
+		if ( ! isset($_POST['action'], $_POST['wpacu_external_srcs_ref']) ) {
 			echo 'Error: The post parameters are not the right ones.';
 			exit();
 		}
 
 		// Check privileges
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if ( ! Menu::userCanAccessAssetCleanUp() ) {
 			echo 'Error: Not enough privileges to perform this action.';
 			exit();
 		}
 
-		$checkUrls = explode('-at-wpacu-at-', $_POST['wpacu_check_urls']);
-		$checkUrls = array_filter(array_unique($checkUrls));
+        $externalSrcsRef = sanitize_text_field($_POST['wpacu_external_srcs_ref']);
 
-		foreach ($checkUrls as $index => $checkUrl) {
+        $checkUrls = get_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef);
+
+        if ( empty($checkUrls) ) {
+            exit();
+        }
+
+        // Remove it from the database, it as it's meant to be used only once
+        delete_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef);
+
+        foreach ($checkUrls as $index => $checkUrl) {
 			if (strncmp($checkUrl, '//', 2) === 0) { // starts with // (append the right protocol)
 				if (strpos($checkUrl, 'fonts.googleapis.com') !== false)  {
 					$checkUrl = 'https:'.$checkUrl;
@@ -368,6 +467,12 @@ class AssetsManager
 				}
 			}
 
+            if ( ! filter_var($checkUrl, FILTER_VALIDATE_URL) ) {
+                // Something's funny! Only URLs should be accepted for the check below
+                unset($checkUrls[$index]);
+                continue;
+            }
+
 			$response = wp_remote_get($checkUrl);
 
 			// Remove 200 OK ones as the other ones will remain for highlighting
@@ -376,7 +481,7 @@ class AssetsManager
 			}
 		}
 
-		echo wp_json_encode($checkUrls);
+        echo wp_json_encode($checkUrls);
 		exit();
 	}
 

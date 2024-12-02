@@ -14,6 +14,14 @@ if (! isset($data)) {
 <span data-wpacu-delimiter-frontend-form-start="1" style="display:none;"></span>
 
 <form id="wpacu-frontend-form" action="#wpacu_wrap_assets" method="post">
+    <?php
+    if ( isset($data['external_srcs_ref']) && $data['external_srcs_ref'] ) {
+        ?>
+            <span data-wpacu-external-srcs-ref="<?php echo esc_attr($data['external_srcs_ref']); ?>" style="display: none;"></span>
+        <?php
+    }
+    ?>
+
     <div id="wpacu_wrap_assets">
         <?php
         if ($data['wpacu_frontend_assets_manager_just_updated']) {

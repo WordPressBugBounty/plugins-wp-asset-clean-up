@@ -42,6 +42,14 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
            name="wpacu_manage_singular_page_assets"
            value="1" />
 
+    <?php
+    if ( isset($data['external_srcs_ref']) && $data['external_srcs_ref'] ) {
+        ?>
+            <span data-wpacu-external-srcs-ref="<?php echo esc_attr($data['external_srcs_ref']); ?>" style="display: none;"></span>
+        <?php
+    }
+    ?>
+
     <input type="hidden"
            id="wpacu_manage_singular_page_id"
            name="wpacu_manage_singular_page_id"

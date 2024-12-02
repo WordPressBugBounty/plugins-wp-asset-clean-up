@@ -4,6 +4,7 @@
  */
 
 use WpAssetCleanUp\Admin\MiscAdmin;
+use WpAssetCleanUp\AssetsManager;
 use WpAssetCleanUp\Misc;
 
 if (! isset($data)) {
@@ -80,6 +81,14 @@ $wpacuTabCurrent = isset($_REQUEST['wpacu_bulk_menu_tab']) && array_key_exists( 
 				$isCoreFile = MiscAdmin::isCoreFile($data['assets_info'][$assetType][$handle]);
 			}
 
+            if ( $src && $isExternalSrc ) {
+                if ( ! isset($GLOBALS['wpacu_external_srcs_bulk_changes']) ) {
+                    $GLOBALS['wpacu_external_srcs_bulk_changes'] = array();
+                }
+
+                $GLOBALS['wpacu_external_srcs_bulk_changes'][] = $src;
+            }
+
             $src = Misc::getHrefFromSource($src);
 
 			if (isset($data['assets_info'][ $assetType ][ $handle ][$verKey]) && $data['assets_info'][ $assetType ][ $handle ][$verKey]) {
@@ -121,5 +130,10 @@ $wpacuTabCurrent = isset($_REQUEST['wpacu_bulk_menu_tab']) && array_key_exists( 
 			}
 		}
 	}
-	?>
+
+    if ( ! empty($GLOBALS['wpacu_external_srcs_bulk_changes']) ) {
+        $externalSrcsRef = AssetsManager::setExternalSrcsRef($GLOBALS['wpacu_external_srcs_bulk_changes'], 'bulk_changes');
+    ?>
+        <span data-wpacu-external-srcs-ref="<?php echo esc_attr($externalSrcsRef); ?>" style="display: none;"></span>
+    <?php } ?>
 </div>

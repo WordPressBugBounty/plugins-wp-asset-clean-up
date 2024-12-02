@@ -3,6 +3,7 @@
 
 namespace WpAssetCleanUp;
 
+use WpAssetCleanUp\Admin\MiscAdmin;
 use WpAssetCleanUp\OptimiseAssets\OptimizeCommon;
 use WpAssetCleanUp\OptimiseAssets\OptimizeJs;
 
@@ -484,6 +485,72 @@ class HardcodedAssets
 
         return $hardCodedAssets;
 	}
+
+    /**
+     * @param $anyHardCodedAssets
+     *
+     * @return array
+     */
+    public static function getAllExternalSrcsFromHardcodedAssets($anyHardCodedAssets)
+    {
+        $allHardcodedAssets = $anyExternalSrcsFromHardcodedAssets = array();
+
+        if ( ! empty($anyHardCodedAssets['link_and_style_tags'])) {
+            foreach ($anyHardCodedAssets['link_and_style_tags'] as $tagOutput) {
+                $allHardcodedAssets[] = $tagOutput;
+            }
+        }
+
+        if ( ! empty($anyHardCodedAssets['script_src_or_inline_and_noscript_inline_tags'])) {
+            foreach ($anyHardCodedAssets['script_src_or_inline_and_noscript_inline_tags'] as $tagOutput) {
+                $allHardcodedAssets[] = $tagOutput;
+            }
+        }
+
+        if ( ! empty($anyHardCodedAssets['within_conditional_comments']['tags'])) {
+            foreach ($anyHardCodedAssets['within_conditional_comments']['tags'] as $tagOutput) {
+                $allHardcodedAssets[] = $tagOutput;
+            }
+        }
+
+        $allHardcodedAssets = array_unique($allHardcodedAssets);
+
+        foreach ($allHardcodedAssets as $hardcodedAssetTagOutput) {
+            if ($hardcodedAssetTagOutput &&
+                ($maybeHardcodedAssetSrc = Misc::getValueFromTag($hardcodedAssetTagOutput)) &&
+                MiscAdmin::isExternalSrc($maybeHardcodedAssetSrc)) {
+                $anyExternalSrcsFromHardcodedAssets[] = $maybeHardcodedAssetSrc;
+            }
+        }
+
+        return $anyExternalSrcsFromHardcodedAssets;
+    }
+
+    /**
+     * @param $anyHardCodedAssets
+     *
+     * @return void
+     */
+    public static function attachExternalHardcodedAssetsUrlsToCurrentExternalUrlsList($anyHardCodedAssets)
+    {
+        $externalSrcsRef = $GLOBALS[WPACU_PLUGIN_ID . '_external_srcs_ref'];
+
+        if ( ! $externalSrcsRef) {
+            return; // something's funny
+        }
+
+        $externalUrls = get_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef) ?: array();
+
+        $anyExternalSrcsFromHardcodedAssets = HardcodedAssets::getAllExternalSrcsFromHardcodedAssets($anyHardCodedAssets);
+
+        if ( ! empty($anyExternalSrcsFromHardcodedAssets)) {
+            foreach ($anyExternalSrcsFromHardcodedAssets as $externalHarcodedAssetSrc) {
+                $externalUrls[] = $externalHarcodedAssetSrc;
+            }
+
+            set_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef, $externalUrls);
+        }
+    }
 
 	/**
 	 * @param $value

@@ -216,3 +216,9 @@ if ($metaBoxLoadedFine) {
            value="1" />
     <?php
 }
+
+if (isset($data['external_srcs_ref']) && $data['external_srcs_ref']) {
+    ?>
+    <span data-wpacu-external-srcs-ref="<?php echo esc_attr($data['external_srcs_ref']); ?>" style="display: none;"></span>
+    <?php
+}

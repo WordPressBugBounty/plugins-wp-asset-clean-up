@@ -3,8 +3,6 @@
 
 namespace WpAssetCleanUp;
 
-use WpAssetCleanUp\Admin\SettingsAdminOnlyForAdmin;
-
 /**
  * Class Main
  * @package WpAssetCleanUp

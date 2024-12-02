@@ -2,6 +2,7 @@
 namespace WpAssetCleanUp\Admin;
 
 use WpAssetCleanUp\Admin;
+use WpAssetCleanUp\AssetsManager;
 use WpAssetCleanUp\Main;
 use WpAssetCleanUp\Maintenance;
 use WpAssetCleanUp\Misc;
@@ -376,7 +377,8 @@ SQL;
 			// Only fetch the assets' information if there is something to be shown
 			// to avoid useless queries to the database
 			$this->data['assets_info'] = Main::getHandlesInfo();
-			}
+			$this->data['external_srcs_ref'] = AssetsManager::setExternalSrcsRef($this->data['assets_info'], 'overview');
+		}
 
 		// [PAGE OPTIONS]
 		// 1) For posts, pages and custom post types

@@ -62,6 +62,15 @@ if ($data['show_on_front'] === 'page' && $data['page_on_front']) {
                id="wpacu_ajax_fetch_assets_list_dashboard_view"
                name="wpacu_ajax_fetch_assets_list_dashboard_view"
                value="1" />
+
+        <?php
+        if ( isset($data['external_srcs_ref']) && $data['external_srcs_ref'] ) {
+            ?>
+                <span data-wpacu-external-srcs-ref="<?php echo esc_attr($data['external_srcs_ref']); ?>" style="display: none;"></span>
+            <?php
+        }
+        ?>
+
         <p><span class="dashicons dashicons-admin-home"></span> <?php _e('Here you can unload files loaded on the home page. "Front page displays" (from "Settings" &#187; "Reading") is set to either "Your latest posts" (in "Settings" &#187; "Reading") OR a special layout (from a theme or plugin) was enabled.', 'wp-asset-clean-up'); ?> <?php echo sprintf(__('Changes will also apply to pages such as %s etc. in case the latest blog posts are paginated.', 'wp-asset-clean-up'), '<code>/page/2</code> <code>page/3</code>'); ?></p>
         <?php
         $wpacuNoLoadMatchesStatus = assetCleanUpHasNoLoadMatches($data['site_url'], true);
