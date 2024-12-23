@@ -4,7 +4,7 @@ Tags: minify css, minify javascript, defer css javascript, page speed, dequeue
 Donate link: https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=wp_org_lite&utm_medium=donate
 Requires at least: 4.6
 Tested up to: 6.7.1
-Stable tag: 1.3.9.9
+Stable tag: 1.4
 Requires PHP: 5.6
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl.html
@@ -192,6 +192,12 @@ With the recently released "Test Mode" feature, you can safely unload assets on 
 4. Homepage CSS & JS Management (List sorted by location)
 
 == Changelog ==
+= 1.4 =
+* Fix - Error message: Uncaught TypeError: in_array(): Argument #2 ($haystack) must be of type array, string given in [...]/templates/_admin-page-settings-plugin-areas/_plugin-usage-settings/_access.php:43
+* Fix - PHP Deprecated: trim(): Passing null to parameter #1 ($string) of type string is deprecated in [...]/classes/OptimiseAssets/OptimizeCommon.php on line 903
+* Fix - PHP Warning: Undefined global variable $wpassetcleanup_external_srcs_ref
+* Updated the external links to the help pages
+
 = 1.3.9.9 =
 * Fix: Server Side Request Forgery (SSRF) has been discovered on an AJAX call within the CSS/JS manager; New parameters were added to the call to avoid any unsanitized input
 

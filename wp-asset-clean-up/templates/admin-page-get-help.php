@@ -44,7 +44,7 @@ include_once __DIR__ . '/_top-area.php';
         <div class="help-content tech-help second">
             <h2 class="content-title"><?php _e('In case you are stuck, need assistance or just want to save time you would spend for your website optimization, we can help you!', 'wp-asset-clean-up'); ?></h2>
 
-            <p>If the following scenarios apply to you &amp; don't have a developer available to provide what you need, then me or any of my colleagues from <a href="https://app.codeable.io/tasks/new?ref=d3TOr">Codeable</a>, would be able to assist you:</p>
+            <p>If the following scenarios apply to you &amp; don't have a developer available to provide what you need, then me or any of my colleagues from <a href="https://www.gabelivan.com/visit/codeable/apply/from-lite/">Codeable</a>, would be able to assist you:</p>
 
             <ul class="hire-reasons">
                 <li><span class="dashicons dashicons-yes"></span> You have many CSS and JavaScript files loaded in a page and you're not sure which ones you could prevent from loading, worrying that something could be messed up. A Codeable expert could analyse your pages and give the advices needed.</li>
@@ -64,9 +64,9 @@ include_once __DIR__ . '/_top-area.php';
             <hr /><br />
 
             <div class="wpacu-btns">
-                <a class="btn btn-success" href="https://codeable.io/developers/speed-optimization/?ref=d3TOr"><?php _e('Hire a Speed Optimization Expert', 'wp-asset-clean-up'); ?></a>
+                <a class="btn btn-success" href="https://www.gabelivan.com/visit/codeable/apply/from-lite/"><?php _e('Hire a Speed Optimization Expert', 'wp-asset-clean-up'); ?></a>
                 &nbsp;&nbsp;
-                <a class="btn btn-secondary" href="https://codeable.io/?ref=d3TOr"><?php _e('Find out more', 'wp-asset-clean-up'); ?></a>
+                <a class="btn btn-secondary" href="https://www.gabelivan.com/visit/codeable/apply/from-lite/"><?php _e('Find out more', 'wp-asset-clean-up'); ?></a>
             </div>
         </div>
     </div>

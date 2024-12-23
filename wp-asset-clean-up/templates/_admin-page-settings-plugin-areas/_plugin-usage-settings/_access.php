@@ -37,6 +37,10 @@ echo sprintf(
             <?php } ?>
                 multiple="multiple">
             <?php
+            if (empty($data['access_via_non_admin_user_roles']) || is_string($data['access_via_non_admin_user_roles'])) {
+                $data['access_via_non_admin_user_roles'] = array();
+            }
+
             foreach ($nonAdminRolesArray['non_admin_role_slugs'] as $roleSlug) {
                 $roleValues = $nonAdminRolesArray['roles']->roles[$roleSlug];
                 ?>
@@ -55,6 +59,10 @@ echo sprintf(
 <?php
 // Fetch the ones with the access capability
 $nonAdminUsersWithCapIds = $data['access_via_specific_non_admin_users'];
+
+if (is_string($nonAdminUsersWithCapIds)) {
+    $nonAdminUsersWithCapIds = array();
+}
 
 // If the total number of users is above this number, the auto-complete is activated
 // For instance, there could be tens of thousands of users on specific websites

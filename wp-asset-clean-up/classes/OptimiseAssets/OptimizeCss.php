@@ -1002,6 +1002,15 @@ class OptimizeCss
 	 */
 	public static function doInline($htmlSource)
 	{
+        $skipTagsContaining = array(
+            // Do not inline the admin bar SCRIPT file, saving resources as it's shown for the logged-in user only
+            '/wp-includes/css/admin-bar',
+
+            // They were preloaded for a reason, leave them
+            'data-wpacu-preload-it-async=',
+            'data-wpacu-to-be-preloaded-basic='
+        );
+
 		$allPatterns = self::getAllInlineChosenPatterns();
 
 		// Skip any LINK tags within conditional comments (e.g. Internet Explorer ones)
@@ -1030,15 +1039,11 @@ class OptimizeCss
 					continue;
 				}
 
-				// Do not inline the admin bar SCRIPT file, saving resources as it's shown for the logged-in user only
-				if (strpos($matchedTag, '/wp-includes/css/admin-bar') !== false) {
-					continue;
-				}
-
-				// They were preloaded for a reason, leave them
-				if (strpos($matchedTag, 'data-wpacu-preload-it-async=') !== false || strpos($matchedTag, 'data-wpacu-to-be-preloaded-basic=') !== false) {
-					continue;
-				}
+                foreach ($skipTagsContaining as $skipTagContaining) {
+                    if (strpos($matchedTag, $skipTagContaining) !== false) {
+                        continue 2;
+                    }
+                }
 
 				if (strip_tags($matchedTag) !== '') {
 					continue; // something is funny, don't mess with the HTML alteration, leave it as it was

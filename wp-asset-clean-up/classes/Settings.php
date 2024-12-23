@@ -277,6 +277,11 @@ class Settings
             // Starting from v1.3.6.9 (Lite) & v1.1.7.9 (Pro), /cart/ & /checkout/ pages are added to the exclusion list by default
             'do_not_load_plugin_patterns' => '/cart/'. "\n". '/checkout/',
 
+            // [For Admnistrators Only]
+            'access_via_non_admin_user_roles' => array(),
+            'access_via_specific_non_admin_users' => array(),
+            // [/For Admnistrators Only]
+
 	        'disable_rss_feed_message' => __('There is no RSS feed available.', 'wp-asset-clean-up'),
 
 	        // [Hidden Settings]

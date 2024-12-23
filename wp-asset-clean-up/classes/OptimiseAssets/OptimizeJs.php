@@ -910,14 +910,6 @@ class OptimizeJs
 			return $htmlSource;
 		}
 
-		$domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'moveInlinejQueryAfterjQuerySrc');
-
-		$scriptTagsObj = $domTag->getElementsByTagName( 'script' );
-
-		if ($scriptTagsObj === null) {
-			return $htmlSource;
-		}
-
 		// Does it have the "src" attribute? Skip it as it's not an inline SCRIPT tag
 		$jQueryPatternsToMatch = array(
 			'jQuery',
@@ -937,26 +929,71 @@ class OptimizeJs
 			return $htmlSource; // No jQuery or jQuery Migrate? Just return the HTML source
 		}
 
-		$inlineBeforejQuerySrc = array();
+        $inlineBeforejQuerySrc = array();
 
-		foreach ($scriptTagsObj as $scriptTagObj) {
-			$tagContents = $scriptTagObj->nodeValue;
+        // 'regex', 'dom'
+        $method = 'regex';
 
-			if ( strpos( Misc::getOuterHTML( $scriptTagObj ), $collectUntil) !== false) {
-				break;
-			}
+        if ($method === 'regex') {
+            /*
+             * Method: RegEx
+             */
+            preg_match_all('#<script[^>]*>(.*?)</script>#si', $htmlSource, $matches);
 
-			if ($tagContents !== '' && preg_match($jQueryRegExp, $tagContents)) {
-				preg_match('#<script[^>]*>'.preg_quote($tagContents, '/').'</script>#si', $htmlSource, $matchesExact);
-				$exactMatchTag = isset($matchesExact[0]) ? $matchesExact[0] : '';
+            if ( ! empty($matches[0]) && ! empty($matches[1]) ) {
+                foreach ($matches[0] as $matchIndex => $exactMatchTag) {
+                    $tagContents = $matches[1][$matchIndex];
 
-				// Replace the first match only in rare cases there are multiple SCRIPT tags with the same code
-				if ($exactMatchTag && ($pos = strpos($htmlSource, $exactMatchTag)) !== false) {
-					$inlineBeforejQuerySrc[] = $exactMatchTag;
-					$htmlSource = substr_replace($htmlSource, '', $pos, strlen($exactMatchTag));
-				}
-			}
-		}
+                    if (strpos($exactMatchTag, $collectUntil) !== false) {
+                        break;
+                    }
+
+                    if ($tagContents !== '' && preg_match($jQueryRegExp, $tagContents)) {
+                        // Replace the first match only in rare cases there are multiple SCRIPT tags with the same code
+                        $inlineBeforejQuerySrc[] = $exactMatchTag;
+
+                        $pos = strpos($htmlSource, $exactMatchTag);
+                        $htmlSource = substr_replace($htmlSource, '', $pos, strlen($exactMatchTag));
+
+                    }
+                }
+            }
+        } else {
+            /*
+             * Method: DOMDocument
+             */
+            $domTag        = OptimizeCommon::getDomLoadedTag($htmlSource, 'moveInlinejQueryAfterjQuerySrc');
+            $scriptTagsObj = $domTag->getElementsByTagName('script');
+
+            if ($scriptTagsObj === null) {
+                return $htmlSource;
+            }
+
+            $scriptTagsObj = $domTag->getElementsByTagName('script');
+
+            if ($scriptTagsObj === null) {
+                return $htmlSource;
+            }
+
+            foreach ($scriptTagsObj as $scriptTagObj) {
+                $tagContents = $scriptTagObj->nodeValue;
+
+                if (strpos(Misc::getOuterHTML($scriptTagObj), $collectUntil) !== false) {
+                    break;
+                }
+
+                if ($tagContents !== '' && preg_match($jQueryRegExp, $tagContents)) {
+                    preg_match('#<script[^>]*>' . preg_quote($tagContents, '/') . '</script>#si', $htmlSource, $matchesExact);
+                    $exactMatchTag = isset($matchesExact[0]) ? $matchesExact[0] : '';
+
+                    // Replace the first match only in rare cases there are multiple SCRIPT tags with the same code
+                    if ($exactMatchTag && ($pos = strpos($htmlSource, $exactMatchTag)) !== false) {
+                        $inlineBeforejQuerySrc[] = $exactMatchTag;
+                        $htmlSource              = substr_replace($htmlSource, '', $pos, strlen($exactMatchTag));
+                    }
+                }
+            }
+        }
 
 		preg_match('#<script* '.$collectUntil.'*[^>]*>(.*?)</script>#si', $htmlSource, $matches);
 

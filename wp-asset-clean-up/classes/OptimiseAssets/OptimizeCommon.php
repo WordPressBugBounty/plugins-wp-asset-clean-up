@@ -890,7 +890,7 @@ class OptimizeCommon
 		}
 
 		// Case: Return the HTML source without any conditional comments and the content within them
-		if (in_array('strip_content_between_conditional_comments', $params)) {
+		if ( in_array('strip_content_between_conditional_comments', $params) && ! empty($htmlSourceToFetchFrom) ) {
 			preg_match_all('#<!--\[if(.*?)]>(<!-->|-->|\s|)(.*?)(<!--<!|<!)\[endif]-->#si', $htmlSourceToFetchFrom, $matchedContent);
 
 			if ( ! empty($matchedContent[0]) ) {
@@ -900,13 +900,11 @@ class OptimizeCommon
 			}
 		}
 
-        $htmlSourceToFetchFrom = trim($htmlSourceToFetchFrom);
-
         if (empty($htmlSourceToFetchFrom)) {
             return $htmlSourceToFetchFromUnchanged;
         }
 
-		return $htmlSourceToFetchFrom;
+		return trim($htmlSourceToFetchFrom);
 	}
 
 	/**

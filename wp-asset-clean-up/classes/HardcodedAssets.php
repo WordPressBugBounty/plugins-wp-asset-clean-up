@@ -533,9 +533,9 @@ class HardcodedAssets
      */
     public static function attachExternalHardcodedAssetsUrlsToCurrentExternalUrlsList($anyHardCodedAssets)
     {
-        $externalSrcsRef = $GLOBALS[WPACU_PLUGIN_ID . '_external_srcs_ref'];
+        $externalSrcsRef = isset($GLOBALS[WPACU_PLUGIN_ID . '_external_srcs_ref']) ? $GLOBALS[WPACU_PLUGIN_ID . '_external_srcs_ref'] : '';
 
-        if ( ! $externalSrcsRef) {
+        if ( ! $externalSrcsRef ) {
             return; // something's funny
         }
 
