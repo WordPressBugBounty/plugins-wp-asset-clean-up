@@ -6,12 +6,12 @@ if (! isset($data)) {
 use WpAssetCleanUp\Admin\SettingsAdminOnlyForAdmin;
 
 ?>
-<p style="line-height: 24px;"><?php
+<div style="margin: 0 0 22px;"><?php
 echo sprintf(
         __('By default, for security reasons, %s can be accesed within the Dashboard by <strong>Super Admins</strong> (somebody with access to the site network administration features and all other features) and <strong>Administrators</strong> (somebody who has access to all the administration features within a single site).', 'wp-asset-clean-up'),
     WPACU_PLUGIN_TITLE
 );
-?></p>
+?></div>
 
 <div class="wpacu-warning" style="font-size: inherit;">There are situations when non-admins (e.g. a developer that works on your website), might need access to <?php echo WPACU_PLUGIN_TITLE; ?> in order to optimize your website.
     <div style="margin: 10px 0 0;"><em>️<span class="dashicons dashicons-info"></span> The option below will allow you to give plugin access to other non-admin users.</em></div>
@@ -117,6 +117,14 @@ $totalNonAdminUsers = SettingsAdminOnlyForAdmin::getTotalNonAdminUsers();
             // There are plenty of users on this WordPress site
             // Use the auto-complete option to retrieve the results to avoid using too many resources
         ?>
+            <?php
+            if ($data['input_style'] === 'standard') {
+                ?>
+                <div class="wpacu-warning" style="margin: 0 0 20px; background: inherit; font-size: inherit;">
+                    <span style="font-size: 20px;">⚠️</span> At the moment, there's no compatibility available in terms of accesibility when it comes to searching for the users in the database. This is in development, and it will available as soon as possible. Meanwhile, please use "<em>Give access based on any other non-administrator user role</em>", or set "<em>Input Fields Style</em>" to "<em>Enhanced iPhone Style (Default) Standard</em>" in "<em>Settings</em>" -- "<em>Plugin Usage Preferences</em>" -- "<em>Accessibility</em>" and ask for assistance from someone that has access to the website (e.g. your developer).
+                </div>
+            <?php } ?>
+
             <div data-wpacu-non-admin-chosen-users-list="1">
                 <?php
                 if ( ! empty($nonAdminUsersWithCapIds) ) {

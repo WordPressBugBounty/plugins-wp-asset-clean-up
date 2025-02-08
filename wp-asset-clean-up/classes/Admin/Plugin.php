@@ -50,7 +50,7 @@ class Plugin
 		// Show default action links: "Getting Started", "Settings"
 		add_filter('plugin_action_links_'.WPACU_PLUGIN_BASE, array($this, 'addActionLinksInPluginsPage'));
 
-		}
+        }
 
 	// [wpacu_lite]
 	/**
@@ -337,8 +337,8 @@ HTACCESS;
 	 */
 	public function addActionLinksInPluginsPage($links)
 	{
-		$links['getting_started'] = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_getting_started">'.__('Getting Started', 'wp-asset-clean-up').'</a>';
-		$links['settings']        = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_settings">'.__('Settings', 'wp-asset-clean-up').'</a>';
+		$links['getting_started'] = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_getting_started">'.esc_html__('Getting Started', 'wp-asset-clean-up').'</a>';
+		$links['settings']        = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_settings">'.esc_html__('Settings', 'wp-asset-clean-up').'</a>';
 
 		// [wpacu_lite]
 		$allPlugins = get_plugins();

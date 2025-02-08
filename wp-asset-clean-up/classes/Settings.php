@@ -55,6 +55,8 @@ class Settings
 		'hide_core_files',
 		'test_mode',
 
+        'alter_html_source_method',
+
 		// Combine loaded CSS (remaining ones after unloading the useless ones) into fewer files
 		'combine_loaded_css',
 		'combine_loaded_css_exceptions',
@@ -144,6 +146,9 @@ class Settings
         // Allow Usage Tracking
         'allow_usage_tracking',
 
+        // Announcements (from a JSON feed, showing on specific pages)
+        'announcements',
+
         // Serve cached CSS/JS details from: Database or Disk
         'fetch_cached_files_details_from',
 
@@ -218,6 +223,8 @@ class Settings
 
 	        'hide_meta_boxes_for_post_types' => array(),
 
+            'announcements' => array(),
+
 	        // Very good especially for page builders: Divi Visual Builder, Oxygen Builder, WPBakery, Beaver Builder etc.
 	        // It is also hidden in preview mode (if query strings such as 'preview_nonce' are used)
 	        'frontend_show_exceptions' =>  'et_fb=1'."\n"
@@ -239,6 +246,8 @@ class Settings
 
 	        // "contracted" since 1.1.0.8 (Pro)
 	        'assets_list_inline_code_status' => 'contracted', // takes less space overall
+
+            'alter_html_source_method' => 'wp_loaded', // "wp_loaded", "init_shutdown"
 
 	        'minify_loaded_css_for' => 'href',
             'minify_loaded_js_for'  => 'src',
@@ -282,7 +291,7 @@ class Settings
             'access_via_specific_non_admin_users' => array(),
             // [/For Admnistrators Only]
 
-	        'disable_rss_feed_message' => __('There is no RSS feed available.', 'wp-asset-clean-up'),
+	        'disable_rss_feed_message' => (did_action('after_setup_theme') ? __('There is no RSS feed available.', 'wp-asset-clean-up') : 'There is no RSS feed available.'),
 
 	        // [Hidden Settings]
             // They are prefixed with underscore _
@@ -338,7 +347,9 @@ class Settings
 
         $settingsOption = get_option(WPACU_PLUGIN_ID . '_settings');
 
-	    $applyDefaultToNeverSaved = array(
+        $applyDefaultToNeverSaved = array(
+            'alter_html_source_method',
+
 		    'frontend_show_exceptions',
 		    'minify_loaded_css_exceptions',
 		    'inline_css_files_below_size_input',
@@ -509,8 +520,16 @@ class Settings
             $requestUriAsItIs = rawurldecode($_SERVER['REQUEST_URI']);
 
             foreach ( $settings['do_not_load_plugin_features'] as $setValues ) {
+                // If it's called earlier before "wp", it won't make a difference because all the changes below will only reflect after "wp" anyway
+                // when all the features below will take effect and the settings will be refetched
                 if (trim($setValues['pattern']) === '{homepage}') {
-                    $condToUse = wpacuIsHomePageUrl(rawurldecode($_SERVER['REQUEST_URI']));
+                    if (current_action() === 'wp') {
+                        // When "template_redirect" and "shutdown" are used to alter the HTML output
+                        $condToUse = MainFront::isHomePage();
+                    } else {
+                        // When "wp_loaded" is used to alter the HTML output (legacy)
+                        $condToUse = wpacuIsHomePageUrl(rawurldecode($_SERVER['REQUEST_URI']));
+                    }
                 } else {
                     $condToUse = strpos($requestUriAsItIs, $setValues['pattern']) !== false;
                 }

@@ -34,7 +34,7 @@ class PluginReview
 	public function __construct()
 	{
 		// Notice to rate plugin on WordPress.org based on specific conditions
-		add_action('admin_notices', array($this, 'ratePluginNoticeOutput'));
+		add_action('admin_notices', array($this, 'ratePluginNoticeOutput'), 3);
 
 		// Close the notice when action is taken by AJAX call
 		add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_close_review_notice', array($this, 'ajaxCloseReviewNoticeCallback'));
@@ -55,7 +55,7 @@ class PluginReview
 	public function ratePluginNoticeOutput()
 	{
 		// Criteria for showing up the review plugin notice
-		if ( ! $this->showReviewNotice() ) {
+		if ( ! $this->showReviewNotice() || MainAdmin::instance()->isTopAdminNoticeDisplayed() ) {
 		    return;
 		}
 
@@ -97,7 +97,7 @@ class PluginReview
             </p>
         </div>
         <?php
-        wpacuDefineConstant('WPACU_ADMIN_REVIEW_NOTICE_SHOWN');
+        MainAdmin::instance()->setTopAdminNoticeDisplayed();
 	}
 
 	/**
@@ -205,10 +205,16 @@ class PluginReview
 
 	    // If another Asset CleanUp notice (e.g. for plugin tracking) is already shown
 	    // don't also show this one below/above it
-	    if (defined('WPACU_ADMIN_TRACKING_NOTICE_SHOWN')) {
+	    if (MainAdmin::isTopAdminNoticeDisplayed()) {
 		    $this->showReviewNotice = false;
 		    return $this->showReviewNotice;
 	    }
+
+        $pluginAdminAnnouncements = new PluginAnnouncements();
+
+        if ($pluginAdminAnnouncements->isCurrentTimeBetweenAnyEnabledAnnouncementTime()) {
+            return false; // Announcements have priority; Show the review plugin notice when no announcements are shown
+        }
 
 	    $screen = get_current_screen();
 

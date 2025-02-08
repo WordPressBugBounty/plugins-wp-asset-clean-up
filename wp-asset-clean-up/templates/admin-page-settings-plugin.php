@@ -41,6 +41,7 @@ $settingsSubTabs = array(
         'wpacu-plugin-usage-settings-cache',
         'wpacu-plugin-usage-settings-accessibility',
         'wpacu-plugin-usage-settings-analytics',
+        'wpacu-plugin-usage-settings-announcements',
         'wpacu-plugin-usage-settings-visibility',
         'wpacu-plugin-usage-settings-no-load-on-specific-pages',
         'wpacu-plugin-usage-settings-access',

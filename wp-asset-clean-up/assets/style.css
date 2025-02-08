@@ -5064,6 +5064,49 @@ img.wpacu-emoji {
   border-bottom: 1px solid #e7e7e7;
 }
 
+/* [Bigger checkbox and radio (from the WordPress default ones)] */
+/* WordPress already makes them bigger on the mobile view */
+.wpacu_radio_inline_wrap_area {
+  clear: both;
+  margin: 16px 0 0;
+}
+
+.wpacu_radio_area {
+  display: inline;
+  cursor: pointer;
+  margin: 10px 15px 0 0;
+}
+.wpacu_radio_area label {
+  cursor: pointer;
+  vertical-align: text-bottom;
+}
+
+@media screen and (min-width: 783px) {
+  .wpacu_checkbox {
+    width: 23px !important;
+    height: 23px !important;
+  }
+  .wpacu_checkbox:hover {
+    border: 1px solid #3582c4 !important;
+  }
+  .wpacu_checkbox:checked::before {
+    height: 26px !important;
+    width: 26px !important;
+  }
+
+  .wpacu_radio_area input[type=radio] {
+    width: 19px;
+    height: 19px;
+  }
+  .wpacu_radio_area input[type=radio]:hover {
+    border: 1px solid #3582c4;
+  }
+  .wpacu_radio_area input[type=radio]:checked::before {
+    width: 11px;
+    height: 11px;
+  }
+}
+/* [/Bigger checkbox and radio (from the WordPress default ones)] */
 #wpacu-plugins-load-manager-wrap {
   /* [START] Expand / Contract Plugins Area (all plugins from the list) For "Plugins Manager" */
   /* [END] Expand / Contract Plugins Area (all plugins from the list) For "Plugins Manager" */
@@ -5327,9 +5370,11 @@ img.wpacu-emoji {
 }
 
 #wpacu-main-loading-spinner {
-  position: absolute;
-  width: 100%;
-  height: 100000px;
+  position: fixed;
+  width: 100vw;
+  /* 100% of the viewport width */
+  height: 100vh;
+  /* 100% of the viewport height */
   left: 0;
   right: 0;
   top: 0;

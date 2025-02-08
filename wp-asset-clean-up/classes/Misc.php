@@ -819,8 +819,10 @@ class Misc
 			wpacuDefineConstant( 'WPACU_PRELOAD_ASYNC_SCRIPT_SHOWN', 1 ); // mark it as already printed
 		}
 
+		$scriptType = Misc::getScriptTypeAttribute();
+
 		return <<<HTML
-<script id="wpacu-preload-async-css-fallback">
+<script {$scriptType} id="wpacu-preload-async-css-fallback">
 /*! LoadCSS. [c]2020 Filament Group, Inc. MIT License */
 /* This file is meant as a standalone workflow for
 - testing support for link[rel=preload]

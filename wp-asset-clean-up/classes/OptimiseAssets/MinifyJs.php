@@ -122,7 +122,7 @@ class MinifyJs
 		if (Main::instance()->settings['minify_loaded_js_exceptions'] !== '') {
 			$loadedJsExceptionsPatterns = trim(Main::instance()->settings['minify_loaded_js_exceptions']);
 
-			if (strpos($loadedJsExceptionsPatterns, "\n")) {
+			if (strpos($loadedJsExceptionsPatterns, "\n") !== false) {
 				// Multiple values (one per line)
 				foreach (explode("\n", $loadedJsExceptionsPatterns) as $loadedJsExceptionPattern) {
 					$regExps[] = '#'.trim($loadedJsExceptionPattern).'#';

@@ -3,6 +3,8 @@
 
 namespace WpAssetCleanUp;
 
+use WpAssetCleanUp\Admin\MainAdmin;
+use WpAssetCleanUp\Admin\PluginAnnouncements;
 use WpAssetCleanUp\Admin\SettingsAdmin;
 
 /**
@@ -43,7 +45,7 @@ class PluginTracking
 		add_action('wpacu_before_save_settings', array($this, 'checkForSettingsOptIn' ));
 
         // Notice on the top screen within the Dashboard to get permission from the user to allow tracking
-        add_action('admin_notices', array($this, 'adminNotice'));
+        add_action('admin_notices', array($this, 'adminNotice'), 2);
 
         add_action('admin_head',   array($this, 'noticeStyles' ));
         add_action('admin_footer', array($this, 'noticeScripts' ));
@@ -313,7 +315,7 @@ class PluginTracking
 
 		// If another Asset CleanUp notice (e.g. for plugin review) is already shown,
         // don't also show this one below/above it
-		if (defined('WPACU_ADMIN_REVIEW_NOTICE_SHOWN')) {
+		if (MainAdmin::isTopAdminNoticeDisplayed()) {
 		    return false;
         }
 
@@ -327,17 +329,15 @@ class PluginTracking
 			return false;
 		}
 
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if ( ! Menu::userCanAccessAssetCleanUp() ) {
 			return false;
 		}
 
-		if (false !== stripos(network_site_url('/'), 'dev') ||
-		    false !== stripos(network_site_url('/'), 'localhost') ||
-		    false !== strpos(network_site_url('/'), ':8888') // This is common with MAMP on OS X
-		) {
-			update_option(WPACU_PLUGIN_ID . '_tracking_notice', '1');
-			return false;
-		}
+        $pluginAdminAnnouncements = new PluginAnnouncements();
+
+        if ($pluginAdminAnnouncements->isCurrentTimeBetweenAnyEnabledAnnouncementTime()) {
+            return false; // Announcements have priority; Show the tracking notice when no announcements are shown
+        }
 
 		return true;
 	}
@@ -377,6 +377,10 @@ class PluginTracking
         <style <?php echo Misc::getStyleTypeAttribute(); ?>>
             .wpacu-tracking-notice {
                 border-left-color: #008f9c;
+            }
+
+            .wpacu-tracking-notice a {
+                color: #2271b1;
             }
 
             .wpacu-tracking-notice .wpacu-action-links {
@@ -436,7 +440,7 @@ class PluginTracking
 	 */
 	public function noticeScripts()
 	{
-		if (! $this->showTrackingNotice) {
+		if ( ! $this->showTrackingNotice ) {
 			return;
 		}
 		?>
@@ -492,13 +496,13 @@ class PluginTracking
 	 */
 	public function adminNotice()
 	{
-	    if (! $this->showTrackingNotice()) {
+	    if ( MainAdmin::instance()->isTopAdminNoticeDisplayed() || ! $this->showTrackingNotice() ) {
 		    return;
         }
 
 		$this->setupData();
 
-		$optin_url  = add_query_arg(array('wpacu_action' => 'wpacu_opt_into_tracking', 'wpacu_is_page_reload' => true));
+		$optin_url  = add_query_arg(array('wpacu_action' => 'wpacu_opt_into_tracking',   'wpacu_is_page_reload' => true));
 		$optout_url = add_query_arg(array('wpacu_action' => 'wpacu_opt_out_of_tracking', 'wpacu_is_page_reload' => true));
 
 		?>
@@ -509,12 +513,12 @@ class PluginTracking
 					<li class="wpacu-optin">
                         <a href="<?php echo esc_url($optin_url); ?>"
                            data-wpacu-close-action="wpacu_opt_into_tracking"
-                           class="wpacu-close-tracking-notice button-primary"><?php _e('Allow, I\'m happy to help', 'easy-digital-downloads'); ?></a>
+                           class="wpacu-close-tracking-notice button-primary"><img style="vertical-align: sub;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-check-white.svg" alt="" />&nbsp;<?php _e('Allow, I\'m happy to help', 'easy-digital-downloads'); ?></a>
                     </li>
 					<li class="wpacu-optout">
                         <a href="<?php echo esc_url($optout_url); ?>"
                            data-wpacu-close-action="wpacu_opt_out_of_tracking"
-                           class="wpacu-close-tracking-notice button-secondary"><?php _e('No, do not allow', 'easy-digital-downloads'); ?></a></li>
+                           class="wpacu-close-tracking-notice button-secondary"><img style="vertical-align: sub; margin-right: 2px;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-block.svg" alt="" />&nbsp;<?php _e('No, do not allow', 'easy-digital-downloads'); ?></a></li>
 			        <li class="wpacu-more-info"><span style="color: #004567;" class="dashicons dashicons-info"></span> <a id="wpacu-show-tracked-data" href="#">What kind of data will be sent for the tracking?</a></li>
 				</ul>
 				<div style="clear: both;"></div>
@@ -522,14 +526,14 @@ class PluginTracking
 					<?php self::showSentInfoDataTable($this->data); ?>
                 </div>
                 <hr />
-                <p><strong>Note:</strong> This option can always be turned ON &amp; OFF in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('admin.php?page=wpassetcleanup_settings&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings#wpacu-settings-allow-usage-tracking'); ?>">"Settings" &rarr; "Plugin Usage Preferences" &rarr; "Allow Usage Tracking"</a></p>
+                <p style="font-size: 12px; font-style: italic; margin: 10px 0 10px;"><strong>Note:</strong> This option can always be turned ON &amp; OFF in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('admin.php?page=wpassetcleanup_settings&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-analytics'); ?>">"Settings" &rarr; "Plugin Usage Preferences" &rarr; "Analytics"</a></p>
 			</div>
 		</div>
 		<?php
-        wpacuDefineConstant('WPACU_ADMIN_TRACKING_NOTICE_SHOWN');
-
         // Only mark it as shown after it was printed
 		$this->showTrackingNotice = true;
+
+        MainAdmin::instance()->setTopAdminNoticeDisplayed();
 	}
 
 	/**

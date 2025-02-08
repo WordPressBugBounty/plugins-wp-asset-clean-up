@@ -88,7 +88,7 @@ class OptimizeCss
 
 		$allPatterns = array();
 
-		if (strpos($inlineCssFilesPatterns, "\n")) {
+		if (strpos($inlineCssFilesPatterns, "\n") !== false) {
 			// Multiple values (one per line)
 			foreach (explode("\n", $inlineCssFilesPatterns) as $inlinePattern) {
 				$allPatterns[] = trim($inlinePattern);
@@ -120,7 +120,7 @@ class OptimizeCss
      */
 	public static function prepareOptimizeList()
 	{
-		global $wp_styles;
+        global $wp_styles;
 
 		$allStylesHandles = ObjectCache::wpacu_cache_get('wpacu_all_styles_handles');
 		if (empty($allStylesHandles)) {

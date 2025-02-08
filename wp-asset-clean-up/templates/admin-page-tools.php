@@ -52,7 +52,7 @@ do_action('wpacu_admin_notices');
 
                 <div id="wpacu-cache-assets-remove-area">
                     <label for="wpacu-remove-cache-assets">
-                        <input id="wpacu-remove-cache-assets" type="checkbox" name="wpacu-remove-cache-assets" value="1" /> <?php echo sprintf(__('Also remove any cached CSS/JS files from %s', 'wp-asset-clean-up'), '<code>/'.basename(WP_CONTENT_DIR) . OptimizeCommon::getRelPathPluginCacheDir().'</code>'); ?> (please be careful as there might be cached pages - e.g. people previewing your page via Google Cache - still making reference to the CSS/JS files, you can leave it unchecked if you are not about it)
+                        <input id="wpacu-remove-cache-assets" type="checkbox" name="wpacu-remove-cache-assets" value="1" /> <?php echo sprintf(__('Also remove any cached CSS/JS files from %s', 'wp-asset-clean-up'), '<code>/'.basename(WP_CONTENT_DIR) . OptimizeCommon::getRelPathPluginCacheDir().'</code>'); ?> (please be careful as there might be cached pages - e.g. people previewing your page via Google Cache - still making reference to the CSS/JS files, you can leave it unchecked if you are not sure about it)
                     </label>
                 </div>
 

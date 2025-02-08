@@ -756,7 +756,9 @@ LINK;
 
 				$wfConfigGoogleFamiliesStr = '['.implode(',', $wfConfigGoogleFamilies).']';
 
-				$finalInlineTagWebFontConfig = '<script id=\'wpacu-google-fonts-async-load\' type=\'text/javascript\'>'."\n".'WebFontConfig={google:{families:'.$wfConfigGoogleFamiliesStr.'}};(function(wpacuD){var wpacuWf=wpacuD.createElement(\'script\'),wpacuS=wpacuD.scripts[0];wpacuWf.src=(\'https:\'===document.location.protocol?\'https\':\'http\')+\'://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js\';wpacuWf.async=!0;wpacuS.parentNode.insertBefore(wpacuWf,wpacuS)})(document);'."\n".'</script>';
+				$scriptType = Misc::getScriptTypeAttribute();
+
+				$finalInlineTagWebFontConfig = '<script id=\'wpacu-google-fonts-async-load\' '.$scriptType.'>'."\n".'WebFontConfig={google:{families:'.$wfConfigGoogleFamiliesStr.'}};(function(wpacuD){var wpacuWf=wpacuD.createElement(\'script\'),wpacuS=wpacuD.scripts[0];wpacuWf.src=(\'https:\'===document.location.protocol?\'https\':\'http\')+\'://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js\';wpacuWf.async=!0;wpacuS.parentNode.insertBefore(wpacuWf,wpacuS)})(document);'."\n".'</script>';
 
 				$htmlSource = str_replace(
 					array(

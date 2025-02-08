@@ -6,6 +6,7 @@ namespace WpAssetCleanUp;
 use WpAssetCleanUp\Admin\AssetsManagerAdmin;
 use WpAssetCleanUp\Admin\Info;
 use WpAssetCleanUp\Admin\Overview;
+use WpAssetCleanUp\Admin\PluginsManagerAdmin;
 use WpAssetCleanUp\Admin\SettingsAdmin;
 use WpAssetCleanUp\Admin\Tools;
 
@@ -145,7 +146,7 @@ class Menu
 		    __('Plugins Manager', 'wp-asset-clean-up'),
 		    self::getAccessCapability(),
 		    WPACU_PLUGIN_ID . '_plugins_manager',
-		    array(new PluginsManager, 'page')
+		    array(new PluginsManagerAdmin, 'page')
 	    );
 
 	    add_submenu_page(

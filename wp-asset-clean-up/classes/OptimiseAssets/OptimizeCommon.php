@@ -48,7 +48,7 @@ class OptimizeCommon
 		'jsdelivr.net'
 	);
 
-	/**
+    /**
 	 *
      * @noinspection PhpUndefinedConstantInspection
      */
@@ -174,7 +174,7 @@ class OptimizeCommon
 			});
 		}
 
-		add_action('wp_loaded', array($this, 'maybeAlterHtmlSource'), 1);
+		$this->maybeHtmlSourceAlterActions();
 
         // [START] Initiate Hardcoded Assets
 		add_action( 'init', static function() {
@@ -188,6 +188,52 @@ class OptimizeCommon
 		});
 		// [END] Initiate Hardcoded Assets
 	}
+
+    /**
+     * @return void
+     */
+    public function maybeHtmlSourceAlterActions()
+    {
+        if (in_array(Main::instance()->settings['alter_html_source_method'], array('wp_loaded', ''))) {
+            // "wp_loaded" (legacy): This has been used since the release of the plugin
+            // However, it's often not the most effective due to the fact that functions such as is_front_page()
+            // are not available, due to early processing of the HTML source (before specific queries are triggered)
+            add_action('wp_loaded', array($this, 'maybeAlterHtmlSourceViaWpLoaded'), 1);
+        } else {
+            // This has proven to be more effective in many environments, and users should test this one as well
+            // As it usually waits until other optimization plugins did their changes, and then if it's something that is still updateable
+            // it will update it (e.g. minify CSS files, if a plugin hasn't already done that)
+            add_action('init', array($this, 'maybeStartBufferForAlterHtmlSource'), 0);
+
+            if ( ! Main::instance()->isGetAssetsCall ) {
+                // Trigger it on a regular page load
+                add_action('shutdown', static function () {
+                    /** @global bool $wpacuTriggerShutdownForHtmlAlter */
+                    global $wpacuTriggerShutdownForHtmlAlter;
+
+                    if ( ! $wpacuTriggerShutdownForHtmlAlter ) {
+                        return;
+                    }
+
+                    if (ob_get_level() > 1) {
+                        ob_end_flush();
+                    }
+
+                    $htmlSource = '';
+
+                    // We'll need to get the number of ob levels we're in, so that we can iterate over each, collecting
+                    // that buffer's output into the final output.
+                    $htmlSourceLevel = ob_get_level();
+
+                    for ($wpacuI = 0; $wpacuI < $htmlSourceLevel; $wpacuI++) {
+                        $htmlSource .= ob_get_clean();
+                    }
+
+                    echo self::alterHtmlSource($htmlSource);
+                }, -PHP_INT_MAX);
+            }
+        }
+    }
 
     /**
      * This works like /?wpacu_no_load with a fundamental difference:
@@ -424,7 +470,7 @@ class OptimizeCommon
 	/**
 	 *
 	 */
-	public static function maybeAlterHtmlSource()
+	public static function maybeAlterHtmlSourceViaWpLoaded()
 	{
 		if (is_admin()) {
 			// Don't apply any changes if not in the front-end view (e.g. Dashboard view)
@@ -437,7 +483,7 @@ class OptimizeCommon
 		}
 
 		/*
-		 * CASE 1: The admin is logged in and manages the assets in the front-end view
+		 * The admin is logged in and manages the assets in the front-end view
 		 * */
 		if (MainAdmin::useBufferingForEditFrontEndView()) {
 			// Alter the HTML via "shutdown" action hook to catch hardcoded CSS/JS that is added via output buffering such as the ones in "Smart Slider 3"
@@ -446,17 +492,46 @@ class OptimizeCommon
 		}
 
 		/*
-		 * CASE (most common): The admin is logged in, but "Manage in the front-end" is deactivated OR the visitor is just a guest
+		 * The visitor is just a guest (most common), OR the admin is logged in, but "Manage in the front-end" is deactivated
 		 * */
 		ob_start(static function($htmlSource) {
 			// Do not do any optimization if "Test Mode" is Enabled
-			if ( ! Menu::userCanAccessAssetCleanUp() && Main::instance()->settings['test_mode']) {
+			if ( ! Menu::userCanAccessAssetCleanUp() && Main::instance()->settings['test_mode'] ) {
 				return $htmlSource;
 			}
 
-			return self::alterHtmlSource($htmlSource);
+            return self::alterHtmlSource($htmlSource);
 		});
 	}
+
+    /**
+     *
+     */
+    public static function maybeStartBufferForAlterHtmlSource()
+    {
+        /*
+         * The admin is logged in and manages the assets in the front-end view
+         * */
+        if (MainAdmin::useBufferingForEditFrontEndView()) {
+            // Alter the HTML via "shutdown" action hook to catch hardcoded CSS/JS that is added via output buffering such as the ones in "Smart Slider 3"
+            // via HardcodedAssets.php
+            return;
+        }
+
+        /** @global bool $wpacuTriggerShutdownForHtmlAlter */
+        global $wpacuTriggerShutdownForHtmlAlter;
+
+        // Set the variable to true (or any value) when this hook fires.
+        $wpacuTriggerShutdownForHtmlAlter = true;
+
+        /*
+         * The visitor is just a guest (most common), OR the admin is logged in, but "Manage in the front-end" is deactivated
+         * */
+        // Start buffering only if it hasn't already been started
+        if (ob_get_level() === 0) {
+            ob_start();
+        }
+    }
 
 	/**
 	 * @param $htmlSource
@@ -466,7 +541,7 @@ class OptimizeCommon
 	 */
 	public static function alterHtmlSource($htmlSource, $triggerOnlyOnce = false)
 	{
-		// e.g. if it was called from "autoptimize_filter_html_before_minify", then there's no point in triggering it again from a different hook
+        // e.g. if it was called from "autoptimize_filter_html_before_minify", then there's no point in triggering it again from a different hook
 		if (defined('WPACU_ALTER_HTML_SOURCE_DONE')) {
 			return $htmlSource;
 		}
@@ -493,7 +568,7 @@ class OptimizeCommon
 		// The printing of the hardcoded assets is made via "wpacu_final_frontend_output" filter hook
 		// located within "shutdown" action hook only if the user is logged-in and has the right permissions
 
-		// This is useful to avoid changing the DOM via wp_loaded action hook
+		// This is useful to avoid changing the DOM via no matter which of the following actions are used: "wp_loaded", "template_redirect", "shutdown"
 		//  to check how fast the page loads without the DOM changes (for debugging purposes)
 		$wpacuNoHtmlChanges = isset($_REQUEST['wpacu_no_html_changes']) || wpacuIsDefinedConstant('WPACU_NO_HTML_CHANGES');
 

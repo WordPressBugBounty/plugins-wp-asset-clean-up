@@ -45,8 +45,10 @@ class Converter implements ConverterInterface
 
             // or traveling the tree via `..`
             // attempt to resolve path, or assume it's fine if it doesn't exist
-            $from = @realpath($from) ?: $from;
-            $to = @realpath($to) ?: $to;
+            // [Gabe Livan]
+            $from = $this->safe_realpath($from) ?: $from;
+            $to = $this->safe_realpath($to) ?: $to;
+            // [/Gabe Livan]
         }
 
         $from = $this->dirname($from);
@@ -58,6 +60,31 @@ class Converter implements ConverterInterface
         $this->from = $from;
         $this->to = $to;
     }
+
+    // [Gabe Livan]
+    /**
+     * @param $path
+     *
+     * @return false|string
+     */
+    public function safe_realpath($path)
+    {
+        // Check if open_basedir is set
+        $openBaseDir = ini_get('open_basedir');
+
+        // If open_basedir is active and the path is not within it, return the original path
+        if ($openBaseDir && strpos($path, $openBaseDir) === false) {
+            return $path;
+        }
+
+        // Check if the path is readable before resolving it
+        if (is_readable($path)) {
+            return realpath($path) ?: $path;
+        }
+
+        return $path; // Return the original path if not readable
+    }
+    // [/Gabe Livan]
 
     /**
      * Normalize path.

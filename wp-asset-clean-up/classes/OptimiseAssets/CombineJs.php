@@ -595,7 +595,7 @@ class CombineJs
 		if (Main::instance()->settings['combine_loaded_js_exceptions'] !== '') {
 			$loadedJsExceptionsPatterns = trim(Main::instance()->settings['combine_loaded_js_exceptions']);
 
-			if (strpos($loadedJsExceptionsPatterns, "\n")) {
+			if (strpos($loadedJsExceptionsPatterns, "\n") !== false) {
 				// Multiple values (one per line)
 				foreach (explode("\n", $loadedJsExceptionsPatterns) as $loadedJsExceptionsPattern) {
 					$regExps[] = '#'.trim($loadedJsExceptionsPattern).'#';

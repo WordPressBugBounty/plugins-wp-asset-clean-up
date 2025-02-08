@@ -189,6 +189,31 @@ if ( ! function_exists('wpacuGetGlobalData') ) {
     }
 }
 
+if ( ! function_exists('wpacuEndsWith') ) {
+    /**
+     * Alias of \WpAssetCleanUp\Misc::endsWith()
+     *
+     * @param $string
+     * @param $endsWithString
+     *
+     * @return bool
+     */
+    function wpacuEndsWith( $string, $endsWithString ) {
+        $stringLen         = strlen( $string );
+        $endsWithStringLen = strlen( $endsWithString );
+
+        if ( $endsWithStringLen > $stringLen ) {
+            return false;
+        }
+
+        return substr_compare(
+                   $string,
+                   $endsWithString,
+                   $stringLen - $endsWithStringLen, $endsWithStringLen
+               ) === 0;
+    }
+}
+
 if ( ! function_exists('assetCleanUpClearAutoptimizeCache') ) {
 	/*
 	 * By default Autoptimize Cache is cleared after certain Asset CleanUp actions
@@ -294,6 +319,27 @@ if ( ! function_exists('wpacuUriHasAnyPublicWpQuery') ) {
     }
 }
 
+if ( ! function_exists('wpacuUriHasOnlyQueryStringsToIgnoreFromPredefinedList') ) {
+    /**
+     * @param $whitelist
+     *
+     * @return bool
+     */
+    function wpacuUriHasOnlyQueryStringsToIgnoreFromPredefinedList($parseTargetUriCleanQuery, $whitelist)
+    {
+        parse_str( $parseTargetUriCleanQuery, $currentUriOutputStr );
+
+        // Check if all query parameters are in the whitelist
+        foreach ( array_keys($currentUriOutputStr) as $param ) {
+            if ( ! in_array($param, $whitelist)) {
+                return false; // Fail if any parameter is not in the whitelist
+            }
+        }
+
+        return true; // Pass if all parameters are in the whitelist
+    }
+}
+
 if ( ! function_exists( 'wpacuUriHasOnlyCommonQueryStrings' ) ) {
     /**
      * @param $parseTargetUriCleanQuery
@@ -303,11 +349,37 @@ if ( ! function_exists( 'wpacuUriHasOnlyCommonQueryStrings' ) ) {
      */
     function wpacuUriHasOnlyCommonQueryStrings( $parseTargetUriCleanQuery, $ignoreQueryStrings )
     {
-        parse_str( $parseTargetUriCleanQuery, $outputStr );
+        // Before triggering the query for any custom ignore strings, let's check if the current URI
+        // has one or all the already defined ignore strings (if it's "true", it will avoid triggering the call to the database)
 
-        // Nothing from the common list? Check if the homepage URL has common query strings
+        if (wpacuUriHasOnlyQueryStringsToIgnoreFromPredefinedList($parseTargetUriCleanQuery, $ignoreQueryStrings)) {
+            return true;
+        }
+
+        parse_str( $parseTargetUriCleanQuery, $currentUriOutputStr );
+
+        // Are there query srings to be ignored also set by the user? Append them to $ignoreQueryStrings!
+        $wpacuPluginSettingsJson = get_option( WPACU_PLUGIN_ID . '_settings' );
+        $wpacuPluginSettings     = @json_decode( $wpacuPluginSettingsJson, ARRAY_A );
+        $extraIgnoreQueryStrings = isset( $wpacuPluginSettings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'] )
+            ? trim($wpacuPluginSettings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
+            : '';
+
+        if ( ! empty($extraIgnoreQueryStrings) ) {
+            if (strpos($extraIgnoreQueryStrings, "\n") !== false) {
+                // Multiple values (one per line)
+                foreach (explode("\n", $extraIgnoreQueryStrings) as $extraIgnoreQueryString) {
+                    $ignoreQueryStrings[] = trim($extraIgnoreQueryString);
+                }
+            } else {
+                // Only one value?
+                $ignoreQueryStrings[] = trim($extraIgnoreQueryStrings);
+            }
+        }
+
+        // Nothing from the common WordPress public list (e.g. /?p=); Check if the homepage URL has common query strings
         // If it has, return true, otherwise return false, as it might not be a homepage, but a page performing an action from a certain plugin
-        foreach ( array_keys( $outputStr ) as $currentQueryString ) {
+        foreach ( array_keys( $currentUriOutputStr ) as $currentQueryString ) {
             if ( ! in_array( $currentQueryString, $ignoreQueryStrings ) ) {
                 return false;
             }
@@ -416,57 +488,74 @@ if ( ! function_exists( 'wpmlRemoveLangTagFromUri') ) {
     }
 }
 
-if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
+if ( ! function_exists('wpacuGetWpPublicQueryVars') ) {
     /**
-     * @param $requestUriAsItIs
-     *
-     * @return bool
+     * @return mixed|null
      */
-    function wpacuIsHomePageUrl($requestUriAsItIs)
+    function wpacuGetWpPublicQueryVars()
     {
-        if (defined('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK')) {
-            return WPACU_IS_HOME_PAGE_URL_EARLY_CHECK;
-        }
-
-        if (isset($_SERVER['REQUEST_URI'])) {
-            $compareOne = parse_url(get_site_url(), PHP_URL_PATH);
-            $compareOne = $compareOne ? rtrim($compareOne, '/') : $compareOne;
-            $compareTwo = $_SERVER['REQUEST_URI'] ? rtrim($_SERVER['REQUEST_URI'], '/') : $_SERVER['REQUEST_URI'];
-
-            if ( $_SERVER['REQUEST_URI'] === '/' ||
-                 $compareOne === $compareTwo ) {
-                // Obviously, the home page, no further checks necessary
-                define( 'WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', true );
-                return true;
-            }
-        }
-
-        // e.g. www.mydomain.com/?add-to-cart=.... - this is not a homepage
-        foreach (array('edd_action', 'add-to-cart') as $commonAction) {
-            if (isset($_REQUEST[$commonAction])) {
-                define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
-                return false;
-            }
-        }
-
-        $wpacuIsAjaxRequest = ( ! empty( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] ) === 'xmlhttprequest' );
-
-        if ($wpacuIsAjaxRequest && ! array_key_exists(WPACU_PLUGIN_ID . '_load', $_GET)) {
-            // External AJAX request on the home page
-            // It could be from a different plugin, thus this will not be detected as the homepage
-            // as it might be an action URL from a specific plugin such as Gravity Forms
-            define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
-            return false;
-        }
-
-        $publicQueryVars = apply_filters(
+        return apply_filters(
             'wpacu_public_query_strings',
-            array( 'm', 'p', 'posts', 'w', 'cat', 'withcomments', 'withoutcomments', 's', 'search', 'exact', 'sentence', 'calendar', 'page', 'paged', 'more', 'tb', 'pb', 'author', 'order', 'orderby', 'year', 'monthnum', 'day', 'hour', 'minute', 'second', 'name', 'category_name', 'tag', 'feed', 'author_name', 'pagename', 'page_id', 'error', 'attachment', 'attachment_id', 'subpost', 'subpost_id', 'robots', 'favicon', 'taxonomy', 'term', 'cpage', 'post_type', 'embed' )
+            array(
+                'attachment',
+                'attachment_id',
+                'author',
+                'author_name',
+                'calendar',
+                'cat',
+                'category_name',
+                'comments_popup',
+                'cpage',
+                'day',
+                'embed',
+                'error',
+                'exact',
+                'favicon',
+                'feed',
+                'hour',
+                'm',
+                'minute',
+                'monthnum',
+                'more',
+                'name',
+                'order',
+                'orderby',
+                'p',
+                'page',
+                'page_id',
+                'paged',
+                'pagename',
+                'pb',
+                'post_type',
+                'posts',
+                'robots',
+                's',
+                'search',
+                'second',
+                'sentence',
+                'static',
+                'subpost',
+                'subpost_id',
+                'tag',
+                'tag_id',
+                'taxonomy',
+                'tb',
+                'term',
+                'w',
+                'withcomments',
+                'withoutcomments',
+                'year'
+            )
         );
+    }
+}
 
-        // These query strings could be skipped when checking the homepage as they do not signify specific actions
-        // Some are coming from Facebook ads, or they contain strings specific for Google Analytics for tracking purposes
-        // e.g. the homepage could be https://yoursite.com/?utm_source=[...] or https://yoursite.com/?utm_source=fbclid=[...]
+if ( ! function_exists( 'wpacuGetQueryStringsToBeIgnoredPredefinedList') ) {
+    /**
+     * @return mixed|null
+     */
+    function wpacuGetQueryStringsToBeIgnoredPredefinedList()
+    {
         $skipQueryStringsForHomepageDetection = array(
             '_ga',
             '_ke',
@@ -477,6 +566,7 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
             'campaignid',
             'ck_subscriber_id', // ConvertKit's query parameter
             'cn-reloaded',
+            'currency',
             'dclid',
             'dm_i', // dotdigital
             'dm_t', // dotdigital
@@ -536,7 +626,6 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
             'utm_campaign',
             'utm_content',
             'utm_expid',
-            'utm_expid',
             'utm_medium',
             'utm_referrer',
             'utm_source',
@@ -565,18 +654,63 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
             'wpacu_print',
             'wpacu_time',
             'wpacu_updated',
-            'wpacu_updated',
             'wpacu_ignore_no_load_option',
-            'wpacu_debug'
+            'wpacu_debug',
+            'wpacu_no_cache'
         );
 
-        $ignoreQueryStrings = apply_filters('wpacu_skip_query_strings_for_homepage_detection', $skipQueryStringsForHomepageDetection);
+        return apply_filters('wpacu_skip_query_strings_for_homepage_detection', $skipQueryStringsForHomepageDetection);
+    }
+}
+
+if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
+    /**
+     * @param $requestUriAsItIs
+     *
+     * @return bool
+     */
+    function wpacuIsHomePageUrl($requestUriAsItIs)
+    {
+        if (defined('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK')) {
+            return WPACU_IS_HOME_PAGE_URL_EARLY_CHECK;
+        }
+
+        if (isset($_SERVER['REQUEST_URI'])) {
+            $compareOne = parse_url(get_site_url(), PHP_URL_PATH);
+            $compareOne = $compareOne ? rtrim($compareOne, '/') : $compareOne;
+            $compareTwo = $_SERVER['REQUEST_URI'] ? rtrim($_SERVER['REQUEST_URI'], '/') : $_SERVER['REQUEST_URI'];
+
+            if ( $_SERVER['REQUEST_URI'] === '/' ||
+                 $compareOne === $compareTwo ) {
+                // Obviously, the home page, no further checks necessary
+                define( 'WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', true );
+                return true;
+            }
+        }
+
+        // e.g. www.mydomain.com/?add-to-cart=.... - this is not a homepage
+        foreach (array('edd_action', 'add-to-cart') as $commonAction) {
+            if (isset($_REQUEST[$commonAction])) {
+                define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+                return false;
+            }
+        }
+
+        $wpacuIsAjaxRequest = ( ! empty( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] ) === 'xmlhttprequest' );
+
+        if ($wpacuIsAjaxRequest && ! array_key_exists(WPACU_PLUGIN_ID . '_load', $_GET)) {
+            // External AJAX request on the home page
+            // It could be from a different plugin, thus this will not be detected as the homepage
+            // as it might be an action URL from a specific plugin such as Gravity Forms
+            define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+            return false;
+        }
 
         // [START] URI has public query string
         $parseTargetUriClean      = parse_url($requestUriAsItIs);
         $parseTargetUriCleanQuery = isset($parseTargetUriClean['query']) ? $parseTargetUriClean['query'] : '';
 
-        if ($parseTargetUriCleanQuery && wpacuUriHasAnyPublicWpQuery($parseTargetUriCleanQuery, $publicQueryVars)) {
+        if ($parseTargetUriCleanQuery && wpacuUriHasAnyPublicWpQuery($parseTargetUriCleanQuery, wpacuGetWpPublicQueryVars())) {
             // If any of the public queries are within the query string, then it's not a homepage
             define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
             return false;
@@ -588,7 +722,12 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
         $parseSiteUrlClean        = parse_url(get_home_url());
         $parseSiteUrlCleanPath    = isset($parseSiteUrlClean['path']) ? $parseSiteUrlClean['path'] : '/'; // default
 
-        $hasNoQueryOrTheQueryIsCommon = $parseTargetUriCleanQuery === '' || wpacuUriHasOnlyCommonQueryStrings($parseTargetUriCleanQuery, $ignoreQueryStrings);
+        // These query strings could be skipped when checking the homepage as they do not signify specific actions
+        // Some are coming from Facebook ads, or they contain strings specific for Google Analytics for tracking purposes
+        // e.g. the homepage could be https://yoursite.com/?utm_source=[...] or https://yoursite.com/?utm_source=fbclid=[...]
+        $ignoreQueryStringsPredefinedList = wpacuGetQueryStringsToBeIgnoredPredefinedList();
+
+        $hasNoQueryOrTheQueryIsCommon = $parseTargetUriCleanQuery === '' || wpacuUriHasOnlyCommonQueryStrings($parseTargetUriCleanQuery, $ignoreQueryStringsPredefinedList);
 
         for ($i = 1; $i <= 2; $i++) {
             if ($i === 1) {
@@ -603,6 +742,7 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
 
                 $parsePossibleTargetUriCleanPath = wpmlRemoveLangTagFromUri($parseTargetUriCleanPath);
             }
+
             // Condition 1: The request URI is / and the site URL is https://www.mydomain.com/
             // OR Condition 2: The request URI is /my-blog and the site URL is https://www.mydomain.com/my-blog | if there's a query string such as "utm_source" it will be ignored and the condition will match
             // e.g. if the requested URL is https://www.mydomain.com/my-blog?utm_source=... and the site's URL is https://www.mydomain.com/my-blog it will be considered to be the homepage
@@ -631,58 +771,11 @@ if ( ! function_exists('assetCleanUpRequestUriHasAnyPublicVar') ) {
 	{
 		$urlQuery = parse_url($targetUri, PHP_URL_QUERY);
 
-		if ( ! $urlQuery ) {
+        if ( ! $urlQuery ) {
 			return false;
 		}
 
-		$publicQueryVars = array(
-			'attachment',
-			'attachment_id',
-			'author',
-			'author_name',
-			'cat',
-			'calendar',
-			'category_name',
-			'comments_popup',
-			'cpage',
-			'day',
-			'error',
-			'exact',
-			'feed',
-			'hour',
-			'm',
-			'minute',
-			'monthnum',
-			'more',
-			'name',
-			'order',
-			'orderby',
-			'p',
-			'page_id',
-			'page',
-			'paged',
-			'pagename',
-			'pb',
-			'post_type',
-			'posts',
-			'robots',
-			's',
-			'search',
-			'second',
-			'sentence',
-			'static',
-			'subpost',
-			'subpost_id',
-			'taxonomy',
-			'tag',
-			'tag_id',
-			'tb',
-			'term',
-			'w',
-			'withcomments',
-			'withoutcomments',
-			'year'
-		);
+		$publicQueryVars = wpacuGetWpPublicQueryVars();
 
 		foreach ($publicQueryVars as $queryVar) {
 			if (strpos('?'.$urlQuery, '&'.$queryVar.'=') !== false || strpos('?'.$urlQuery, '?'.$queryVar.'=') !== false) {

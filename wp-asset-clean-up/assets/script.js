@@ -1166,7 +1166,7 @@ jQuery(document).ready(function($) {
                 });
 
                 // "Settings" - When an option is enabled/disabled
-                $('[data-target-opacity]').on('click change tick', function() {
+                $(document).on('click change tick', '[data-target-opacity]', function() {
                     if ($(this).prop('checked')) {
                         $('#'+ $(this).attr('data-target-opacity')).css({'opacity':1});
                     } else {
@@ -1199,7 +1199,7 @@ jQuery(document).ready(function($) {
                     let $spinnerAfterLink = $(this).next('.wpacu-add-new-no-features-rule-row-loader');
                     $spinnerAfterLink.show();
 
-                    $.get(wpacu_object.ajax_url, {
+                    $.post(wpacu_object.ajax_url, {
                         'action'      : wpacu_object.plugin_prefix + '_add_new_no_features_load_row',
                         'time_r'      : new Date().getTime()
                     }, function (newRowOutput) {

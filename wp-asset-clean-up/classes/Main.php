@@ -232,6 +232,12 @@ SQL;
 
 			return $metaKeys;
 		} );
+
+        add_action('wp', function () {
+            $wpacuSettingsClass = new Settings();
+            Main::instance()->settings = $wpacuSettingsClass->getAll(true);
+
+            }, 0);
     }
 
     /**
@@ -301,12 +307,13 @@ SQL;
 	 */
 	public function unloadAssetOnTheFly($for)
     {
-	    $assetType = ($for === 'css') ? 'styles' : 'scripts';
 	    $assetIndex = 'wpacu_unload_'.$for;
 
         if (! ($unloadAsset = Misc::getVar('get', $assetIndex))) {
             return array();
         }
+
+        $assetType = ($for === 'css') ? 'styles' : 'scripts';
 
 	    $assetHandles = array();
 
@@ -422,7 +429,7 @@ SQL;
         }
 
 	    // Any exceptions on the fly added for debugging purposes? Make sure to grab them
-        if (isset($_GET['wpacu_load_styles']) || isset($_GET['wpacu_load_scripts'])) {
+        if (isset($_GET['wpacu_load_css']) || isset($_GET['wpacu_load_js'])) {
             $exceptionsList = $this->makeLoadExceptionOnTheFly($exceptionsList);
         }
 

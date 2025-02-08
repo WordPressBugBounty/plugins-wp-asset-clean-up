@@ -118,7 +118,7 @@ class OwnAssets
         }
 
         // Only in "Settings" and "Plugins Manager" plugin pages
-        if ( ! in_array($_GET['page'], array('wpassetcleanup_settings', 'wpassetcleanup_plugins_manager'))) {
+        if ( ! in_array($_GET['page'], array('wpassetcleanup_settings', 'wpassetcleanup_plugins_manager')) ) {
             return;
         }
 
@@ -507,7 +507,7 @@ JS;
 				self::$ownAssets['styles']['sweetalert2']['handle'],
 				plugins_url(self::$ownAssets['styles']['sweetalert2']['rel_path'], WPACU_PLUGIN_FILE),
 				array(),
-				1
+				2
 			);
 
 			add_action('admin_head', static function() {
@@ -571,7 +571,7 @@ JS;
 				self::$ownAssets['scripts']['sweetalert2']['handle'],
 				plugins_url(self::$ownAssets['scripts']['sweetalert2']['rel_path'], WPACU_PLUGIN_FILE),
 				array('jquery'),
-				1.1
+				1.2
 			);
 
 			// [wpacu_lite]
@@ -1076,7 +1076,7 @@ CSS;
 	 */
 	public function ownAssetLoaderTag($tag, $handle)
     {
-        // "data-wpacu-skip": Prevent anyh asset alteration by any option set in "Settings"
+        // "data-wpacu-skip": Prevent any asset alteration by any option set in "Settings"
         if (in_array($handle, self::getOwnAssetsHandles('styles'))) {
             $tag = str_replace(' href=', ' data-wpacu-skip href=', $tag);
         }

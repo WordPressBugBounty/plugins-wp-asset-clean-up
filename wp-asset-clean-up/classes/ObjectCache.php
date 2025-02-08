@@ -91,11 +91,23 @@ class ObjectCache {
 	 * @since 2.0.8
 	 */
 	public function __construct() {
-		self::$objNotInitErrorMsg = __('Asset CleanUp\'s object cache is not valid (from method "[method]").', 'wp-asset-clean-up');
+		self::$objNotInitErrorMsg = self::showTextDomainObjNotInitErrorMsg();
 
 		$this->multisite   = is_multisite();
 		$this->blog_prefix = $this->multisite ? get_current_blog_id() . ':' : '';
 	}
+
+    /**
+     * @return string|null
+     */
+    public static function showTextDomainObjNotInitErrorMsg()
+    {
+        if (did_action('after_setup_theme')) {
+            return __('Asset CleanUp\'s object cache is not valid (from method "[method]").', 'wp-asset-clean-up');
+        } else {
+            return 'Asset CleanUp\'s object cache is not valid (from method "[method]").';
+        }
+    }
 
 	/**
 	 * Makes private properties readable for backward compatibility.

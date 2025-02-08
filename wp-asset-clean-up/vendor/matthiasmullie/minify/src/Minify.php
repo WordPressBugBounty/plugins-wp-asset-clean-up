@@ -524,7 +524,13 @@ abstract class Minify
         }
         // [/Gabe Livan]
 
+        // It starts with '/http' - something is not right, so stop here!
+        if (strncmp($path, '/http', 5) === 0) {
+            return false;
+        }
+
         $parsed = parse_url($path);
+
         if (
             // file is elsewhere
             isset($parsed['host'])

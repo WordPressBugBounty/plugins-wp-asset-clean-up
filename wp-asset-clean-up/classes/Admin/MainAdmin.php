@@ -43,6 +43,15 @@ class MainAdmin
 	}
 
     /**
+     * Admin notices at the top of the Dashboard could be for annoucements, to ask the admin to allow analytics
+     * Only show one notice at a time, never both to avoid annoying the admin
+     * This will work only if both notices are shown the 'regular' way (no AJAX), otherwise, other measure were taken through the JavaScript code
+     *
+     * @var bool
+     */
+    private static $topAdminNoticeDisplayed = false;
+
+    /**
      * For these handles, it's strongly recommended to use 'Ignore dependency rule and keep the "children" loaded'
      * if any of them are unloaded in any page
      *
@@ -125,6 +134,28 @@ class MainAdmin
                 <?php
             });
         }
+    }
+
+    /**
+     * This is to avoid showing two notices such as "tracking" and "reviewing", to avoid annoying the admin
+     *
+     * Check if a notice has been displayed
+     *
+     * @return bool
+     */
+    public static function isTopAdminNoticeDisplayed()
+    {
+        return self::$topAdminNoticeDisplayed;
+    }
+
+    /**
+     * Mark that a notice has been displayed
+     *
+     * @return void
+     */
+    public static function setTopAdminNoticeDisplayed()
+    {
+        self::$topAdminNoticeDisplayed = true;
     }
 
     /**
@@ -352,8 +383,8 @@ class MainAdmin
         ob_start();
 
         add_action('shutdown', static function() {
-            if (! defined('SMARTSLIDER3_LIBRARY_PATH')) {
-                ob_flush();
+            if (ob_get_level() > 1) {
+                ob_end_flush();
             }
 
             $htmlSource = '';

@@ -69,9 +69,9 @@ if ($data['google_fonts_remove']) {
 						<li>
 							<code>
 								<?php
-                                $typeAttr = Misc::getScriptTypeAttribute();
+                                $scriptType                = Misc::getScriptTypeAttribute();
 								$asyncWebFontLoaderSnippet = <<<HTML
-&lt;script id='wpacu-google-fonts-async-load' {$typeAttr}&gt;
+&lt;script id='wpacu-google-fonts-async-load' {$scriptType}&gt;
 WebFontConfig = { google: { families: ['Droid+Sans', 'Inconsolata:bold'] } };
 (function(wpacuD) {
 &nbsp;&nbsp;var wpacuWf = wpacuD.createElement('script'), wpacuS = wpacuD.scripts[0];

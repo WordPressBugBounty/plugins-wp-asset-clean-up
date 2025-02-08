@@ -134,6 +134,25 @@ class SettingsAdmin
         $settingsNotNull = array();
 
         foreach ($settings as $settingKey => $settingValue) {
+            if ( $settingKey === 'announcements' ) {
+                if ( isset($settingValue['global']['never_show_any']) && (int)$settingValue['global']['never_show_any'] === 0 ) {
+                    unset($settings['announcements']['global']['never_show_any']);
+                }
+
+                if ( ! empty($settingValue['list']) ) {
+                    foreach ( $settingValue['list'] as $annId => $annStates ) {
+                        if ( ! empty($annStates)) {
+                            foreach ( $annStates as $annState => $annStateValue ) {
+                                if ( $annState === 'seen' && isset($settingValue['list'][$annId]['snoozed']) && $settingValue['list'][$annId]['snoozed'] ) {
+                                    // If it's marked as "seen", there's no point in having it "snoozed"
+                                    unset($settings['announcements']['list'][$annId]['snoozed']);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if ($settingValue !== '') {
                 // Some validation
                 if ($settingKey === 'clear_cached_files_after') {

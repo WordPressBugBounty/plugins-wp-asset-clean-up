@@ -421,7 +421,7 @@ HTML;
 		if (Main::instance()->settings['combine_loaded_css_exceptions'] !== '') {
 			$loadedCssExceptionsPatterns = trim(Main::instance()->settings['combine_loaded_css_exceptions']);
 
-			if (strpos($loadedCssExceptionsPatterns, "\n")) {
+			if (strpos($loadedCssExceptionsPatterns, "\n") !== false) {
 				// Multiple values (one per line)
 				foreach (explode("\n", $loadedCssExceptionsPatterns) as $loadedCssExceptionPattern) {
 					$regExps[] = '#'.trim($loadedCssExceptionPattern).'#';
