@@ -3,8 +3,8 @@ Contributors: gabelivan
 Tags: minify css, minify javascript, defer css javascript, page speed, dequeue
 Donate link: https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=wp_org_lite&utm_medium=donate
 Requires at least: 4.6
-Tested up to: 6.7.1
-Stable tag: 1.4.0.1
+Tested up to: 6.7.2
+Stable tag: 1.4.0.2
 Requires PHP: 5.6
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl.html
@@ -192,6 +192,14 @@ With the recently released "Test Mode" feature, you can safely unload assets on 
 4. Homepage CSS & JS Management (List sorted by location)
 
 == Changelog ==
+= 1.4.0.2 =
+* WPML compatibility (it works with other similar plugins as well): Make sure that whenever CSS/JS manager is used in the Dashboard, if the domain/subdomain is different (e.g. es.domain.com instead de.domain.com), the assets will be fetched without getting blocked by the browser's CORS policy
+* Improvement for plugin's JavaScript files: The main "script" file was split into two files, one containing the most common code that clears the caching and it's used in many pages (e.g. when clicking the clear caching link from the top admin bar), which weights around 11% in comparison with the other files; This way, on many pages, fewer JavaScript code is loaded, thus reducing bandwidth for admin visits, and eliminating any potential conflicts with other JS files belonging to other plugins
+* Improvement (admin area): Prevent SweetAlert and extra CSS to load if there's no CSS/JS manager loaded (e.g. edit post area)
+* Google Fonts Combine Fix: W3C Validator / 'Error: Bad value for attribute href on element link: Illegal character in query: | is not allowed.' - The character '|' is replaced with '%7C'
+* Fix: "Warning realpath(): open_basedir restriction in effect. File(/) is not within the allowed path(s):" - Extra checks are made to bne sure that the error won't be printed when features such as minify CSS are used
+* Fix: "Bulk Changes" / When removing unload rules, a PHP error was showing up preventing the rule from being removed
+
 = 1.4.0.1 =
 * New Feature For The Admin: "Settings" -- "Plugin Usage Preferences" -- "Announcements" / The admin would be notified within the Dashboard (if he/she prefers) of critical updates, new features, usage tips, special offers / read more: https://www.assetcleanup.com/docs/?p=1946
 * Make sure plugin generated STYLE/SCRIPT inline tags (e.g. from features such as "Inline CSS") have the "type" attribute (unless the theme supports HTML5) / read more: https://www.assetcleanup.com/docs/?p=2086

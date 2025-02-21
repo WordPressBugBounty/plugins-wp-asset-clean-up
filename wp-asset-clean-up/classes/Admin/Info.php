@@ -91,7 +91,7 @@ class Info
                 $themeIconHtml = ''; // default
                 $hasIcon = false; // default
 
-				$themeIconUrl = MiscAdmin::getThemeIcon($themeInfo->get('Name'));
+				$themeIconUrl = $themeInfo->get('Name') ? MiscAdmin::getThemeIcon($themeInfo->get('Name')) : '';
 
                 if ($themeIconUrl === '') {
                     // Check for any screenshot.png from the root of the theme
@@ -99,8 +99,6 @@ class Info
                     $themeTemplateName = $themeInfo->__get('template');
 
                     $pathToMaybeImage = $themeFullDir . '/'.$themeTemplateName.'/screenshot.png';
-
-                    //echo $pathToMaybeImage;
 
                     if (is_file($pathToMaybeImage)) {
                         $themeIconUrl = site_url() . '/' . str_replace(ABSPATH, '', $pathToMaybeImage);
@@ -113,7 +111,19 @@ class Info
 					$themeIconHtml  = '<div class="icon-theme has-icon"><div class="icon-area" '.$imageIconStyle.'></div></div>';
 				}
 
-				$output = $themeIconHtml . $themeInfo->get('Name') . ' <span class="wpacu-child-location-version">v'.$themeInfo->get('Version').'</span>';
+				$output = $themeIconHtml;
+
+                if ($themeInfo->get('Name')) {
+                    $output .= $themeInfo->get('Name');
+                } elseif ($themeInfo->__get('template')) {
+                    $output .= $themeInfo->__get('template');
+                } else {
+                    $output .= $themeDir;
+                }
+
+                if ($themeInfo->get('Version')) {
+                    $output .= ' <span class="wpacu-child-location-version">v'.$themeInfo->get('Version').'</span>';
+                }
 
 				return array('has_icon' => $hasIcon, 'output' => $output);
 			}

@@ -277,6 +277,27 @@ class MainFront
 			    $wpacuCleanUp->doDisableOembed();
 		    }
 	    }
+
+        // This is for WPML and other similar plugins compatibility
+        // e.g. es.domain.com is fetching something from de.domain.com
+
+        // These headers are set in the front-end view only (e.g. not within is_admin()),
+        // and only when specific parameters are set on these public URLs
+        $assetsFetchDashboardDirectMethod = Main::instance()->isGetAssetsCall &&
+                                            isset($_GET['wpacu_time_r']) &&
+                                            $_GET['wpacu_time_r'];
+
+        $targetPagePreloadFromDashboard   = isset($_GET['wpacu_preload'], $_GET['wpacu_no_frontend_show'], $_GET['wpacu_time_r']) &&
+                                            $_GET['wpacu_preload'] && $_GET['wpacu_no_frontend_show'] && $_GET['wpacu_time_r'];
+
+        if ( ($assetsFetchDashboardDirectMethod || $targetPagePreloadFromDashboard) && is_user_logged_in() ) {
+            $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : get_site_url();
+
+            header('Access-Control-Allow-Origin: '.$origin); // Allow all origins since it's public
+            header('Access-Control-Allow-Credentials: true');
+            header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-WP-Nonce');
+        }
     }
 
 	/**

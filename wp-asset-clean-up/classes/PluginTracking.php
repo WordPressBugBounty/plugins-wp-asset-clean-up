@@ -20,12 +20,7 @@ class PluginTracking
 	 */
 	public $data;
 
-	/**
-	 * @var bool
-	 */
-	public $showTrackingNotice = false;
-
-	/**
+    /**
 	 *
 	 */
 	public function init()
@@ -373,6 +368,9 @@ class PluginTracking
 	 */
 	public function noticeStyles()
 	{
+        if ( ! $this->showTrackingNotice() ) {
+            return;
+        }
 		?>
         <style <?php echo Misc::getStyleTypeAttribute(); ?>>
             .wpacu-tracking-notice {
@@ -440,9 +438,9 @@ class PluginTracking
 	 */
 	public function noticeScripts()
 	{
-		if ( ! $this->showTrackingNotice ) {
-			return;
-		}
+        if ( ! $this->showTrackingNotice() ) {
+            return;
+        }
 		?>
         <script type="text/javascript">
             jQuery(document).ready(function($) {
@@ -496,7 +494,7 @@ class PluginTracking
 	 */
 	public function adminNotice()
 	{
-	    if ( MainAdmin::instance()->isTopAdminNoticeDisplayed() || ! $this->showTrackingNotice() ) {
+	    if ( ! $this->showTrackingNotice() ) {
 		    return;
         }
 
@@ -530,9 +528,6 @@ class PluginTracking
 			</div>
 		</div>
 		<?php
-        // Only mark it as shown after it was printed
-		$this->showTrackingNotice = true;
-
         MainAdmin::instance()->setTopAdminNoticeDisplayed();
 	}
 

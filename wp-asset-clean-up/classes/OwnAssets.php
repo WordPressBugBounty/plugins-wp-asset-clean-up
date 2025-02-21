@@ -67,6 +67,11 @@ class OwnAssets
                 'rel_path' => '/assets/script.min.js'
             ),
 
+            'script_cache_manager' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-script-cache-manager',
+                'rel_path' => '/assets/script-cache-manager.min.js'
+            ),
+
             'chosen' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-chosen-script',
                 'rel_path' => '/assets/chosen/chosen.jquery.min.js'
@@ -93,6 +98,8 @@ class OwnAssets
 	    if ( (defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ) {
 		    self::$ownAssets['styles']['style_core']['rel_path']   = '/assets/style.css';
 		    self::$ownAssets['scripts']['script_core']['rel_path'] = '/assets/script.js';
+
+            self::$ownAssets['scripts']['script_cache_manager']['rel_path'] = '/assets/script-cache-manager.js';
 
 		    self::$ownAssets['styles']['chosen']['rel_path']       = '/assets/chosen/chosen.css';
 		    self::$ownAssets['scripts']['chosen']['rel_path']      = '/assets/chosen/chosen.jquery.js';
@@ -238,6 +245,13 @@ JS;
         add_action('admin_enqueue_scripts', array($this, 'stylesAndScriptsForAdmin'));
         add_action('wp_enqueue_scripts',    array($this, 'stylesAndScriptsForPublic'));
 
+        // Query strings for debugging purpuses: 'wpacu_unload_own_style_assets', 'wpacu_unload_own_script_assets'
+        // e.g. wpacu_unload_own_style_assets=handle | wpacu_unload_own_script_assets=handle1,handle2
+        if (isset($_GET['wpacu_unload_own_style_assets']) || isset($_GET['wpacu_unload_own_script_assets'])) {
+            add_action('admin_enqueue_scripts', array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
+            add_action('wp_enqueue_scripts',    array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
+        }
+
 	    // Code only for the Dashboard
 	    add_action('admin_head',   array($this, 'inlineAdminHeadCode'));
 	    add_action('admin_footer', array($this, 'inlineAdminFooterCode'));
@@ -246,8 +260,8 @@ JS;
 	    add_action('admin_head',   array($this, 'inlineCodeHead'));
 	    add_action('wp_head',      array($this, 'inlineCodeHead'));
 
-        add_action('admin_footer',   array($this, 'inlineCodeFooter'), PHP_INT_MAX);
-        add_action('wp_footer',      array($this, 'inlineCodeFooter'), PHP_INT_MAX);
+        add_action('admin_footer',   array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
+        add_action('wp_footer',      array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
 
 	    // Rename ?ver= to ?wpacuversion to prevent other plugins from stripping "ver"
 	    // This is valid in the front-end and the Dashboard
@@ -280,15 +294,17 @@ JS;
     }
 
     /**
+     * This method is used for both front-end and /wp-admin/ view as the top admin bar can be loaded on both sides
+     *
      * @return void
      */
-    public function inlineCodeFooter()
+    public function inlineCommonCodeFooter()
     {
         if (self::isPluginClearCacheLinkAccessible()) {
             global $wp_styles, $wp_scripts;
 
-            if ( ! in_array(self::$ownAssets['styles']['style_core']['handle'], $wp_styles->done) ||
-                 ! in_array(self::$ownAssets['scripts']['script_core']['handle'], $wp_scripts->done) ) {
+            if ( ! in_array(self::$ownAssets['styles']['style_core']['handle'], array_keys($wp_styles->registered)) ||
+                 ! in_array(self::$ownAssets['scripts']['script_cache_manager']['handle'], array_keys($wp_scripts->registered)) ) {
                 return;
             }
             ?>
@@ -377,6 +393,43 @@ JS;
 		}
 	}
 
+
+    /**
+     * Stop loading own plugin assets for debugging purposes
+     *
+     * @return void
+     */
+    public static function unloadOwnAssetsForDebuggingPurposes()
+    {
+        foreach (array('wpacu_unload_own_style_assets', 'wpacu_unload_own_script_assets') as $debugQueryString) {
+            if ( ! (isset($_GET[$debugQueryString]) && $_GET[$debugQueryString]) ) {
+                continue;
+            }
+
+            $allAssetsToClear = array();
+
+            $wpacuUnloadOwnAssets = Misc::getVar('get', $debugQueryString);
+
+            if (strpos($wpacuUnloadOwnAssets, ',') === false) { // No comma, just one asset targeted
+                $allAssetsToClear[] = $wpacuUnloadOwnAssets;
+            } else {
+                foreach (explode(',', $wpacuUnloadOwnAssets) as $wpacuUnloadOwnAsset) {
+                    $allAssetsToClear[] = $wpacuUnloadOwnAsset;
+                }
+            }
+
+            foreach ($allAssetsToClear as $assetToClear) {
+                if ($debugQueryString === 'wpacu_unload_own_style_assets' && in_array($assetToClear, self::getOwnAssetsHandles('styles'))) {
+                    wp_deregister_style($assetToClear);
+                    wp_dequeue_style($assetToClear);
+                } elseif (in_array($assetToClear, self::getOwnAssetsHandles('scripts'))) {
+                    wp_deregister_script($assetToClear);
+                    wp_dequeue_script($assetToClear);
+                }
+            }
+        }
+    }
+
     /**
      *
      */
@@ -437,11 +490,20 @@ JS;
      */
 	private function _enqueueAdminScripts()
     {
-        $page = Misc::getVar('get', 'page');
-        $postIdRequested = isset( $_GET['wpacu_post_id'] ) && $_GET['wpacu_post_id'] ? (int)$_GET['wpacu_post_id'] : 0;
-        $pageRequestFor = Misc::getVar('get', 'wpacu_for');
+        // Cache Manager will always load if any of the plugin's assets have to load
+        wp_register_script(
+            self::$ownAssets['scripts']['script_cache_manager']['handle'],
+            plugins_url(self::$ownAssets['scripts']['script_cache_manager']['rel_path'], WPACU_PLUGIN_FILE),
+            array('jquery'),
+            self::assetVer(self::$ownAssets['scripts']['script_cache_manager']['rel_path'])
+        );
+
+        $page            = Misc::getVar('get', 'page');
+        $pageRequestFor  = Misc::getVar('get', 'wpacu_for');
 
         if ( ! $pageRequestFor ) {
+            $postIdRequested = isset( $_GET['wpacu_post_id'] ) && $_GET['wpacu_post_id'] ? (int)$_GET['wpacu_post_id'] : 0;
+
             // e.g. /wp-admin/admin.php?page=wpassetcleanup_assets_manager&wpacu_post_id=17193 (no "wpacu_for" was mentioned)
             if ($postIdRequested) {
                 $pageRequestFor = AssetsManagerAdmin::detectPostTypeTypeFromRequestedPostId($postIdRequested);
@@ -450,27 +512,35 @@ JS;
             }
         }
 
-	    $currentPostId = AssetsManager::getCurrentPostIdForCssJsManager($page, $pageRequestFor);
-
-        wp_register_script(
-	        self::$ownAssets['scripts']['script_core']['handle'],
-            plugins_url(self::$ownAssets['scripts']['script_core']['rel_path'], WPACU_PLUGIN_FILE),
-            array('jquery', 'jquery-ui-autocomplete'),
-            self::assetVer(self::$ownAssets['scripts']['script_core']['rel_path'])
-        );
+        $currentPostId = AssetsManager::getCurrentPostIdForCssJsManager($page, $pageRequestFor);
 
         $dataForObject = array(
             'post_id'          => $currentPostId,
             'page'             => $page,
             'page_request_for' => $pageRequestFor
         );
+
         $wpacuObjectData = self::generateObjectData($dataForObject);
 
         wp_localize_script(
+            self::$ownAssets['scripts']['script_cache_manager']['handle'],
+            'wpacu_object',
+            apply_filters('wpacu_object_data', $wpacuObjectData)
+        );
+
+        wp_enqueue_script(self::$ownAssets['scripts']['script_cache_manager']['handle']);
+
+        if ( ! self::loadScriptCoreJs() ) {
+            // Only load everything below in specific pages (e.g. own plugin page, edit post page with CSS/JS manager shown, .etc)
+            return;
+        }
+
+        wp_register_script(
 	        self::$ownAssets['scripts']['script_core']['handle'],
-			'wpacu_object',
-			apply_filters('wpacu_object_data', $wpacuObjectData)
-		);
+            plugins_url(self::$ownAssets['scripts']['script_core']['rel_path'], WPACU_PLUGIN_FILE),
+            array('jquery', self::$ownAssets['scripts']['script_cache_manager']['handle'], 'jquery-ui-autocomplete'),
+            self::assetVer(self::$ownAssets['scripts']['script_core']['rel_path'])
+        );
 
 		wp_enqueue_script(self::$ownAssets['scripts']['script_core']['handle']);
 
@@ -495,13 +565,17 @@ JS;
 		// Standard edit post page
 	    global $pagenow;
 
-	    $isEditPostArea = ($pagenow === 'post.php' && Misc::getVar('get', 'post') && Misc::getVar('get', 'action') === 'edit');
+	    $isEditPostAreaWithCssJsManagerEnabled = ($pagenow === 'post.php' && Misc::getVar('get', 'post')
+            && Misc::getVar('get', 'action') === 'edit')
+            && Main::instance()->settings['dashboard_show'] == 1
+            && Main::instance()->settings['show_assets_meta_box'];
 
-		if ( $page === WPACU_PLUGIN_ID . '_settings' || $isDashManageAssetsPage || $isEditPostArea ) {
+		if ( $page === WPACU_PLUGIN_ID . '_settings' || $isDashManageAssetsPage || $isEditPostAreaWithCssJsManagerEnabled
+        ) {
 		    $this->loadjQueryChosen();
         }
 
-        if ($isEditPostArea || in_array($page, array(WPACU_PLUGIN_ID . '_assets_manager', WPACU_PLUGIN_ID . '_plugins_manager'))) {
+        if ($isEditPostAreaWithCssJsManagerEnabled || in_array($page, array(WPACU_PLUGIN_ID . '_assets_manager', WPACU_PLUGIN_ID . '_plugins_manager'))) {
 			// [Start] SweetAlert
 			wp_enqueue_style(
 				self::$ownAssets['styles']['sweetalert2']['handle'],
@@ -782,6 +856,8 @@ CSS;
             $postId = Main::instance()->getCurrentPostId();
         }
 
+        $currentHostSameAsHostFromTargetUrl = true;
+
         if (is_admin()) {
             // Dashboard View
             if (self::checkForFetchUrlInDashboardView()) {
@@ -796,6 +872,17 @@ CSS;
                 // e.g. after a theme switch
                 $pageUrl = site_url(); // get main website URL
             }
+
+            // Get the current hostname from the current URL request
+            $currentHost          = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+
+            $hostFromPageUrlParse = parse_url($pageUrl);
+            $hostFromPageUrl      = isset($hostFromPageUrlParse['host']) && $hostFromPageUrlParse['host'] ? $hostFromPageUrlParse['host'] : '';
+
+            // Normalize both hostnames (convert to lowercase for case-insensitive comparison)
+            // If it returns false, the current host could be "domain.com" and the host from the target page could be "es.domain.com"
+            $currentHostSameAsHostFromTargetUrl = $currentHost && $hostFromPageUrl
+                                                  && strtolower($currentHost) === strtolower($hostFromPageUrl);
         } else {
             // Front-end view
             // Get the post ID if not is set (it will be '0' if not a singular page)
@@ -831,6 +918,8 @@ HTML;
             'ajax_url'         => esc_url( admin_url( 'admin-ajax.php' ) ),
             'page_url'         => $pageUrl // post, page, custom post type, homepage etc.
         );
+
+        $wpacuObjectData['current_host_same_as_host_from_target_url'] = $currentHostSameAsHostFromTargetUrl;
 
         if ( ! is_admin() ) {
             $wpacuObjectData['is_frontend_view'] = true;
@@ -1019,21 +1108,68 @@ CSS;
      */
     public function enqueuePublicScripts()
     {
+        // Cache Manager will always load if any of the plugin's assets have to load
         wp_register_script(
-            self::$ownAssets['scripts']['script_core']['handle'],
-            plugins_url(self::$ownAssets['scripts']['script_core']['rel_path'], WPACU_PLUGIN_FILE),
+            self::$ownAssets['scripts']['script_cache_manager']['handle'],
+            plugins_url(self::$ownAssets['scripts']['script_cache_manager']['rel_path'], WPACU_PLUGIN_FILE),
             array('jquery'),
-            self::assetVer(self::$ownAssets['scripts']['script_core']['rel_path']),
+            self::assetVer(self::$ownAssets['scripts']['script_cache_manager']['rel_path']),
             true
         );
 
-	    wp_localize_script(
-		    self::$ownAssets['scripts']['script_core']['handle'],
-		    'wpacu_object',
-		    apply_filters('wpacu_object_data', self::generateObjectData())
-	    );
+        wp_localize_script(
+            self::$ownAssets['scripts']['script_cache_manager']['handle'],
+            'wpacu_object',
+            apply_filters('wpacu_object_data', self::generateObjectData())
+        );
 
-	    wp_enqueue_script(self::$ownAssets['scripts']['script_core']['handle']);
+        wp_enqueue_script(self::$ownAssets['scripts']['script_cache_manager']['handle']);
+
+        if (self::loadScriptCoreJs()) {
+            // Core file (it also calls the cache manager)
+            wp_register_script(
+                self::$ownAssets['scripts']['script_core']['handle'],
+                plugins_url(self::$ownAssets['scripts']['script_core']['rel_path'], WPACU_PLUGIN_FILE),
+                array('jquery', self::$ownAssets['scripts']['script_cache_manager']['handle']),
+                self::assetVer(self::$ownAssets['scripts']['script_core']['rel_path']),
+                true
+            );
+
+            wp_enqueue_script(self::$ownAssets['scripts']['script_core']['handle']);
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    public static function loadScriptCoreJs()
+    {
+        /*
+         * Load it on any plugin page
+         */
+        if (Menu::isPluginPage()) {
+            return true;
+        }
+
+        $isManageInTheDashboardEnabledOnEditPostOrTaxonomy =
+            Main::instance()->settings['dashboard_show'] == 1 &&
+            Main::instance()->settings['show_assets_meta_box'];
+
+        /*
+         * Load it whenever an edit post/page/custom post type (e.g. WooCommerce product) is opened
+         * and CSS/JS is loaded (shown there as a meta box)
+         */
+        global $pagenow;
+
+        $isEditPostTaxAreaWithCssJsManagerEnabled = ($pagenow === 'post.php' && Misc::getVar('get', 'post')
+            && Misc::getVar('get', 'action') === 'edit')
+            && $isManageInTheDashboardEnabledOnEditPostOrTaxonomy;
+
+        if ($isEditPostTaxAreaWithCssJsManagerEnabled) {
+            return true;
+        }
+
+        return false;
     }
 
 	/**

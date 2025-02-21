@@ -55,7 +55,7 @@ class PluginReview
 	public function ratePluginNoticeOutput()
 	{
 		// Criteria for showing up the review plugin notice
-		if ( ! $this->showReviewNotice() || MainAdmin::instance()->isTopAdminNoticeDisplayed() ) {
+		if ( ! $this->showReviewNotice() ) {
 		    return;
 		}
 
@@ -105,6 +105,9 @@ class PluginReview
 	 */
 	public function noticeStyles()
     {
+        if ( ! $this->showReviewNotice() ) {
+            return;
+        }
         ?>
         <style <?php echo Misc::getStyleTypeAttribute(); ?>>
             .wpacu-review-plugin-notice {
@@ -205,7 +208,7 @@ class PluginReview
 
 	    // If another Asset CleanUp notice (e.g. for plugin tracking) is already shown
 	    // don't also show this one below/above it
-	    if (MainAdmin::isTopAdminNoticeDisplayed()) {
+	    if (MainAdmin::instance()->isTopAdminNoticeDisplayed()) {
 		    $this->showReviewNotice = false;
 		    return $this->showReviewNotice;
 	    }

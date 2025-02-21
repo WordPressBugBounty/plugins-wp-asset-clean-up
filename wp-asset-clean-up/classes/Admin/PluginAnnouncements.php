@@ -18,6 +18,11 @@ class PluginAnnouncements
     private $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json';
 
     /**
+     *
+     */
+    const PLUGIN_ID = WPACU_PLUGIN_ID;
+
+    /**
      * Key used for transient storage.
      * @var string
      */
@@ -146,17 +151,17 @@ class PluginAnnouncements
 
             if ($this->showAnnouncementWay === 'ajax') {
                 // Show announcements (via AJAX)
-                add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_fill_announcement_container', array($this, 'fillAnnouncementContainerAjax'));
+                add_action('wp_ajax_' . self::PLUGIN_ID . '_fill_announcement_container', array($this, 'fillAnnouncementContainerAjax'));
             }
 
             if ($this->closeAnnouncementWay === 'ajax') {
                 // Close announcements (via AJAX), after using any of the actions: snooze, seen, never show any
-                add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_announcements_action', array($this, 'handleAjaxActionRequest'));
+                add_action('wp_ajax_' . self::PLUGIN_ID . '_announcements_action', array($this, 'handleAjaxActionRequest'));
             }
 
             // Reload via AJAX the list of announcements from the area: "Settings" -- "Plugin Usage Preferences" -- "Announcements"
             // In case there are action taken (e.g. from the top announcement shown)
-            add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_reload_announcements_settings_tab', array($this, 'reloadAnnouncementsSettingsTab'));
+            add_action('wp_ajax_' . self::PLUGIN_ID . '_reload_announcements_settings_tab', array($this, 'reloadAnnouncementsSettingsTab'));
         });
     }
 
@@ -532,6 +537,16 @@ class PluginAnnouncements
                 continue;
             }
 
+            // Does it have extra conditions? Check them!
+            // e.g. at least a few days have to pass since plugin activation (first usage)
+            $conditions = isset($ann['conditions']) && is_array($ann['conditions']) ? $ann['conditions'] : array();
+
+            $pluginUsageData = self::getPluginUsageData($ann['conditions']);
+
+            if ( ! self::isMatchForExtraConditions($conditions, $pluginUsageData) ) {
+                continue;
+            }
+
             // Snoozed?
 
             // Current time has to be < than the snooze time (the time it was at the moment the action was taken + the snoozing period)
@@ -619,6 +634,88 @@ class PluginAnnouncements
     }
 
     /**
+     * @param $conditions
+     *
+     * @return array
+     */
+    public static function getPluginUsageData($conditions)
+    {
+        $pluginUsageData = array();
+
+        // Note: the "key" has the same name as the ones from the JSON feed
+
+        // Days passed since first usage
+        $forKey = 'time_passed_in_days_after_first_activation';
+
+        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
+            $firstUsageTimestamp = get_option(WPACU_PLUGIN_ID . '_first_usage');
+            $differenceInSeconds = time() - $firstUsageTimestamp;
+            $differenceInDays    = floor($differenceInSeconds / DAY_IN_SECONDS);
+
+            $pluginUsageData[$forKey] = $differenceInDays;
+        }
+
+        // Total number of unloaded assets
+        $forKey = 'has_minimum_number_of_asset_rules';
+
+        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
+            $pluginUsageData[$forKey] = MiscAdmin::getTotalUnloadedAssets();
+        }
+
+        return $pluginUsageData;
+    }
+
+    /**
+     * @param $conditions
+     * @param $pluginUsageData
+     *
+     * @return bool
+     */
+    public static function isMatchForExtraConditions($conditions, $pluginUsageData)
+    {
+        // Check if the condition format is valid
+        if ( ! isset($conditions['operator'], $conditions['rules']) || ! is_array($conditions['rules']) ) {
+            return false; // Invalid structure, return false
+        }
+
+        $operator         = $conditions['operator'];  // "and" or "or"
+        $rules            = $conditions['rules'];     // List of conditions
+
+        $conditionResults = array();                  // Array to store evaluation results
+
+        // Loop through each rule and evaluate it
+        foreach ( $rules as $key => $expectedValue ) {
+            // If the user data does not have this key, consider it a failed condition
+            if ( ! isset($pluginUsageData[$key]) ) {
+                if ($operator === 'and') {
+                    return false; // At least a condition failed, and the "and" operator is used, thus return false directly
+                }
+
+                $conditionResults[] = false;
+
+                continue; // Move to the next rule
+            }
+
+            $actualValue   = $pluginUsageData[$key]; // The value from the usage data
+            $actualValue   = is_numeric($actualValue)   ? (int) $actualValue   : $actualValue;
+
+            $expectedValue = is_numeric($expectedValue) ? (int) $expectedValue : $expectedValue;
+
+            // Evaluate the condition based on comparison
+            $conditionResults[] = $actualValue >= $expectedValue;
+        }
+
+        // Determine the final result based on the operator
+        if ($operator === 'and') {
+            return ! in_array(false, $conditionResults); // No `false` values → true
+        } elseif ($operator === 'or') {
+            return in_array(true, $conditionResults);    // At least one `true` → true
+        }
+
+        return false; // Default to false if operator is invalid
+    }
+
+    /**
      * @return array|void
      */
     public function renderAnnouncementsContainer()
@@ -642,7 +739,7 @@ class PluginAnnouncements
      */
     public function fillAnnouncementContainerAjax()
     {
-        check_ajax_referer(WPACU_PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
 
         $announcements = $this->getAnnouncementsFromTheFeed();
 
@@ -878,7 +975,7 @@ class PluginAnnouncements
      */
     public function handleAjaxActionRequest()
     {
-        check_ajax_referer(WPACU_PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
 
         $actionType     = isset($_POST['action_type'])     ? sanitize_text_field($_POST['action_type']) : '';
         $announcementId = isset($_POST['announcement_id']) ? sanitize_text_field($_POST['announcement_id']) : '';
@@ -891,7 +988,7 @@ class PluginAnnouncements
      */
     public function reloadAnnouncementsSettingsTab()
     {
-        check_ajax_referer(WPACU_PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
 
         $wpacuSettings = new Settings;
         $data = $wpacuSettings->getAll(); // It will be used in the inclusion
@@ -950,7 +1047,7 @@ class PluginAnnouncements
         <script type="text/javascript">
             jQuery(document).ready(function($) {
                 var ajaxUrl = '<?php echo admin_url('admin-ajax.php'); ?>',
-                    nonce   = '<?php echo wp_create_nonce(WPACU_PLUGIN_ID . '_announcements_nonce'); ?>';
+                    nonce   = '<?php echo wp_create_nonce(self::PLUGIN_ID . '_announcements_nonce'); ?>';
 
                 <?php
                 if ($this->showAnnouncementWay === 'ajax') {
@@ -1052,7 +1149,7 @@ class PluginAnnouncements
                             url: ajaxUrl,
                             method: 'POST',
                             data: {
-                                action: '<?php echo WPACU_PLUGIN_ID; ?>_reload_announcements_settings_tab',
+                                action: '<?php echo self::PLUGIN_ID; ?>_reload_announcements_settings_tab',
                                 nonce: nonce
                             }
                         }).done(function (response) {
@@ -1068,7 +1165,7 @@ class PluginAnnouncements
                     // Send request on link click (e.g. snooze, seen, never show any)
                     function wpacuSendAnnouncementRequest(actionType, announcementId) {
                         var requestData = {
-                            action: '<?php echo WPACU_PLUGIN_ID; ?>_announcements_action',
+                            action: '<?php echo self::PLUGIN_ID; ?>_announcements_action',
                             nonce: nonce,
                             action_type: actionType
                         };

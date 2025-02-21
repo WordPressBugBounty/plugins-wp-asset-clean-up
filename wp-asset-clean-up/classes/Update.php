@@ -1078,21 +1078,21 @@ SQL;
     /**
      * Lite Version: For post, pages, custom post types
      *
-     * @param mixed $postType
+     * @param mixed $value
      *
      * @return bool
      * @noinspection NestedAssignmentsUsageInspection
      */
-    public function removeBulkUnloads($postType = '')
+    public function removeBulkUnloads($value = '')
     {
-        if (! $postType) {
+        if ( ! $value ) {
             global $post;
 
             // In the LITE version, post type unload is the only option for bulk unloads
             // $postType could be 'post', 'page' or a custom post type such as 'product' (WooCommerce), 'download' (Easy Digital Downloads), etc.
-	        $postType = isset($post->post_type) ? $post->post_type : false;
+            $value = isset($post->post_type) ? $post->post_type : false;
 
-            if (! $postType) {
+            if ( ! $value ) {
             	return false;
             }
         }

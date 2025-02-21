@@ -34,14 +34,14 @@ if ($data['google_fonts_remove']) {
 
 			<div id="google_fonts_combine_wrap" <?php if (! $data['google_fonts_combine']) { ?>style="opacity: 0.4;"<?php } ?>>
 				<div class="google_fonts_load_types">
-					<div style="flex-basis: 70%; padding-right: 20px;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_rb"><input id="google_fonts_combine_type_rb" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if (! $data['google_fonts_combine_type']) { ?>checked="checked"<?php } ?> value="" />Render-blocking (default)</label></div>
-					<div style="flex-basis: 90%; padding-right: 20px;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_async"><input id="google_fonts_combine_type_async" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if ($data['google_fonts_combine_type'] === 'async') { ?>checked="checked"<?php } ?> value="async" />Asynchronous via Web Font Loader (webfont.js)</label></div>
-					<div style="flex-basis: 90%;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_async_preload"><input id="google_fonts_combine_type_async_preload" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if ($data['google_fonts_combine_type'] === 'async_preload') { ?>checked="checked"<?php } ?> value="async_preload" />Asynchronous by preloading the CSS stylesheet</label></div>
-				</div>
+					<div style="flex-basis: 26%; padding-right: 20px;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_rb"><input id="google_fonts_combine_type_rb" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if (! $data['google_fonts_combine_type']) { ?>checked="checked"<?php } ?> value="" />Render-blocking (default)</label></div>
+					<div style="flex-basis: 40%;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_async_preload"><input id="google_fonts_combine_type_async_preload" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if ($data['google_fonts_combine_type'] === 'async_preload') { ?>checked="checked"<?php } ?> value="async_preload" />Asynchronous by preloading the CSS stylesheet</label></div>
+                    <div style="flex-basis: 40%; padding-right: 20px;" class="wpacu-fancy-radio"><label for="google_fonts_combine_type_async"><input id="google_fonts_combine_type_async" class="google_fonts_combine_type" type="radio" name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[google_fonts_combine_type]" <?php if ($data['google_fonts_combine_type'] === 'async') { ?>checked="checked"<?php } ?> value="async" />Asynchronous via Web Font Loader (webfont.js)</label></div>
+                </div>
 
 				<!-- Render-blocking (default) info -->
 				<div id="wpacu_google_fonts_combine_type_rb_info_area" class="wpacu_google_fonts_combine_type_area" <?php if ($data['google_fonts_combine_type']) { echo 'style="display: none;"'; } ?>>
-					<p><strong>Example</strong> The following LINK tags will be merged into one tag:</p>
+                    <p><strong>Example:</strong> The following LINK tags will be merged into one tag:</p>
 
 					<ul>
 						<li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Sans"&gt;</code></li>
@@ -49,49 +49,12 @@ if ($data['google_fonts_remove']) {
 					</ul>
 					<hr />
 					<ul>
-						<li><code>&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans|Inconsolata:bold"&gt;</code></li>
+						<li><code>&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans%7CInconsolata:700"&gt;</code></li>
 					</ul>
 
 					<p><strong>Result:</strong> This simple feature saves one round trip to the server for each additional font requested (reducing the number of HTTP requests), and also protects against blocking on older browsers which only have 2 connections open per domain at a time.</p>
 				</div>
 				<!-- /Render-blocking (default) info -->
-
-				<!-- Async info -->
-				<div id="wpacu_google_fonts_combine_type_async_info_area" class="wpacu_google_fonts_combine_type_area" <?php if ($data['google_fonts_combine_type'] !== 'async') { echo 'style="display: none;"'; } ?>>
-					<p><strong>Example</strong> The following LINK tags will be converted into an inline JavaScript tag place:</p>
-
-					<ul>
-						<li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Sans"&gt;</code></li>
-						<li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inconsolata:bold"&gt;</code></li>
-					</ul>
-					<hr />
-					<ul>
-						<li>
-							<code>
-								<?php
-                                $scriptType                = Misc::getScriptTypeAttribute();
-								$asyncWebFontLoaderSnippet = <<<HTML
-&lt;script id='wpacu-google-fonts-async-load' {$scriptType}&gt;
-WebFontConfig = { google: { families: ['Droid+Sans', 'Inconsolata:bold'] } };
-(function(wpacuD) {
-&nbsp;&nbsp;var wpacuWf = wpacuD.createElement('script'), wpacuS = wpacuD.scripts[0];
-&nbsp;&nbsp;wpacuWf.src = ('https:' === document.location.protocol ? 'https' : 'http') 
-&nbsp;&nbsp;&nbsp;&nbsp;+ '://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js';
-&nbsp;&nbsp;wpacuWf.async = true;
-&nbsp;&nbsp;wpacuS.parentNode.insertBefore(wpacuWf, wpacuS);
-})(document);
-&lt;/script&gt;&lt;noscript&gt;&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans|Inconsolata:bold"&gt;&lt;/noscript&gt;
-HTML;
-								echo nl2br($asyncWebFontLoaderSnippet);
-								?>
-							</code>
-							<p style="margin-top: 5px;"><small><strong>Note:</strong> The inline tag's contents will be minified in the resulting HTML code. A NOSCRIPT tag is appended to the SCRIPT tag as a fallback in case JavaScript is disabled for any reason.</small></p>
-						</li>
-					</ul>
-
-					<p>Using the Web Font Loader asynchronously avoids blocking your page while loading the JavaScript. A <strong>disadvantage</strong> is that the rest of the page might render before the Web Font Loader is loaded and executed, which can cause a <strong>Flash of Unstyled Text (FOUT)</strong>.</p>
-				</div>
-				<!-- /Async info -->
 
 				<!-- Async preload info -->
 				<div id="wpacu_google_fonts_combine_type_async_preload_info_area" class="wpacu_google_fonts_combine_type_area" <?php if ($data['google_fonts_combine_type'] !== 'async_preload') { echo 'style="display: none;"'; } ?>>
@@ -107,10 +70,9 @@ HTML;
 							<code>
 								<?php
 								$asyncPreloadSnippet = <<<HTML
-&lt;link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" id="wpacu-combined-google-fonts-css-preload" href="https://fonts.googleapis.com/css?family=Droid+Sans|Inconsolata:bold"&gt;
-&lt;noscript&gt;&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans|Inconsolata:bold"&gt;&lt;/noscript&gt;
+&lt;link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" id="wpacu-combined-google-fonts-css-preload" href="https://fonts.googleapis.com/css?family=Droid+Sans%7CInconsolata:700"&gt;
+&lt;noscript&gt;&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans%7CInconsolata:700"&gt;&lt;/noscript&gt;
 HTML;
-
 								echo nl2br($asyncPreloadSnippet);
 								?>
 							</code>
@@ -119,6 +81,44 @@ HTML;
 					</ul>
 				</div>
 				<!-- /Async preload info -->
+
+                <!-- Async info -->
+                <div id="wpacu_google_fonts_combine_type_async_info_area" class="wpacu_google_fonts_combine_type_area" <?php if ($data['google_fonts_combine_type'] !== 'async') { echo 'style="display: none;"'; } ?>>
+                    <div style="border-top: 1px solid orange; border-right: 1px solid orange; border-bottom: 1px solid orange; border-left: 2px solid orange; padding: 10px; font-style: italic; border-radius: 5px;"><span style="font-size: 20px; margin: 0 4px 0 0;">⚠️</span> Make sure to test this one properly, as there were reports that it sometimes returns a status code of "403 Forbidden" (the fonts do not load). If this doesn't work in your case, you can switch to the other options.</div>
+                    <p><strong>Example:</strong> The following LINK tags will be converted into an inline JavaScript tag place:</p>
+
+                    <ul>
+                        <li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Sans"&gt;</code></li>
+                        <li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inconsolata:bold"&gt;</code></li>
+                    </ul>
+                    <hr />
+                    <ul>
+                        <li>
+                            <code>
+                                <?php
+                                $scriptType                = Misc::getScriptTypeAttribute();
+                                $asyncWebFontLoaderSnippet = <<<HTML
+&lt;script id='wpacu-google-fonts-async-load' {$scriptType}&gt;
+WebFontConfig = { google: { families: ['Droid+Sans', 'Inconsolata:700'] } };
+(function(wpacuD) {
+&nbsp;&nbsp;var wpacuWf = wpacuD.createElement('script'), wpacuS = wpacuD.scripts[0];
+&nbsp;&nbsp;wpacuWf.src = ('https:' === document.location.protocol ? 'https' : 'http') 
+&nbsp;&nbsp;&nbsp;&nbsp;+ '://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js';
+&nbsp;&nbsp;wpacuWf.async = true;
+&nbsp;&nbsp;wpacuS.parentNode.insertBefore(wpacuWf, wpacuS);
+})(document);
+&lt;/script&gt;&lt;noscript&gt;&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans%7CInconsolata:700"&gt;&lt;/noscript&gt;
+HTML;
+                                echo nl2br($asyncWebFontLoaderSnippet);
+                                ?>
+                            </code>
+                            <p style="margin-top: 5px;"><small><strong>Note:</strong> The inline tag's contents will be minified in the resulting HTML code. A NOSCRIPT tag is appended to the SCRIPT tag as a fallback in case JavaScript is disabled for any reason.</small></p>
+                        </li>
+                    </ul>
+
+                    <p>Using the Web Font Loader asynchronously avoids blocking your page while loading the JavaScript. A <strong>disadvantage</strong> is that the rest of the page might render before the Web Font Loader is loaded and executed, which can cause a <strong>Flash of Unstyled Text (FOUT)</strong>.</p>
+                </div>
+                <!-- /Async info -->
 			</div>
 		</td>
 	</tr>
@@ -144,7 +144,7 @@ HTML;
 			<hr />
 			<ul>
 				<li><code>&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono<strong>&amp;display=swap</strong>"&gt;</code></li>
-				<li><code>&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans|Inconsolata:bold<strong>&amp;display=swap</strong>"&gt;</code></li>
+				<li><code>&lt;link rel="stylesheet" id="wpacu-combined-google-fonts-css" href="https://fonts.googleapis.com/css?family=Droid+Sans%7CInconsolata:bold<strong>&amp;display=swap</strong>"&gt;</code></li>
 			</ul>
 			<hr />
 

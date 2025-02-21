@@ -214,7 +214,7 @@ class FontsGoogle
 						$finalLinkHref = $linkHrefOriginal = Misc::getValueFromTag($linkTag);
 
 						// [START] Remove invalid requests with no font family
-						$urlParse = parse_url( str_replace( '&amp;', '&', $linkHrefOriginal ), PHP_URL_QUERY );
+						$urlParse = parse_url( str_replace( array('&amp;', '&#038;'), '&', $linkHrefOriginal ), PHP_URL_QUERY );
 						parse_str( $urlParse, $qStr );
 
 						if ( isset( $qStr['family'] ) && ! $qStr['family'] ) {
@@ -284,7 +284,7 @@ class FontsGoogle
 						$linkHrefOriginal = Misc::getValueFromTag($linkTag);
 
 						// [START] Remove invalid requests with no font family
-						$urlParse = parse_url( str_replace( '&amp;', '&', $linkHrefOriginal ), PHP_URL_QUERY );
+						$urlParse = parse_url( str_replace( array('&amp;', '&#038;'), '&', $linkHrefOriginal ), PHP_URL_QUERY );
 						parse_str( $urlParse, $qStr );
 
 						if ( isset( $qStr['family'] ) && ! $qStr['family'] ) {
@@ -573,7 +573,10 @@ class FontsGoogle
 
 		foreach ($finalLinks as $finalLinkIndex => $finalLinkData) {
 			$finalLinkHref = $finalLinkData['href'];
-			$finalLinkHref = str_replace('&#038;', '&', $finalLinkHref);
+
+            // Make sure all have the same common delimiters
+            // They will be restored later on for "W3 Validator Compatibility"
+			$finalLinkHref = str_replace(array('&#038;', '%7C'), array('&', '|'), $finalLinkHref);
 
 			$queries = parse_url($finalLinkHref, PHP_URL_QUERY);
 			parse_str($queries, $fontQueries);
@@ -636,11 +639,11 @@ class FontsGoogle
 					$multipleSubsets = explode('|', trim($fontQueries['effect'], '|'));
 
 					foreach ($multipleSubsets as $subset) {
-						$fontsArray['effects'][] = trim($subset);
+						$fontsArray['effect'][] = trim($subset);
 					}
 				} else {
 					// Only one subset
-					$fontsArray['effects'][] = $fontQueries['effect'];
+					$fontsArray['effect'][] = $fontQueries['effect'];
 				}
 			}
 		}
@@ -669,16 +672,18 @@ class FontsGoogle
 				$finalCombinedParameters .= '&subset=' . implode(',', array_unique($fontsArray['subsets']));
 			}
 
-			// Effects
-			if ( ! empty($fontsArray['effects']) ) {
-				sort($fontsArray['effects']);
-				$finalCombinedParameters .= '&effect=' . implode('|', array_unique($fontsArray['effects']));
+			// Effect(s)
+			if ( ! empty($fontsArray['effect']) ) {
+				sort($fontsArray['effect']);
+				$finalCombinedParameters .= '&effect=' . implode('|', array_unique($fontsArray['effect']));
 			}
 
 			if ($fontDisplay = Main::instance()->settings['google_fonts_display']) {
 				$finalCombinedParameters .= '&display=' . $fontDisplay;
 			}
 
+            // For "W3 Validator"
+            $finalCombinedParameters = str_replace('|', '%7C', $finalCombinedParameters);
 			$finalCombinedParameters = esc_attr($finalCombinedParameters);
 
 			// This is needed for both render-blocking and async (within NOSCRIPT tag as a fallback)
@@ -738,10 +743,10 @@ LINK;
 
 					// Append extra parameters to the last family from the list
 					if ($iCount === count($fontsArray['families']) - 1) {
-						// Effects
-						if ( ! empty($fontsArray['effects']) ) {
-							sort($fontsArray['effects']);
-							$wfConfigGoogleFamily .= '&effect=' . implode('|', array_unique($fontsArray['effects']));
+						// Effect(s)
+						if ( ! empty($fontsArray['effect']) ) {
+							sort($fontsArray['effect']);
+							$wfConfigGoogleFamily .= '&effect=' . implode('%7C', array_unique($fontsArray['effect']));
 						}
 
 						if ($fontDisplay = Main::instance()->settings['google_fonts_display']) {
@@ -803,6 +808,10 @@ LINK;
 		}
 
 		$newTypes = array_unique($newTypes);
+
+        $newTypes = array_map(function($type) {
+            return ($type === 'bold') ? '700' : $type;
+        }, $newTypes);
 
 		sort($newTypes);
 

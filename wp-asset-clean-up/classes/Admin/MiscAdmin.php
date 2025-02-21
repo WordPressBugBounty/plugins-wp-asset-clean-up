@@ -478,6 +478,10 @@ SQL;
      */
     public static function getThemeIcon($themeName)
     {
+        if ( ! $themeName ) {
+            return '';
+        }
+
         $themesIconsPathToDir = WPACU_PLUGIN_DIR.'/assets/icons/themes/';
         $themesIconsUrlDir    = WPACU_PLUGIN_URL.'/assets/icons/themes/';
 
@@ -487,7 +491,7 @@ SQL;
 
         $themeName = strtolower($themeName);
 
-        $themesIcons = scandir($themesIconsPathToDir);
+        $themesIcons = array_diff(scandir($themesIconsPathToDir), array('.', '..'));
 
         foreach ($themesIcons as $themesIcon) {
             if (strpos($themesIcon, $themeName.'.') !== false) {
