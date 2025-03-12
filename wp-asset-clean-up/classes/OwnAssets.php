@@ -1144,28 +1144,35 @@ CSS;
      */
     public static function loadScriptCoreJs()
     {
-        /*
-         * Load it on any plugin page
-         */
-        if (Menu::isPluginPage()) {
-            return true;
-        }
+        if (is_admin()) {
+            // Only related to the front-end view
 
-        $isManageInTheDashboardEnabledOnEditPostOrTaxonomy =
-            Main::instance()->settings['dashboard_show'] == 1 &&
-            Main::instance()->settings['show_assets_meta_box'];
+            /*
+             * Load it on any plugin page
+             */
+            if (Menu::isPluginPage()) {
+                return true;
+            }
 
-        /*
-         * Load it whenever an edit post/page/custom post type (e.g. WooCommerce product) is opened
-         * and CSS/JS is loaded (shown there as a meta box)
-         */
-        global $pagenow;
+            $isManageInTheDashboardEnabledOnEditPostOrTaxonomy =
+                Main::instance()->settings['dashboard_show'] == 1 &&
+                Main::instance()->settings['show_assets_meta_box'];
 
-        $isEditPostTaxAreaWithCssJsManagerEnabled = ($pagenow === 'post.php' && Misc::getVar('get', 'post')
-            && Misc::getVar('get', 'action') === 'edit')
-            && $isManageInTheDashboardEnabledOnEditPostOrTaxonomy;
+            /*
+             * Load it whenever an edit post/page/custom post type (e.g. WooCommerce product) is opened
+             * and CSS/JS is loaded (shown there as a meta box)
+             */
+            global $pagenow;
 
-        if ($isEditPostTaxAreaWithCssJsManagerEnabled) {
+            $isEditPostTaxAreaWithCssJsManagerEnabled = ($pagenow === 'post.php' && Misc::getVar('get', 'post')
+                                                         && Misc::getVar('get', 'action') === 'edit')
+                                                        && $isManageInTheDashboardEnabledOnEditPostOrTaxonomy;
+
+            if ($isEditPostTaxAreaWithCssJsManagerEnabled) {
+                return true;
+            }
+        } elseif (Main::instance()->isFrontendEditView) {
+            // Front-end view is enabled
             return true;
         }
 

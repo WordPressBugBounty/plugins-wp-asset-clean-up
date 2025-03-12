@@ -40,8 +40,13 @@ if (isset($data['for']) && $data['for']) {
 
     // e.g. 'custom_taxonomies' is the 'for' value
     // The file name would be '_custom-taxonomy.php'
-    $formatNameToFileStandard = str_replace('_', '-', $data['for']);
-    $maybeIncludeFile         = $adminPagesAssetsManagerTplDir . '_' . $formatNameToFileStandard . '.php';
+
+    if ($data['for'] === 'custom_taxonomies') {
+        $maybeIncludeFile         = $adminPagesAssetsManagerTplDir . '_custom-taxonomy.php';
+    } else {
+        $formatNameToFileStandard = str_replace('_', '-', $data['for']);
+        $maybeIncludeFile         = $adminPagesAssetsManagerTplDir . '_' . $formatNameToFileStandard . '.php';
+    }
 
     if (is_file($maybeIncludeFile)) {
         include_once $maybeIncludeFile;

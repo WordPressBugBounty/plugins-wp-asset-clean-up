@@ -9,6 +9,8 @@ if ( ! isset($data) ) {
 $wpacuSubPage = (isset($_GET['wpacu_sub_page']) && $_GET['wpacu_sub_page']) ? $_GET['wpacu_sub_page'] : 'manage_css_js';
 
 include_once __DIR__ . '/_top-area.php';
+
+$data['locked_for_pro'] = '<span class="dashicons dashicons-info"></span> Managing CSS/JS on the selected page requires an <a href="'.WPACU_PLUGIN_GO_PRO_URL.'?utm_source=plugin_assets_manager&utm_medium=[wpacu_chosen_page_type]">upgrade to the Pro version</a> of Asset CleanUp.';
 ?>
 <div class="wpacu-wrap" style="margin: -12px 0 0;">
     <div class="wpacu-sub-page-tabs-wrap"> <!-- Sub-tabs wrap -->

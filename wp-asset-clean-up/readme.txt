@@ -4,7 +4,7 @@ Tags: minify css, minify javascript, defer css javascript, page speed, dequeue
 Donate link: https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=wp_org_lite&utm_medium=donate
 Requires at least: 4.6
 Tested up to: 6.7.2
-Stable tag: 1.4.0.2
+Stable tag: 1.4.0.3
 Requires PHP: 5.6
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl.html
@@ -192,6 +192,10 @@ With the recently released "Test Mode" feature, you can safely unload assets on 
 4. Homepage CSS & JS Management (List sorted by location)
 
 == Changelog ==
+= 1.4.0.3 =
+* Fix: "CSS & JS Manager" -- "Manage CSS/JS" -- "Custom Taxonomy" was not showing the guiding information
+* Fix: When managing CSS/JS in the front-end view, plugin's core JS file was not loading, causing some lack of functionality in the CSS/JS manager from the bottom of the page
+
 = 1.4.0.2 =
 * WPML compatibility (it works with other similar plugins as well): Make sure that whenever CSS/JS manager is used in the Dashboard, if the domain/subdomain is different (e.g. es.domain.com instead de.domain.com), the assets will be fetched without getting blocked by the browser's CORS policy
 * Improvement for plugin's JavaScript files: The main "script" file was split into two files, one containing the most common code that clears the caching and it's used in many pages (e.g. when clicking the clear caching link from the top admin bar), which weights around 11% in comparison with the other files; This way, on many pages, fewer JavaScript code is loaded, thus reducing bandwidth for admin visits, and eliminating any potential conflicts with other JS files belonging to other plugins
