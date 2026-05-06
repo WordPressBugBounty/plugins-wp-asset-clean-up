@@ -1072,6 +1072,25 @@ HTML;
 		return array_unique($wpacuActivePlugins);
 	}
 
+    /**
+     * @param $html
+     * @param $attrName
+     *
+     * @return bool
+     */
+    public static function hasExactDataAttr($html, $attrName)
+    {
+        $pos = stripos($html, $attrName);
+
+        if ($pos === false) {
+            return false;
+        }
+
+        $nextChar = substr($html, $pos + strlen($attrName), 1);
+
+        return $nextChar === '' || $nextChar === '=' || $nextChar === '>' || $nextChar === '/' || ctype_space($nextChar);
+    }
+
 	/**
 	 * @return string
 	 */

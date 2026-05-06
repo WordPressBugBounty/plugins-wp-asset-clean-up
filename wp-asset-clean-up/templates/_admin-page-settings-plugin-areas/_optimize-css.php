@@ -177,7 +177,7 @@ $styleTabContent = isset($selectedTabArea) && ($selectedTabArea === $tabIdArea) 
                            name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[combine_loaded_css]"
                            value="1" /> <span class="wpacu_slider wpacu_round"></span> </label>
 
-                &nbsp;<small>* the individual files will be combined into larger CSS files and referenced from <code style="font-size: inherit;"><?php echo '/'.str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . OptimizeCommon::getRelPathPluginCacheDir(); ?>css/</code></small>
+                &nbsp;<small>* the individual files will be combined into larger CSS files and referenced from <code style="font-size: inherit;"><?php echo str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . OptimizeCommon::getRelPathPluginCacheDir(); ?>css/</code></small>
                 &nbsp;
 			    <?php
 			    if (! empty($data['is_optimize_css_enabled_by_other_party'])) {

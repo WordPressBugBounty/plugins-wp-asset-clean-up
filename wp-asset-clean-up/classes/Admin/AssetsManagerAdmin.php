@@ -110,7 +110,7 @@ class AssetsManagerAdmin
         if ($requestedPostType === 'post') {
             $for = 'posts';
         } elseif ($requestedPostType === 'page') {
-            $for = 'posts';
+            $for = 'pages';
         } elseif ($requestedPostType === 'attachment') {
             $for = 'media_attachment';
         } elseif ($requestedPostType !== '') {

@@ -134,79 +134,81 @@ class OptimizeCss
 		// Collect all enqueued clean (no query strings) HREFs to later compare them against any hardcoded CSS
 		$allEnqueuedCleanLinkHrefs = $allLocalAssetPathsValues = array();
 
-		if (! empty($wpStylesDone) && ! empty($wpStylesRegistered)) {
-			foreach ( $wpStylesDone as $index => $styleHandle ) {
-				if ( isset( Main::instance()->wpAllStyles['registered'][ $styleHandle ]->src ) && ( $src = Main::instance()->wpAllStyles['registered'][ $styleHandle ]->src ) && ! in_array($styleHandle, self::skipAssetsFromAnyOptimize()) ) {
-					$localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'css' );
+        if ( empty($wpStylesDone) || empty($wpStylesRegistered) ) {
+            return;
+        }
 
-					if ( ! $localAssetPath ) {
-						continue; // not a local file
-					}
+        $instance = Main::instance();
 
-					$allLocalAssetPathsValues[$src] = $localAssetPath;
+        foreach ( $wpStylesDone as $index => $styleHandle ) {
+            if ( isset( $instance->wpAllStyles['registered'][ $styleHandle ]->src ) && ( $src = $instance->wpAllStyles['registered'][ $styleHandle ]->src ) && ! in_array($styleHandle, self::skipAssetsFromAnyOptimize()) ) {
+                $localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'css' );
 
-					if ( ! $linkSourceTag = ObjectCache::wpacu_cache_get('wpacu_style_loader_tag_'.$styleHandle) ) {
-						ob_start();
-						$wp_styles->do_item( $styleHandle );
-						$linkSourceTag = trim( ob_get_clean() );
-					}
+                if ( ! $localAssetPath ) {
+                    continue; // not a local file
+                }
 
-					// Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not alter it
-					if ( preg_match( '#data-wpacu-skip([=>/ ])#i', $linkSourceTag ) ) {
-						unset( $wpStylesDone[ $index ] );
-						continue;
-					}
+                $allLocalAssetPathsValues[$src] = $localAssetPath;
 
-					$cleanLinkHrefFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag( $linkSourceTag );
+                if ( ! $linkSourceTag = ObjectCache::wpacu_cache_get('wpacu_style_loader_tag_'.$styleHandle) ) {
+                    ob_start();
+                    $wp_styles->do_item( $styleHandle );
+                    $linkSourceTag = trim( ob_get_clean() );
+                }
 
-					if ( isset( $cleanLinkHrefFromTagArray['source'] ) && $cleanLinkHrefFromTagArray['source'] ) {
-                        $allEnqueuedCleanLinkHrefs[$styleHandle] = $cleanLinkHrefFromTagArray['source'];
-					}
-				}
-			}
-		}
-
-		$cssOptimizeList = array();
-
-		if (! empty($wpStylesDone) && ! empty($wpStylesRegistered)) {
-			$isMinifyCssFilesEnabled = in_array(Main::instance()->settings['minify_loaded_css_for'], array('href', 'all', ''))
-			                           && MinifyCss::isMinifyCssEnabled();
-
-			foreach ( $wpStylesDone as $styleHandle ) {
-                if ( ! (isset($wpStylesRegistered[ $styleHandle ]->src) && $wpStylesRegistered[$styleHandle]->src) || in_array($styleHandle, self::skipAssetsFromAnyOptimize()) ) {
+                // Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not alter it
+                if ( Misc::hasExactDataAttr($linkSourceTag, 'data-wpacu-skip') ) {
+                    unset( $wpStylesDone[ $index ] );
                     continue;
                 }
 
-				$value = $wpStylesRegistered[ $styleHandle ];
+                $cleanLinkHrefFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag( $linkSourceTag );
 
-				// If it's already in the list of SRCs that were checked, skip it
-				if ( ! array_key_exists($value->src, $allLocalAssetPathsValues) ) {
-					// Not in the list? Check if it's a local asset and if it's not skip it
-					$localAssetPath = OptimizeCommon::getLocalAssetPath( $value->src, 'css' );
+                if ( isset( $cleanLinkHrefFromTagArray['source'] ) && $cleanLinkHrefFromTagArray['source'] ) {
+                    $allEnqueuedCleanLinkHrefs[$styleHandle] = $cleanLinkHrefFromTagArray['source'];
+                }
+            }
+        }
 
-					if ( ! $localAssetPath ) {
-						continue; // not a local file
-					}
-				} else {
-					$localAssetPath = $allLocalAssetPathsValues[$value->src];
-				}
+		$cssOptimizeList = array();
 
-				$optimizeValues = self::maybeOptimizeIt(
-					$value,
-					array(
-						'local_asset_path'      => $localAssetPath,
-						'is_minify_css_enabled' => $isMinifyCssFilesEnabled
-					)
-				);
+        $isMinifyCssFilesEnabled = in_array($instance->settings['minify_loaded_css_for'], array('href', 'all', ''))
+                                   && MinifyCss::isMinifyCssEnabled();
 
-				ObjectCache::wpacu_cache_set( 'wpacu_maybe_optimize_it_css_' . $styleHandle, $optimizeValues );
+        foreach ( $wpStylesDone as $styleHandle ) {
+            if ( ! (isset($wpStylesRegistered[ $styleHandle ]->src) && $wpStylesRegistered[$styleHandle]->src) || in_array($styleHandle, self::skipAssetsFromAnyOptimize()) ) {
+                continue;
+            }
 
-				if ( ! empty( $optimizeValues ) ) {
-					$cssOptimizeList[] = $optimizeValues;
-				}
+            $value = $wpStylesRegistered[ $styleHandle ];
 
-				}
-		}
+            // If it's already in the list of SRCs that were checked, skip it
+            if ( ! array_key_exists($value->src, $allLocalAssetPathsValues) ) {
+                // Not in the list? Check if it's a local asset and if it's not skip it
+                $localAssetPath = OptimizeCommon::getLocalAssetPath( $value->src, 'css' );
+
+                if ( ! $localAssetPath ) {
+                    continue; // not a local file
+                }
+            } else {
+                $localAssetPath = $allLocalAssetPathsValues[$value->src];
+            }
+
+            $optimizeValues = self::maybeOptimizeIt(
+                $value,
+                array(
+                    'local_asset_path'      => $localAssetPath,
+                    'is_minify_css_enabled' => $isMinifyCssFilesEnabled
+                )
+            );
+
+            ObjectCache::wpacu_cache_set( 'wpacu_maybe_optimize_it_css_' . $styleHandle, $optimizeValues );
+
+            if ( ! empty( $optimizeValues ) ) {
+                $cssOptimizeList[] = $optimizeValues;
+            }
+
+            }
 
 		if (empty($cssOptimizeList)) {
 			return;
@@ -234,7 +236,7 @@ class OptimizeCss
 
 		$src = isset($value->src) ? $value->src : false;
 
-		if (! $src) {
+		if ( ! $src ) {
 			return array();
 		}
 
@@ -510,7 +512,7 @@ class OptimizeCss
 		}
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
-		if (! Main::instance()->preventAssetsSettings()) {
+		if ( ! Main::instance()->preventAssetsSettings() ) {
 			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_preload_css'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
             if ( ! wpacuIsDefinedConstant('WPACU_NO_ASSETS_PRELOADED') ) {
                 $htmlSource = Preloads::instance()->doChanges($htmlSource);
@@ -779,9 +781,9 @@ class OptimizeCss
 			}
 
 			// Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not alter it
-			if (preg_match('#data-wpacu-skip([=>/ ])#i', $linkSourceTag)) {
-				continue;
-			}
+            if ( Misc::hasExactDataAttr($linkSourceTag, 'data-wpacu-skip') ) {
+                continue;
+            }
 
 			$cleanLinkHrefFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag($linkSourceTag);
 
@@ -1605,7 +1607,7 @@ class OptimizeCss
 
         $pluginSettings = Main::instance()->settings;
 
-        if ($pluginSettings['test_mode'] && ! Menu::userCanAccessAssetCleanUp()) {
+        if ($pluginSettings['test_mode'] && ! Menu::userCanAccessPlugin()) {
             return false; // Do not combine anything if "Test Mode" is ON and the user is in guest mode (not logged-in)
         }
 
@@ -1627,7 +1629,7 @@ class OptimizeCss
             // The option is no longer used since v1.1.7.3 (Pro) & v1.3.6.4 (Lite)
             if ( ($pluginSettings['combine_loaded_css'] === 'for_admin'
                   || $pluginSettings['combine_loaded_css_for_admin_only'] == 1)
-                 && Menu::userCanAccessAssetCleanUp()) {
+                 && Menu::userCanAccessPlugin()) {
 
                 return true; // Do combine
             }

@@ -441,7 +441,7 @@ class AssetsManager
 		}
 
 		// Check privileges
-		if ( ! Menu::userCanAccessAssetCleanUp() ) {
+		if ( ! Menu::userCanAccessPlugin() ) {
 			echo 'Error: Not enough privileges to perform this action.';
 			exit();
 		}
@@ -497,7 +497,7 @@ class AssetsManager
 		}
 
 		// Check privileges
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			echo 'Error: Not enough privileges to perform this action.';
 			exit();
 		}

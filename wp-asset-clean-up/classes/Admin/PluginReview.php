@@ -191,7 +191,7 @@ class PluginReview
 	 */
 	public function showReviewNotice()
     {
-        if ( ! Menu::userCanAccessAssetCleanUp() ) {
+        if ( ! Menu::userCanAccessPlugin() ) {
             // Show the review notice only to people that can access the plugin's settings
             return false;
         }
@@ -294,7 +294,7 @@ class PluginReview
 	 */
 	public function doCloseNotice()
     {
-        if ( ! Menu::userCanAccessAssetCleanUp() ) {
+        if ( ! Menu::userCanAccessPlugin() ) {
             echo 'Error: You do not have permission to perform this action.';
             exit();
         }

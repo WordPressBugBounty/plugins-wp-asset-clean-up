@@ -235,7 +235,7 @@ class PluginTracking
 	 */
 	public function checkForOptIn()
 	{
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return;
 		}
 
@@ -258,7 +258,7 @@ class PluginTracking
 	 */
 	public function checkForOptOut()
 	{
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return 'Unauthorized';
 		}
 
@@ -324,7 +324,7 @@ class PluginTracking
 			return false;
 		}
 
-		if ( ! Menu::userCanAccessAssetCleanUp() ) {
+		if ( ! Menu::userCanAccessPlugin() ) {
 			return false;
 		}
 

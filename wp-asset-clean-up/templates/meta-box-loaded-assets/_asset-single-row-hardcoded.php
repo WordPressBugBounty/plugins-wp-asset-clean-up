@@ -186,6 +186,6 @@ if (isset($data['handle_rows_contracted'][$assetType][$data['row']['obj']->handl
         </div>
         <img style="display: none;"
              class="wpacu_ajax_loader"
-             src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-ajax-loading-spinner.svg" alt="<?php esc_html_e('Loading'); ?>..." />
+             src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-loading-spinner.svg" alt="<?php esc_html_e('Loading'); ?>..." />
     </td>
 </tr>

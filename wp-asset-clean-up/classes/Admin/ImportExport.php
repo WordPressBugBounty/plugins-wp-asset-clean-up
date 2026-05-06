@@ -69,7 +69,7 @@ SQL;
 	 */
 	public function doExport()
 	{
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return;
 		}
 
@@ -203,7 +203,7 @@ SQL;
 	 */
 	public function doImport()
 	{
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return;
 		}
 

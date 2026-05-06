@@ -28,6 +28,11 @@ class OptimizeCommon
 	 */
 	public static $relPathPluginCacheDirDefault = '/cache/asset-cleanup/'; // keep forward slash at the end
 
+    /**
+     * @var string
+     */
+    public static $cacheDirNameSingleNoMultiSite = 'one';
+
 	/**
 	 * @var string
 	 */
@@ -63,7 +68,7 @@ class OptimizeCommon
 		if ( isset($_GET['action']) && $_GET['action'] === 'purge_cache' ) {
 			// Leave its default parameters, no redirect needed
 			add_action('init', static function() {
-                if ( ! Menu::userCanAccessAssetCleanUp() ) {
+                if ( ! Menu::userCanAccessPlugin() ) {
                     return; // in this case, only the admin can clear the cache
                 }
 
@@ -87,23 +92,56 @@ class OptimizeCommon
 		add_action('wp_trash_post', array($this, 'clearItemStorageForPost' )); // $postId is passed as a parameter
 		add_action('delete_post',   array($this, 'clearItemStorageForPost' )); // $postId is passed as a parameter
 
-		// When a post is edited are within the Dashboard
-		add_action('admin_init', static function() {
-			if (($postId = Misc::getVar('get', 'post')) && Misc::getVar('get', 'action') === 'edit') {
-				self::clearItemStorageForPost($postId, true);
-			}
+		// When a post is edited within the Dashboard
+		add_action('current_screen', static function($screen) {
+            // Only post edit screens
+            if ( ! $screen || empty($screen->base) || $screen->base !== 'post' ) {
+                return;
+            }
+
+            // Only when editing an existing post (not new)
+            $postId = 0;
+
+            // post.php uses GET, Gutenberg still loads this screen
+            if ( isset($_GET['post']) ) {
+                $postId = absint($_GET['post']);
+            }
+
+            if ( ! $postId ) {
+                return;
+            }
+
+            // Only if action=edit (classic)
+            if ( isset($_GET['action']) && $_GET['action'] !== 'edit' ) {
+                return;
+            }
+
+            // Authorization check
+            if ( ! current_user_can('edit_post', $postId) ) {
+                return;
+            }
+
+            self::clearItemStorageForPost($postId, true);
 		});
 
 		// Keep used resources to the minimum and trigger any clearing of the page's CSS/JS caching
 		// for the admin while he has the right privileges and a single "post" page is visited
 		add_action('wp', static function() {
-			if ( ! is_admin() && Menu::userCanAccessAssetCleanUp() && MainFront::isSingularPage() ) {
-				global $post;
+            // Only in the front-end view for singular pages
+            if ( is_admin() || ! MainFront::isSingularPage() ) {
+                return;
+            }
 
-				if (isset($post->ID) && $post->ID) {
-					self::clearItemStorageForPost($post->ID, true);
-				}
-			}
+            // Ensure logged-in amd with the right privilegesd
+            if ( ! is_user_logged_in() || ! Menu::userCanAccessPlugin() ) {
+                return;
+            }
+
+            global $post;
+
+            if ( isset($post->ID) && $post->ID ) {
+                self::clearItemStorageForPost($post->ID, true);
+            }
 		});
 
 		// Autoptimize Compatibility: Make sure Asset CleanUp's changes are applied
@@ -393,7 +431,7 @@ class OptimizeCommon
             return $GLOBALS['wpacu_optimize_css_is_worth_checking_for_optimization'];
         }
 
-        $userCanManageAssets = Menu::userCanAccessAssetCleanUp();
+        $userCanManageAssets = Menu::userCanAccessPlugin();
 
         if (isset($_GET['wpacu_css_minify']) && $userCanManageAssets) {
             $isMinifyCssEnabled = true;
@@ -427,7 +465,7 @@ class OptimizeCommon
             return $GLOBALS['wpacu_optimize_js_is_worth_checking_for_optimization'];
         }
 
-        $userCanManageAssets = Menu::userCanAccessAssetCleanUp();
+        $userCanManageAssets = Menu::userCanAccessPlugin();
 
         if (isset($_GET['wpacu_js_minify']) && $userCanManageAssets) {
             $isMinifyJsEnabled = true;
@@ -496,7 +534,7 @@ class OptimizeCommon
 		 * */
 		ob_start(static function($htmlSource) {
 			// Do not do any optimization if "Test Mode" is Enabled
-			if ( ! Menu::userCanAccessAssetCleanUp() && Main::instance()->settings['test_mode'] ) {
+			if ( ! Menu::userCanAccessPlugin() && Main::instance()->settings['test_mode'] ) {
 				return $htmlSource;
 			}
 
@@ -592,6 +630,10 @@ class OptimizeCommon
 
 		$htmlSource = OptimizeCss::alterHtmlSource( $htmlSource );
 		$htmlSource = OptimizeJs::alterHtmlSource( $htmlSource );
+
+        /* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_resource_loading'); /* [/wpacu_timing] */
+        $htmlSource = ResourceLoading::alterHtmlSource($htmlSource);
+        /* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_resource_loading', 'end'); /* [/wpacu_timing] */
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer( 'alter_html_source_cleanup' ); /* [/wpacu_timing] */
 
@@ -899,16 +941,34 @@ class OptimizeCommon
     }
 
 	/**
+     * @param bool $forCurrentSite
+     *
 	 * @return string
 	 */
-	public static function getRelPathPluginCacheDir()
+	public static function getRelPathPluginCacheDir($forCurrentSite = true)
 	{
 		// In some cases, hosting companies put restriction for writable folders
 		// Pantheon, for instance, allows only /wp-content/uploads/ to be writable
 		// For security reasons, do not allow ../
-		return defined('WPACU_CACHE_DIR') && strpos(WPACU_CACHE_DIR, '../') === false
+		$getRelPathPluginCacheDir = defined('WPACU_CACHE_DIR') && strpos(WPACU_CACHE_DIR, '../') === false
 			? WPACU_CACHE_DIR
 			: self::$relPathPluginCacheDirDefault;
+
+        if ($forCurrentSite) {
+            if (is_multisite()) {
+                $currentSiteId = get_current_blog_id();
+
+                if ($currentSiteId === 0) {
+                    $currentSiteId = 1;
+                }
+            } else {
+                $currentSiteId = self::$cacheDirNameSingleNoMultiSite;
+            }
+
+            $getRelPathPluginCacheDir = rtrim($getRelPathPluginCacheDir, '/') . '/'. $currentSiteId . '/';
+        }
+
+        return $getRelPathPluginCacheDir;
 	}
 
     /**
@@ -2442,36 +2502,58 @@ class OptimizeCommon
 	/**
 	 * This is related to the cached CSS/JS combined files from _storage directory located within getRelPathPluginCacheDir() caching directory
 	 *
-	 * @param $postId
+	 * @param int $postId
 	 * @param bool $checkTiming | if set to "true" it will check if the caching timing expires and if it did, then delete the file
 	 */
 	public static function clearItemStorageForPost($postId, $checkTiming = false)
 	{
-		$postPermalink  = get_permalink($postId);
-		$requestUriPath = (string)parse_url($postPermalink, PHP_URL_PATH);
+        $postId = absint($postId);
 
-		$dirToFilename = WP_CONTENT_DIR . self::getRelPathPluginCacheDir() . '/_storage/'
-		                 . parse_url(site_url(), PHP_URL_HOST) . '/'. $requestUriPath;
-
-		$dirToFilename = str_replace('//', '/', $dirToFilename);
-
-		$clearOlderThanInSeconds = self::$cachedAssetFileExpiresIn;
-
-        if ( ! isset(Main::instance()->settings['clear_cached_files_after']) ) {
-            $wpacuSettingsClass = new Settings();
-            Main::instance()->settings = $wpacuSettingsClass->getAll();
+        if ( ! $postId ) {
+            return;
         }
 
-		$clearFilesOlderThanXDays = Main::instance()->settings['clear_cached_files_after'];
+		$postPermalink = get_permalink($postId);
 
-		if ($clearFilesOlderThanXDays > 0) {
-			$clearOlderThanInSeconds += (86400 * $clearFilesOlderThanXDays);
-		}
+        if ( ! $postPermalink ) {
+            return;
+        }
 
-		if (is_dir($dirToFilename)) {
+		$requestUriPath = (string) wp_parse_url($postPermalink, PHP_URL_PATH);
+        $requestUriPath = '/' . ltrim($requestUriPath, '/');
+
+        $host = (string) wp_parse_url(site_url(), PHP_URL_HOST);
+
+        $baseDir = WP_CONTENT_DIR . self::getRelPathPluginCacheDir() . '/_storage/' . $host . '/';
+
+        $dirToFilename = $baseDir . ltrim($requestUriPath, '/');
+
+        // Normalize + ensure trailing slash for concatenation
+        $baseDir       = wp_normalize_path(trailingslashit($baseDir));
+        $dirToFilename = wp_normalize_path(trailingslashit($dirToFilename));
+
+        // Ensure we're still inside base dir
+        if (strpos($dirToFilename, $baseDir) !== 0) {
+            return;
+        }
+
+        if (is_dir($dirToFilename)) {
+            $clearOlderThanInSeconds = self::$cachedAssetFileExpiresIn;
+
+            if ( ! isset(Main::instance()->settings['clear_cached_files_after']) ) {
+                $wpacuSettingsClass = new Settings();
+                Main::instance()->settings = $wpacuSettingsClass->getAll();
+            }
+
+            $clearFilesOlderThanXDays = Main::instance()->settings['clear_cached_files_after'];
+
+            if ($clearFilesOlderThanXDays > 0) {
+                $clearOlderThanInSeconds += (86400 * $clearFilesOlderThanXDays);
+            }
+
 			$filesInDir = scandir($dirToFilename);
 
-			if (! empty($filesInDir)) {
+			if ( ! empty($filesInDir) ) {
 				foreach ($filesInDir as $wpacuFile) {
 					if ( $wpacuFile === '.' || $wpacuFile === '..' ) {
 						continue;

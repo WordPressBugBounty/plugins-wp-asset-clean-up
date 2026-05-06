@@ -22,22 +22,22 @@ class Debug
 
 		foreach( array('wp', 'admin_init') as $wpacuActionHook ) {
 			add_action( $wpacuActionHook, static function() {
-				if (isset( $_GET['wpacu_get_cache_dir_size'] ) && Menu::userCanAccessAssetCleanUp()) {
+				if (isset( $_GET['wpacu_get_cache_dir_size'] ) && Menu::userCanAccessPlugin()) {
 					self::printCacheDirInfo();
 				}
 
 				// For debugging purposes
-				if (isset($_GET['wpacu_get_already_minified']) && Menu::userCanAccessAssetCleanUp()) {
+				if (isset($_GET['wpacu_get_already_minified']) && Menu::userCanAccessPlugin()) {
                     echo '<pre>'; print_r(OptimizeCommon::getAlreadyMarkedAsMinified()); echo '</pre>';
                     exit();
                 }
 
-				if (isset($_GET['wpacu_remove_already_minified']) && Menu::userCanAccessAssetCleanUp()) {
+				if (isset($_GET['wpacu_remove_already_minified']) && Menu::userCanAccessPlugin()) {
 					echo '<pre>'; OptimizeCommon::removeAlreadyMarkedAsMinified(); echo '</pre>';
 					exit();
 				}
 
-				if (isset($_GET['wpacu_limit_already_minified']) && Menu::userCanAccessAssetCleanUp()) {
+				if (isset($_GET['wpacu_limit_already_minified']) && Menu::userCanAccessPlugin()) {
 					OptimizeCommon::limitAlreadyMarkedAsMinified();
 					echo '<pre>'; print_r(OptimizeCommon::getAlreadyMarkedAsMinified()); echo '</pre>';
 					exit();
@@ -105,6 +105,8 @@ class Debug
 			// All HTML alteration via "wp_loaded" action hook
 			'alter_html_source',
 
+            'alter_html_source_for_resource_loading',
+
 			// HTML CleanUp
 			'alter_html_source_cleanup',
 			'alter_html_source_for_remove_html_comments',
@@ -170,7 +172,7 @@ class Debug
 	 */
 	public function showDebugOptionsFront()
 	{
-	    if (! Menu::userCanAccessAssetCleanUp()) {
+	    if (! Menu::userCanAccessPlugin()) {
 	        return;
         }
 
@@ -333,6 +335,8 @@ class Debug
                                         </li>
 
                                         <li>Strip any references for unloaded assets: {wpacu_alter_html_source_strip_any_references_for_unloaded_assets_exec_time}</li>
+
+                                        <li>Apply any Resource Loading rules: {wpacu_alter_html_source_for_resource_loading_exec_time}</li>
 
                                         <li>HTML CleanUp: {wpacu_alter_html_source_cleanup_exec_time}
                                             <ul>

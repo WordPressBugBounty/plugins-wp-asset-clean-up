@@ -252,14 +252,14 @@ SQL;
             self::$domGetType = $this->settings['dom_get_type'];
         }
 
-        // Menu::userCanAccessAssetCleanUp() has to be called in 'init' (not too early)
+        // Menu::userCanAccessPlugin() has to be called in 'init' (not too early)
         add_action('init', function() {
             // Conditions
             // 1) User has rights to manage the assets and the option is enabled in plugin's Settings
             // 2) Not an AJAX call from the Dashboard
             // 3) Not inside the Dashboard
             self::instance()->isFrontendEditView =
-                Menu::userCanAccessAssetCleanUp() && AssetsManager::instance()->frontendShow() // 1
+                Menu::userCanAccessPlugin() && AssetsManager::instance()->frontendShow() // 1
                 && ! self::instance()->isGetAssetsCall // 2
               && ! is_admin(); // 3
         }, 0);
@@ -1020,7 +1020,7 @@ SQL;
             $settings = self::instance()->settings;
         }
 
-        $wpacuIsTestModeActive = ! empty($settings['test_mode']) && ! Menu::userCanAccessAssetCleanUp();
+        $wpacuIsTestModeActive = ! empty($settings['test_mode']) && ! Menu::userCanAccessPlugin();
 
         define('WPACU_IS_TEST_MODE_ACTIVE', $wpacuIsTestModeActive);
 

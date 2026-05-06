@@ -87,9 +87,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
 
                     $.get(wpacu_object.ajax_url, {
-                        'action': wpacu_object.plugin_prefix + '_clear_cache',
-                        'time_r': new Date().getTime(),
-                        'wpacu_nonce': wpacu_object.wpacu_ajax_clear_cache_nonce
+                        'action':       wpacu_object.plugin_prefix + '_clear_cache',
+                        'wpacu_time_r': new Date().getTime(),
+                        'wpacu_nonce':  wpacu_object.wpacu_ajax_clear_cache_nonce
                     }, function (response) {
                         setTimeout(function () {
                             self.wpacuClearAutoptimizeCache(); // Autoptimize (if active)
@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 $.get(wpacu_object.page_url, {
                                     'wpacu_preload': 1,
                                     'wpacu_no_frontend_show': 1,
-                                    'time_r': new Date().getTime()
+                                    'wpacu_time_r': new Date().getTime()
                                 }, function () {
                                     // Then, preload (for the guest)
                                     self.wpacuPreloadForGuest();
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         'action': wpacu_object.plugin_prefix + '_preload',
                         'page_url': wpacu_object.page_url,
                         'wpacu_nonce': wpacu_object.wpacu_ajax_preload_url_nonce,
-                        'time_r': new Date().getTime()
+                        'wpacu_time_r': new Date().getTime()
                     }, function () {
                         if ($(wpacuSpinnerElId).length > 0) {
                             // As the caching has been cleared, hide the notice from the screen
@@ -175,12 +175,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     let sendParams = {
                         'action': wpacu_object.plugin_prefix + '_cache_enabler_clear_cache',
-                        'time_r': new Date().getTime(), // avoid any caching
+                        'wpacu_time_r': new Date().getTime(), // avoid any caching
                         'wpacu_nonce': wpacu_object.wpacu_ajax_clear_cache_enabler_cache_nonce
                     };
 
-                    $.get(wpacu_object.ajax_url, sendParams, function (response) {
-                    });
+                    $.get(wpacu_object.ajax_url, sendParams, function (response) {});
                 }
             }
 

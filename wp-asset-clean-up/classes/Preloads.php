@@ -161,7 +161,7 @@ class Preloads
 		}
 
 		// WP Fastest Cache: Combine CSS/JS is enabled
-		if ( ! (wpacuIsPluginActive('wp-fastest-cache/wpFastestCache.php') && Menu::userCanAccessAssetCleanUp()) ) {
+		if ( ! (wpacuIsPluginActive('wp-fastest-cache/wpFastestCache.php') && Menu::userCanAccessPlugin()) ) {
 			$wpfcOptionsJson = get_option('WpFastestCache');
 			$wpfcOptions     = @json_decode($wpfcOptionsJson, ARRAY_A);
 

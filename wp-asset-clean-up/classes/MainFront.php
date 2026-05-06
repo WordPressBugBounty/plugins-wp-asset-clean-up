@@ -196,7 +196,7 @@ class MainFront
 				    $styleTag = str_replace( '<link ', '<link data-wpacu-debug-style-handle=\'' . $tagHandle . '\' ', $styleTag );
 			    }
 
-			    if ( strpos( $styleTag, 'data-wpacu-style-handle' ) === false ) {
+                if ( strpos( $styleTag, 'data-wpacu-style-handle' ) === false ) {
 				    $styleTag = str_replace( '<link ', '<link data-wpacu-style-handle=\'' . $tagHandle . '\' ', $styleTag );
 			    }
 
@@ -926,7 +926,7 @@ class MainFront
 		if ( ! empty(Main::instance()->allUnloadedAssets['styles']) &&
 		    in_array('photoswipe', Main::instance()->allUnloadedAssets['styles'])) {
 			?>
-			<?php if (Menu::userCanAccessAssetCleanUp()) { ?><!-- Asset CleanUp: "photoswipe" unloaded (avoid printing useless HTML) --><?php } ?>
+			<?php if (Menu::userCanAccessPlugin()) { ?><!-- Asset CleanUp: "photoswipe" unloaded (avoid printing useless HTML) --><?php } ?>
 			<style <?php echo Misc::getStyleTypeAttribute(); ?>>.pswp { display: none; }</style>
 			<?php
 		}
@@ -1058,7 +1058,7 @@ class MainFront
 			return $this->skipAssets[$getForAssetsType];
 		}
 
-		$ownScriptsIfAdminIsLoggedIn = Menu::userCanAccessAssetCleanUp() && AssetsManager::instance()->frontendShow()
+		$ownScriptsIfAdminIsLoggedIn = Menu::userCanAccessPlugin() && AssetsManager::instance()->frontendShow()
 			? OwnAssets::getOwnAssetsHandles( $getForAssetsType )
 			: array();
 

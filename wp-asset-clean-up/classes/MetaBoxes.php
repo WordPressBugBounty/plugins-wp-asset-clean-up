@@ -42,7 +42,7 @@ class MetaBoxes
 	 */
 	public function initMetaBox($type)
 	{
-		if ( ! Menu::userCanAccessAssetCleanUp() ) {
+		if ( ! Menu::userCanAccessPlugin() ) {
 			return;
 		}
 

@@ -19,6 +19,15 @@ use WpAssetCleanUp\Update;
 class SettingsAdmin
 {
     /**
+     * @var array[]
+     */
+    public static $allowedResourceLoadingAttributes = array(
+        'fetchpriority' => array('high', 'low', 'auto'),
+        'loading'       => array('eager', 'lazy'),
+        'decoding'      => array('async', 'sync', 'auto')
+    );
+
+    /**
      * @return void
      */
     public function init()
@@ -136,7 +145,7 @@ class SettingsAdmin
         foreach ($settings as $settingKey => $settingValue) {
             if ( $settingKey === 'announcements' ) {
                 if ( isset($settingValue['global']['never_show_any']) && (int)$settingValue['global']['never_show_any'] === 0 ) {
-                    unset($settings['announcements']['global']['never_show_any']);
+                    unset($settings[$settingKey]['global']['never_show_any']);
                 }
 
                 if ( ! empty($settingValue['list']) ) {
@@ -145,12 +154,48 @@ class SettingsAdmin
                             foreach ( $annStates as $annState => $annStateValue ) {
                                 if ( $annState === 'seen' && isset($settingValue['list'][$annId]['snoozed']) && $settingValue['list'][$annId]['snoozed'] ) {
                                     // If it's marked as "seen", there's no point in having it "snoozed"
-                                    unset($settings['announcements']['list'][$annId]['snoozed']);
+                                    unset($settings[$settingKey]['list'][$annId]['snoozed']);
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            if ($settingKey === 'resource_loading') {
+                $cleanRules = array();
+
+                if ( ! empty($settingValue['images']) && is_array($settingValue['images']) ) {
+                    foreach ($settingValue['images'] as $rule) {
+                        if (empty($rule['source']) || empty($rule['attribute']) || empty($rule['value'])) {
+                            continue;
+                        }
+
+                        $source    = trim(wp_unslash($rule['source']));
+                        $attribute = trim(wp_unslash($rule['attribute']));
+                        $value     = trim(wp_unslash($rule['value']));
+
+                        if ( $source === '' ) {
+                            continue;
+                        }
+
+                        if ( ! isset(self::$allowedResourceLoadingAttributes[$attribute]) ) {
+                            continue;
+                        }
+
+                        if ( ! in_array($value, self::$allowedResourceLoadingAttributes[$attribute], true) ) {
+                            continue;
+                        }
+
+                        $cleanRules[] = array(
+                            'source'    => $source,
+                            'attribute' => $attribute,
+                            'value'     => $value
+                        );
+                    }
+                }
+
+                $settings[$settingKey]['images'] = $cleanRules;
             }
 
             if ($settingValue !== '') {
@@ -364,7 +409,7 @@ class SettingsAdmin
      */
     public function ajaxDoVerifications()
     {
-        if ( ! isset($_POST['action']) || ! Menu::userCanAccessAssetCleanUp() ) {
+        if ( ! isset($_POST['action']) || ! Menu::userCanAccessPlugin() ) {
             return;
         }
 
@@ -425,7 +470,7 @@ class SettingsAdmin
     {
         // Option: "On Assets List Layout Load, keep the groups:"
         if (isset($_POST['wpacu_update_keep_the_groups'])) {
-            if ( ! isset( $_POST['action'], $_POST['wpacu_keep_the_groups_state'] ) || ! Menu::userCanAccessAssetCleanUp() ) {
+            if ( ! isset( $_POST['action'], $_POST['wpacu_keep_the_groups_state'] ) || ! Menu::userCanAccessPlugin() ) {
                 return;
             }
 
@@ -459,7 +504,7 @@ class SettingsAdmin
     public function ajaxAddNewNoFeaturesLoadRow()
     {
         if ( ! isset( $_POST['action'] ) || ($_POST['action'] !== WPACU_PLUGIN_ID . '_add_new_no_features_load_row') ||
-             ! Menu::userCanAccessAssetCleanUp() ) {
+             ! Menu::userCanAccessPlugin() ) {
             exit();
         }
 

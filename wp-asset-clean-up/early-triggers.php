@@ -649,6 +649,7 @@ if ( ! function_exists( 'wpacuGetQueryStringsToBeIgnoredPredefinedList') ) {
 
             'wpassetcleanup_load',
             'wpassetcleanup_time_r',
+            'wpacu_time_r',
             '_',
 
             'wpacu_print',

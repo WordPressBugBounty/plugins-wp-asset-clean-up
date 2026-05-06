@@ -431,7 +431,7 @@ class CleanUp
 	 */
 	public static function cleanScriptTagFromHtmlSource($strContains, $htmlSource)
 	{
-		if (! is_array($strContains)) {
+		if ( ! is_array($strContains) ) {
 			$strContains = array($strContains);
 		}
 
@@ -449,7 +449,7 @@ class CleanUp
 			$matchesSourcesFromTags
 		);
 
-		if (empty($matchesSourcesFromTags)) {
+        if (empty($matchesSourcesFromTags)) {
 			return $htmlSource;
 		}
 

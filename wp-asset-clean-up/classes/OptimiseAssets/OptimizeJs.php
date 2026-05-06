@@ -45,7 +45,7 @@ class OptimizeJs
 
 		$jsOptimizeList = array();
 
-		$wpScriptsDone  = isset( $wp_scripts->done ) && is_array( $wp_scripts->done ) ? $wp_scripts->done : array();
+		$wpScriptsDone  = isset( $wp_scripts->done )  && is_array( $wp_scripts->done )  ? $wp_scripts->done  : array();
 		$wpScriptsQueue = isset( $wp_scripts->queue ) && is_array( $wp_scripts->queue ) ? $wp_scripts->queue : array();
 
 		$wpScriptsList = array_unique( array_merge( $wpScriptsDone, $wpScriptsQueue ) );
@@ -55,11 +55,14 @@ class OptimizeJs
 
 		// [Start] Collect for caching
 		if ( ! empty( $wpScriptsList ) ) {
-			$isMinifyJsFilesEnabled = in_array( Main::instance()->settings['minify_loaded_js_for'], array( 'src', 'all', '' ) )
+            $instance = Main::instance();
+
+			$isMinifyJsFilesEnabled = in_array( $instance->settings['minify_loaded_js_for'], array( 'src', 'all', '' ) )
 			                          && MinifyJs::isMinifyJsEnabled();
 
 			foreach ( $wpScriptsList as $index => $scriptHandle ) {
-				if ( isset( Main::instance()->wpAllScripts['registered'][ $scriptHandle ]->src ) && ( $src = Main::instance()->wpAllScripts['registered'][ $scriptHandle ]->src ) ) {
+				if ( isset( $instance->wpAllScripts['registered'][ $scriptHandle ]->src )
+                     && ( $src = $instance->wpAllScripts['registered'][ $scriptHandle ]->src ) ) {
 					$localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'js' );
 
 					if ( ! $localAssetPath ) {
@@ -73,10 +76,10 @@ class OptimizeJs
 					}
 
 					// Check if the JS has any 'data-wpacu-skip' attribute; if it does, do not alter it
-					if ( preg_match( '#data-wpacu-skip([=>/ ])#i', $scriptSourceTag ) ) {
-						unset( $wpScriptsList[ $index ] );
-						continue;
-					}
+                    if ( Misc::hasExactDataAttr($scriptSourceTag, 'data-wpacu-skip') ) {
+                        unset( $wpScriptsList[ $index ] );
+                        continue;
+                    }
 
 					$cleanScriptSrcFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag( $scriptSourceTag );
 
@@ -85,7 +88,7 @@ class OptimizeJs
 					}
 
 					$optimizeValues = self::maybeOptimizeIt(
-						Main::instance()->wpAllScripts['registered'][ $scriptHandle ],
+                        $instance->wpAllScripts['registered'][ $scriptHandle ],
 						array(
 							'local_asset_path'     => $localAssetPath,
 							'is_minify_js_enabled' => $isMinifyJsFilesEnabled
@@ -118,6 +121,8 @@ class OptimizeJs
 			return $optimizeValues;
 		}
 
+        $instance = Main::instance();
+
 		global $wp_version;
 
 		$src = $value->src; // it's always set at this point
@@ -126,7 +131,7 @@ class OptimizeJs
 
 		$isMinifyJsFilesEnabled = (isset($fileAlreadyChecked['is_minify_js_enabled']) && $fileAlreadyChecked['is_minify_js_enabled'])
 			? $fileAlreadyChecked['is_minify_js_enabled']
-			: in_array(Main::instance()->settings['minify_loaded_js_for'], array('src', 'all', '')) && MinifyJs::isMinifyJsEnabled();
+			: in_array($instance->settings['minify_loaded_js_for'], array('src', 'all', '')) && MinifyJs::isMinifyJsEnabled();
 
 		if ( ! $isMinifyJsFilesEnabled || MinifyJs::skipMinify($src, $value->handle) ) {
 			$doFileMinify = false;
@@ -183,7 +188,7 @@ class OptimizeJs
 					// Do not load any minified JS file (from the database transient cache) if it doesn't exist
 					// It will fallback to the original JS file
 					if ( isset( $savedValuesArray['source_uri'] ) && is_file( $localPathToJsOptimized ) ) {
-						if ( Main::instance()->settings['fetch_cached_files_details_from'] === 'db_disk' ) {
+						if ( $instance->settings['fetch_cached_files_details_from'] === 'db_disk' ) {
 							$GLOBALS['wpacu_from_location_inc']++;
 						}
 
@@ -215,7 +220,7 @@ class OptimizeJs
 		/*
 		 * [START] JS Content Optimization
 		*/
-		if (Main::instance()->settings['cache_dynamic_loaded_js'] &&
+		if ($instance->settings['cache_dynamic_loaded_js'] &&
 		    ((strpos($src, '/?') !== false) || strpos($src, '.php?') !== false || Misc::endsWith($src, '.php')) &&
 		    (strpos($src, site_url()) !== false)
 		) {
@@ -365,9 +370,11 @@ class OptimizeJs
 			$jsContent = MinifyJs::applyMinification($jsContent);
 		}
 
-		if (Main::instance()->settings['google_fonts_remove']) {
+        $instance = Main::instance();
+
+		if ($instance->settings['google_fonts_remove']) {
 			$jsContent = FontsGoogleRemove::stripReferencesFromJsCode($jsContent);
-		} elseif (Main::instance()->settings['google_fonts_display']) {
+		} elseif ($instance->settings['google_fonts_display']) {
 			// Perhaps "display" parameter has to be applied to Google Font Links if they are active
 			$jsContent = FontsGoogle::alterGoogleFontUrlFromJsContent($jsContent);
 		}
@@ -440,9 +447,11 @@ class OptimizeJs
 			$jsContent = MinifyJs::applyMinification($jsContent);
 		}
 
-		if (Main::instance()->settings['google_fonts_remove']) {
+        $instance = Main::instance();
+
+		if ($instance->settings['google_fonts_remove']) {
 			$jsContent = FontsGoogleRemove::stripReferencesFromJsCode($jsContent);
-		} elseif (Main::instance()->settings['google_fonts_display']) {
+		} elseif ($instance->settings['google_fonts_display']) {
 			// Perhaps "display" parameter has to be applied to Google Font Links if they are active
 			$jsContent = FontsGoogle::alterGoogleFontUrlFromJsContent($jsContent);
 		}
@@ -512,9 +521,9 @@ class OptimizeJs
 			}
 
 			// Check if the JS has any 'data-wpacu-skip' attribute; if it does, do not alter it
-			if (preg_match('#data-wpacu-skip([=>/ ])#i', $scriptSourceTag)) {
-				continue;
-			}
+            if ( Misc::hasExactDataAttr($scriptSourceTag, 'data-wpacu-skip') ) {
+                continue;
+            }
 
 			$cleanScriptSrcFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag($scriptSourceTag);
 
@@ -1138,6 +1147,59 @@ class OptimizeJs
 		return $jsOptimizeEnabledIn;
 	}
 
+    /**
+     * When specific handles are unloaded and its "children" kept loaded (dependents)
+     * Instead of removing the tags, replace the tags with something else for better compatibility
+     *
+     * @return array
+     */
+    public static function handlesTagsToReplaceNoClear()
+    {
+       $handlesReps = array();
+
+       // [START] WordPress core handle: "wp-i18n"
+       $handlesReps['wp-i18n'] = <<<HTML
+<script id="wp-i18n-polyfill">window.wp=window.wp||{};wp.i18n=wp.i18n||{setLocaleData:function(){},__:function(t){return t},_x:function(t){return t},_n:function(s,p,n){return n===1?s:p},_nx:function(s,p,n){return n===1?s:p},_sprintf:function(f){return f},isRTL:function(){return!1}}</script>
+HTML;
+        if ( (defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ) {
+            $handlesReps['wp-i18n'] = <<<HTML
+<script id="wp-i18n-polyfill">
+window.wp = window.wp || {};
+wp.i18n = wp.i18n || {
+    setLocaleData: function () {},
+    
+    __: function (text) {
+        return text;
+    },
+
+    _x: function (text) {
+        return text;
+    },
+
+    _n: function (singular, plural, number) {
+        return number === 1 ? singular : plural;
+    },
+
+    _nx: function (singular, plural, number) {
+        return number === 1 ? singular : plural;
+    },
+
+    _sprintf: function (format) {
+        return format;
+    },
+
+    isRTL: function () {
+        return false;
+    }
+};
+</script>
+HTML;
+        }
+        // [END] WordPress core handle: "wp-i18n"
+
+        return $handlesReps;
+    }
+
 	/**
 	 * @param $htmlSource
 	 *
@@ -1145,36 +1207,64 @@ class OptimizeJs
 	 */
 	public static function ignoreDependencyRuleAndKeepChildrenLoaded($htmlSource)
 	{
-		$ignoreChild = Main::instance()->getIgnoreChildren();
+        $instance = Main::instance();
+
+		$ignoreChild = $instance->getIgnoreChildren();
 
 		if ( ! empty($ignoreChild['scripts']) ) {
+            $handlesTagsToReplaceNoClear = self::handlesTagsToReplaceNoClear();
+
 			foreach (array_keys($ignoreChild['scripts']) as $scriptHandle) {
-				if (isset(Main::instance()->wpAllScripts['registered'][$scriptHandle]->src, Main::instance()->ignoreChildren['scripts'][$scriptHandle.'_has_unload_rule']) && ($scriptSrc = Main::instance()->wpAllScripts['registered'][$scriptHandle]->src) && Main::instance()->ignoreChildren['scripts'][$scriptHandle.'_has_unload_rule']) {
-					$toReplaceTagList = array();
+                $scriptObj     = isset( $instance->wpAllScripts['registered'][$scriptHandle] ) ? $instance->wpAllScripts['registered'][$scriptHandle] : null;
+                $hasUnloadRule = ! empty($instance->ignoreChildren['scripts'][$scriptHandle . '_has_unload_rule']);
+
+                if ( isset($scriptObj->src) && ($scriptSrc = $scriptObj->src) && $hasUnloadRule ) {
+                    $toReplaceTagList = array();
 
 					// If the handle has any inline JavaScript associated with it (before or after the tag), make sure it's stripped as well
 					if ($translationsContent = self::generateInlineAssocHtmlForHandle($scriptHandle, 'translations')) {
+                        $translationsContentAlt = str_replace('<script id=', '<script data-wpacu-script-handle=\''.$scriptHandle.'\' id=', $translationsContent);
+
 						$toReplaceTagList[] = $translationsContent;
+                        $toReplaceTagList[] = $translationsContentAlt;
 					}
 
 					if ($cDataContent = self::generateInlineAssocHtmlForHandle($scriptHandle, 'data')) {
+                        $cDataContentAlt = str_replace('<script id=', '<script data-wpacu-script-handle=\''.$scriptHandle.'\' id=', $cDataContent);
+
 						$toReplaceTagList[] = $cDataContent;
+                        $toReplaceTagList[] = $cDataContentAlt;
 					}
 
 					if ($beforeContent = self::generateInlineAssocHtmlForHandle($scriptHandle, 'before')) {
-						$toReplaceTagList[] = $beforeContent;
+                        $beforeContentAlt = str_replace('<script id=', '<script data-wpacu-script-handle=\''.$scriptHandle.'\' id=', $beforeContent);
+
+                        $toReplaceTagList[] = $beforeContent;
+                        $toReplaceTagList[] = $beforeContentAlt;
 					}
 
-					$toReplaceTagList[] = self::getScriptTagFromHandle(array('data-wpacu-script-handle=[\'"]' . $scriptHandle . '[\'"]'), $htmlSource);
+                    $maybeScriptTagWithSrc = self::getScriptTagWithSrcFromHandle(array('data-wpacu-script-handle=[\'"]' . $scriptHandle . '[\'"]'), $htmlSource);
+
+                    if ($maybeScriptTagWithSrc) {
+                        if (in_array($scriptHandle, array_keys($handlesTagsToReplaceNoClear))) {
+                            $htmlSource = str_replace($maybeScriptTagWithSrc, $handlesTagsToReplaceNoClear[$scriptHandle], $htmlSource);
+                        } else {
+                            $toReplaceTagList[] = $maybeScriptTagWithSrc;
+                        }
+                    }
 
 					if ($afterContent = self::generateInlineAssocHtmlForHandle($scriptHandle, 'after')) {
-						$toReplaceTagList[] = $afterContent;
-					}
+                        $afterContentAlt = str_replace('<script id=', '<script data-wpacu-script-handle=\''.$scriptHandle.'\' id=', $afterContent);
+
+                        $toReplaceTagList[] = $afterContent;
+                        $toReplaceTagList[] = $afterContentAlt;
+                    }
 
 					$htmlSource = str_replace($toReplaceTagList, '', $htmlSource);
 
 					// Extra, in case the previous replacement didn't go through
 					$listWithMatches   = array();
+
 					$listWithMatches[] = 'data-wpacu-script-handle=[\'"]'.$scriptHandle.'[\'"]';
 					$listWithMatches[] = OptimizeCommon::getSourceRelPath($scriptSrc);
 
@@ -1347,7 +1437,7 @@ class OptimizeJs
 	 *
 	 * @return string
 	 */
-	public static function getScriptTagFromHandle($listWithPatterns, $htmlSource)
+	public static function getScriptTagWithSrcFromHandle($listWithPatterns, $htmlSource)
 	{
 		if (empty($listWithPatterns)) {
 			return '';
@@ -1411,7 +1501,7 @@ class OptimizeJs
 
         $pluginSettings = Main::instance()->settings;
 
-        if ($pluginSettings['test_mode'] && ! Menu::userCanAccessAssetCleanUp()) {
+        if ($pluginSettings['test_mode'] && ! Menu::userCanAccessPlugin()) {
             return false; // Do not combine anything if "Test Mode" is ON
         }
 
@@ -1432,7 +1522,7 @@ class OptimizeJs
         /*
         if ( ($pluginSettings['combine_loaded_js'] === 'for_admin'
               || $pluginSettings['combine_loaded_js_for_admin_only'] == 1)
-             && Menu::userCanAccessAssetCleanUp() ) {
+             && Menu::userCanAccessPlugin() ) {
             return true; // Do combine
         }
         */

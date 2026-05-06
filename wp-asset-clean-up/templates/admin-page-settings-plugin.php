@@ -25,6 +25,7 @@ $settingsTabs = array(
     'wpacu-setting-test-mode'             => esc_html__( 'Test Mode', 'wp-asset-clean-up' ),
     'wpacu-setting-optimize-css'          => esc_html__( 'Optimize CSS', 'wp-asset-clean-up' ),
     'wpacu-setting-optimize-js'           => esc_html__( 'Optimize JavaScript', 'wp-asset-clean-up' ),
+    'wpacu-setting-resource-loading'      => esc_html__( 'Resource Loading', 'wp-asset-clean-up' ),
     'wpacu-setting-cdn-rewrite-urls'      => esc_html__( 'CDN: Rewrite assets URLs', 'wp-asset-clean-up' ),
     'wpacu-setting-common-files-unload'   => esc_html__( 'Site-Wide Common Unloads', 'wp-asset-clean-up' ),
     'wpacu-setting-html-source-cleanup'   => esc_html__( 'HTML Source CleanUp', 'wp-asset-clean-up' ),
@@ -152,6 +153,7 @@ $selectedSubTabArea = isset($_REQUEST['wpacu_selected_sub_tab_area']) && in_arra
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_test-mode.php';
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_optimize-css.php';
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_optimize-js.php';
+            include_once __DIR__ . '/_admin-page-settings-plugin-areas/_resource-loading.php';
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_cdn-rewrite-urls.php';
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_common-files-unload.php';
             include_once __DIR__ . '/_admin-page-settings-plugin-areas/_html-source-cleanup.php';

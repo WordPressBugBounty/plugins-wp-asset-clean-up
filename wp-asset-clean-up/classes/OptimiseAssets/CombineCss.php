@@ -438,6 +438,8 @@ HTML;
 		}
 
 		foreach ($regExps as $regExp) {
+            $regExp = trim($regExp);
+
 			if ( @preg_match( $regExp, $href ) || ( strpos($href, $regExp) !== false ) ) {
 				// Skip combination
 				return true;

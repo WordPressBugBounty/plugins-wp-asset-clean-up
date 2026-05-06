@@ -14,16 +14,18 @@ $isLoadedViaAjax = isset($data['is_loaded_via_ajax']) && $data['is_loaded_via_aj
 
 $currentTimeUnix = current_time('timestamp', true);
 
+ob_start();
+
 if ( ! $isLoadedViaAjax ) { ?>
-    <div id="wpacu-settings-annoucements-container">
+    <div id="pluginann-settings-annoucements-container">
 <?php } ?>
 
 <style>
-    #wpacu-settings-annoucements-container {
+    #pluginann-settings-annoucements-container {
         position: relative;
     }
 
-    #wpacu-settings-announcements {
+    #pluginann-settings-announcements {
         width: 100%;
         border-collapse: collapse;
         /* This can help columns adhere to assigned widths. */
@@ -31,27 +33,27 @@ if ( ! $isLoadedViaAjax ) { ?>
     }
 
     /* On desktop/larger screens, force the first column to not wrap */
-    #wpacu-settings-announcements tr th {
+    #pluginann-settings-announcements tr th {
         white-space: nowrap;
         width: 220px; /* or whatever fixed width you prefer */
     }
 
     /* On mobile (below 768px for example), allow wrapping and remove the fixed width */
     @media (max-width: 768px) {
-        #wpacu-settings-announcements tr th {
+        #pluginann-settings-announcements tr th {
             white-space: normal;
             width: auto;
         }
     }
 
-    #wpacu-settings-announcements-wrap {
+    #pluginann-settings-announcements-wrap {
         position: relative;
         width: 100%;
         min-height: 250px;
         overflow: hidden;
     }
 
-    #wpacu-settings-announcements-wrap .wpacu-overlay {
+    #pluginann-settings-announcements-wrap .pluginann-overlay {
         position: absolute;
         top: 0;
         left: 0;
@@ -65,16 +67,16 @@ if ( ! $isLoadedViaAjax ) { ?>
         display: none; /* Hidden by default */
     }
 
-    #wpacu-settings-announcements-wrap .wpacu-spinner {
+    #pluginann-settings-announcements-wrap .pluginann-spinner {
         width: 40px;
         height: 40px;
         border: 4px solid transparent;
         border-top: 4px solid #004567;
         border-radius: 50%;
-        animation: wpacu-spin 1s linear infinite;
+        animation: pluginann-spin 1s linear infinite;
     }
 
-    @keyframes wpacu-spin {
+    @keyframes pluginann-spin {
         from {
             transform: rotate(0deg);
         }
@@ -84,9 +86,9 @@ if ( ! $isLoadedViaAjax ) { ?>
     }
 </style>
 
-<div id="wpacu-settings-announcements-wrap">
-    <div class="wpacu-overlay">
-        <div class="wpacu-spinner"></div>
+<div id="pluginann-settings-announcements-wrap">
+    <div class="pluginann-overlay">
+        <div class="pluginann-spinner"></div>
     </div>
 
     <table id="wpacu-settings-announcements" class="wpacu-form-table">
@@ -210,6 +212,10 @@ if ( ! $isLoadedViaAjax ) { ?>
         </tbody>
     </table>
 </div>
+
+<?php
+echo $adminAnnouncementsClass->filterOutputForUniquePrefix(ob_get_clean());
+?>
 
 <?php if ( ! $isLoadedViaAjax ) { ?>
 </div>

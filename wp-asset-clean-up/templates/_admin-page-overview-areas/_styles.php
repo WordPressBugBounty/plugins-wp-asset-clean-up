@@ -58,7 +58,7 @@ if ( ! empty($data['handles']['styles']) ) {
 						echo '<ul style="margin: 0;">' . "\n";
 
 						foreach ( $handleChangesOutput as $handleChangesOutputPart ) {
-							echo '<li>' . $handleChangesOutputPart . '</li>' . "\n";
+                            echo '<li>' . $handleChangesOutputPart . '</li>' . "\n";
 						}
 
 						echo '</ul>';

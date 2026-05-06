@@ -10,24 +10,16 @@ use WpAssetCleanUp\Settings;
  */
 class PluginAnnouncements
 {
-    // [wpacu_lite]
-    /**
-     * URL to the JSON feed of announcements.
-     * @var string
-     */
-    private $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json';
-
-    /**
-     *
-     */
-    const PLUGIN_ID = WPACU_PLUGIN_ID;
-
     /**
      * Key used for transient storage.
      * @var string
      */
-    private $transientKey = 'wpacu_lite_announcements';
-    // [/wpacu_lite]
+    private $transientKey = 'pluginann_announcements';
+
+    /**
+     * @var string
+     */
+    private $queryStringAction = 'pluginann_announcement_action';
 
     /**
      * How long to cache announcements (in seconds)
@@ -60,9 +52,10 @@ class PluginAnnouncements
      * @var array
      */
     public $allowedTitleHtmlTags = array(
-        'em' => array(),
-        'i'  => array(),
-        'u'  => array(),
+        'em'   => array(),
+        'i'    => array(),
+        'u'    => array(),
+        'span' => array(),
     );
 
     /**
@@ -72,6 +65,7 @@ class PluginAnnouncements
      */
     public $allowedMessageHtmlTags = array(
         'strong' => array(),
+        'span'   => array(),
         'em'     => array(),
         'b'      => array(),
         'i'      => array(),
@@ -86,11 +80,6 @@ class PluginAnnouncements
         'br'     => array(),
         'p'      => array(),
     );
-
-    /**
-     * @var string
-     */
-    private static $queryStringAction = 'wpacu_announcement_action';
 
     /**
      * Priority levels mapped to numerical values for sorting.
@@ -119,6 +108,69 @@ class PluginAnnouncements
     private $closeAnnouncementWay = 'ajax';
 
     /**
+     * @param bool $justBase | if true, it will return "plugin" instead of "plugin_lite" or "plugin_pro"
+     *
+     * @return string
+     */
+    private function getAnnPrefix($justBase = false)
+    {
+        if (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up') {
+            $annPrefix = 'wpacu_lite';
+        } elseif (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up-pro') {
+            $annPrefix = 'wpacu_pro';
+        } else {
+            $annPrefix = 'wpacu_'; // something's funny
+        }
+
+        if ($justBase && strpos($annPrefix, '_') !== false) {
+            list($base) = explode('_', $annPrefix);
+            return $base;
+        }
+
+        return $annPrefix;
+    }
+
+    /**
+     * @return string
+     */
+    private function getFeedUrl()
+    {
+        if (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up') {
+            $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json';
+        } elseif (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up-pro') {
+            $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-pro-announcements.json';
+        } else {
+            return ''; // something's funny
+        }
+
+        return $feedUrl;
+    }
+
+    /**
+     * @return array|string|string[]
+     */
+    private function getQueryStringAction()
+    {
+        return str_replace('pluginann', $this->getAnnPrefix(), $this->queryStringAction);
+    }
+
+    /**
+     * @return string
+     */
+    private function getAnnIdQuery()
+    {
+        return $this->getAnnPrefix() . '_announcement_id';
+    }
+
+    /**
+     * @return array|string|string[]
+     */
+    private function getTransientKey()
+    {
+        return str_replace('pluginann', $this->getAnnPrefix(), $this->transientKey);
+    }
+
+    /**
      * Add action hooks.
      *
      * @return void
@@ -126,7 +178,7 @@ class PluginAnnouncements
     public function init()
     {
         add_action('init', function () {
-            if ( ! Menu::userCanAccessAssetCleanUp() ) {
+            if ( ! Menu::userCanAccessPlugin() ) {
                 return;
             }
 
@@ -151,17 +203,17 @@ class PluginAnnouncements
 
             if ($this->showAnnouncementWay === 'ajax') {
                 // Show announcements (via AJAX)
-                add_action('wp_ajax_' . self::PLUGIN_ID . '_fill_announcement_container', array($this, 'fillAnnouncementContainerAjax'));
+                add_action('wp_ajax_' . Plugin::getConfig('id') . '_fill_announcement_container', array($this, 'fillAnnouncementContainerAjax'));
             }
 
             if ($this->closeAnnouncementWay === 'ajax') {
                 // Close announcements (via AJAX), after using any of the actions: snooze, seen, never show any
-                add_action('wp_ajax_' . self::PLUGIN_ID . '_announcements_action', array($this, 'handleAjaxActionRequest'));
+                add_action('wp_ajax_' . Plugin::getConfig('id') . '_announcements_action', array($this, 'handleAjaxActionRequest'));
             }
 
             // Reload via AJAX the list of announcements from the area: "Settings" -- "Plugin Usage Preferences" -- "Announcements"
             // In case there are action taken (e.g. from the top announcement shown)
-            add_action('wp_ajax_' . self::PLUGIN_ID . '_reload_announcements_settings_tab', array($this, 'reloadAnnouncementsSettingsTab'));
+            add_action('wp_ajax_' . Plugin::getConfig('id') . '_reload_announcements_settings_tab', array($this, 'reloadAnnouncementsSettingsTab'));
         });
     }
 
@@ -194,7 +246,9 @@ class PluginAnnouncements
         // Now determine in which pages to show it if it's enabled
 
         if (Menu::isPluginPage()) {
-            $doNotShowSubTab = isset($_GET['wpacu_selected_sub_tab_area']) && $_GET['wpacu_selected_sub_tab_area'] === 'wpacu-plugin-usage-settings-announcements';
+            $getKey = $this->getAnnPrefix(true) . '_selected_sub_tab_area';
+
+            $doNotShowSubTab = isset($_GET[$getKey]) && $_GET[$getKey] === $this->getAnnPrefix(true) . '-plugin-usage-settings-announcements';
 
             if ($doNotShowSubTab) {
                 return false; // It will be redundant (on the top and in the tab): "Settings" -- "Plugin Usage Preferences" -- "Announcement"
@@ -238,54 +292,59 @@ class PluginAnnouncements
             return;
         }
 
-        $iconsDir = WPACU_PLUGIN_URL . '/assets/icons/';
+        $iconsDir = Plugin::getConfig('url') . '/assets/icons/';
+
+        ob_start();
         ?>
         <style>
-            #wpacu-announcements-container {
+            #pluginann-announcements-container {
                 margin: 20px 0 0 0;
             }
 
-            #wpacu-announcements-container .notice-info {
+            #pluginann-announcements-container .notice-info {
                 border-left-color: #00a7a7;
                 border-top: 1px solid rgba(40, 44, 42, .3);
                 border-right: 1px solid rgba(40, 44, 42, .3);
                 border-bottom: 1px solid rgba(40, 44, 42, .3);
             }
 
-            #wpacu-announcements-container .notice-info .wpacu-ann-title {
+            #pluginann-announcements-container .notice-info .pluginann-ann-title {
+                font-size: 15px;
                 margin: 12px 0 10px;
             }
 
-            #wpacu-announcements-container .notice-info .wpacu-ann-message {
+            #pluginann-announcements-container .notice-info .pluginann-ann-message {
+                font-size: 14px;
                 margin: 12px 0 16px;
             }
 
-            #wpacu-announcements-container .notice-info .wpacu-ann-message a.button-primary,
-            #wpacu-announcements-container .notice-info .wpacu-ann-message a.button-secondary {
+            #pluginann-announcements-container .notice-info .pluginann-ann-message a.button-primary,
+            #pluginann-announcements-container .notice-info .pluginann-ann-message a.button-secondary {
+                font-size: 14px;
                 vertical-align: baseline;
             }
 
-            ul#wpacu-announcement-action-links {
+            ul#pluginann-announcement-action-links {
                 margin: 0 0 10px;
             }
 
-            ul#wpacu-announcement-action-links li {
+            ul#pluginann-announcement-action-links li {
                 display: inline-block;
                 float: none;
                 margin-right: 20px;
             }
 
-            ul#wpacu-announcement-action-links li a {
+            ul#pluginann-announcement-action-links li a {
                 color: #2271b1;
                 display: inline-flex;
                 transition: color 0.3s ease;
             }
 
-            ul#wpacu-announcement-action-links li a:hover {
+            ul#pluginann-announcement-action-links li a:hover {
                 color: #004567;
             }
 
-            ul#wpacu-announcement-action-links li a .wpacu-icon {
+            ul#pluginann-announcement-action-links li a .pluginann-icon {
                 display: inline-block;
                 vertical-align: middle;
                 width: 18px;
@@ -295,19 +354,20 @@ class PluginAnnouncements
                 background-repeat: no-repeat;
             }
 
-            ul#wpacu-announcement-action-links li a .wpacu-icon.wpacu-snooze {
+            ul#pluginann-announcement-action-links li a .pluginann-icon.pluginann-snooze {
                 background-image: url('<?php echo $iconsDir; ?>icon-snooze.svg');
             }
 
-            ul#wpacu-announcement-action-links li a .wpacu-icon.wpacu-seen {
+            ul#pluginann-announcement-action-links li a .pluginann-icon.pluginann-seen {
                 background-image: url('<?php echo $iconsDir; ?>icon-eye.svg');
             }
 
-            ul#wpacu-announcement-action-links li a .wpacu-icon.wpacu-block {
+            ul#pluginann-announcement-action-links li a .pluginann-icon.pluginann-block {
                 background-image: url('<?php echo $iconsDir; ?>icon-block.svg');
             }
         </style>
         <?php
+        echo $this->filterOutputForUniquePrefix(ob_get_clean());
     }
 
     /**
@@ -317,13 +377,40 @@ class PluginAnnouncements
      */
     public function getAnnouncementsFromTheFeed()
     {
-        $announcements = get_transient( $this->transientKey );
+        $announcements = get_transient( $this->getTransientKey() );
 
+        // Already in the cache? Make sure it's read correctly
         if ( false !== $announcements ) {
-            return $announcements;
+            // If something stored a malformed value (e.g. string), avoid fatal errors later
+            if ( is_array( $announcements ) ) {
+                return $this->sanitizeAnnouncements($announcements);
+            }
+
+            // Try to recover if it's JSON
+            if ( is_string( $announcements ) ) {
+                $maybeArrayFromJson = json_decode( $announcements, true );
+
+                if ( is_array( $maybeArrayFromJson ) && ! empty($maybeArrayFromJson) ) {
+                    set_transient( $this->getTransientKey(), $maybeArrayFromJson, $this->transientTime );
+                    return $this->sanitizeAnnouncements( $maybeArrayFromJson );
+                }
+
+                // Try to recover if it's serialized
+                $maybeUnserialized = maybe_unserialize($announcements);
+
+                if ( is_array( $maybeUnserialized ) && ! empty( $maybeUnserialized ) ) {
+                    set_transient( $this->getTransientKey(), $maybeUnserialized, $this->transientTime );
+                    return $this->sanitizeAnnouncements( $maybeUnserialized );
+                }
+            }
+
+            // Nothing usable -> wipe the transient and move on
+            delete_transient( $this->transientKey );
+
+            return array();
         }
 
-        $fetchUrl = add_query_arg( 'wpacu', wp_rand(), $this->feedUrl );
+        $fetchUrl = add_query_arg( $this->getAnnPrefix(), wp_rand(), $this->getFeedUrl() );
 
         $response = wp_remote_get( $fetchUrl, array(
             'headers' => array(
@@ -344,7 +431,7 @@ class PluginAnnouncements
             return array();
         }
 
-        set_transient( $this->transientKey, $announcements, $this->transientTime );
+        set_transient( $this->getTransientKey(), $announcements, $this->transientTime );
 
         return $this->sanitizeAnnouncements($announcements);
     }
@@ -357,8 +444,16 @@ class PluginAnnouncements
      */
     private function sanitizeAnnouncements($announcements)
     {
+        if (empty($announcements)) {
+            return array();
+        }
+
         // Ensure each announcement has a valid priority, default to 'low' if missing or invalid
         foreach ($announcements as $annId => $ann) {
+            if ( ! is_array($ann) ) {
+                continue;
+            }
+
             if ( ! isset($ann['priority']) || ! array_key_exists(strtolower($ann['priority']), $this->priorityLevels) ) {
                 $announcements[$annId]['priority'] = 'low';
             } else {
@@ -504,6 +599,14 @@ class PluginAnnouncements
                 continue;
             }
 
+            // It needs to have a title or a message (either of them, or both)
+            $annTitle = isset($ann['title'])   ? $ann['title']   : null;
+            $annMsg   = isset($ann['message']) ? $ann['message'] : null;
+
+            if ( empty($annTitle) && empty($annMsg) ) {
+                continue;
+            }
+
             // Seen?
             if (isset($announcementsSettings['list'][$annId]['seen']) && $announcementsSettings['list'][$annId]['seen']) {
                 continue;
@@ -541,7 +644,7 @@ class PluginAnnouncements
             // e.g. at least a few days have to pass since plugin activation (first usage)
             $conditions = isset($ann['conditions']) && is_array($ann['conditions']) ? $ann['conditions'] : array();
 
-            $pluginUsageData = self::getPluginUsageData($ann['conditions']);
+            $pluginUsageData = Plugin::getPluginUsageData($ann['conditions']);
 
             if ( ! self::isMatchForExtraConditions($conditions, $pluginUsageData) ) {
                 continue;
@@ -564,16 +667,25 @@ class PluginAnnouncements
             $showableAnnouncementsNow[] = $ann;
         }
 
+        ob_start();
+
         foreach ( $showableAnnouncementsNow as $ann ) {
-            $annId = isset( $ann['id'] ) ? $ann['id'] : null;
+            $annId          = isset($ann['id'])       ? $ann['id']       : null;
 
-            $priority   = isset( $ann['priority'] ) ? $ann['priority'] : 'low';
+            $priority       = isset($ann['priority']) ? $ann['priority'] : 'low';
 
-            $titleRaw   = isset($ann['title'])      ? $ann['title'] : 'Announcement';
-            $messageRaw = isset($ann['message'])    ? $ann['message'] : '';
+            $titleRaw       = (isset($ann['title'])   && $ann['title'])   ? $this->filterOutputForUniquePrefix($ann['title'])   : '';
+            $messageRaw     = (isset($ann['message']) && $ann['message']) ? $this->filterOutputForUniquePrefix($ann['message']) : '';
 
-            $sanitizedTitle = wp_kses( $titleRaw,   $this->allowedTitleHtmlTags );
-            $sanitizedMsg   = wp_kses( $messageRaw, $this->allowedMessageHtmlTags );
+            $sanitizedTitle = $sanitizedMsg = '';
+
+            if ($titleRaw) {
+                $sanitizedTitle = wp_kses($titleRaw, $this->allowedTitleHtmlTags);
+            }
+
+            if ($messageRaw) {
+                $sanitizedMsg = wp_kses($messageRaw, $this->allowedMessageHtmlTags);
+            }
 
             $showRemindMeLaterAction = true;
 
@@ -584,37 +696,49 @@ class PluginAnnouncements
             }
 
             if ($showRemindMeLaterAction) {
-                // /?{$queryStringAction}=snooze&announcement_id={id}
-                $fallbackUrlRemindLater = add_query_arg( array( self::$queryStringAction => 'snoozed', 'announcement_id' => $annId ) );
+                // /?{$queryStringAction}=snooze&pluginann_announcement_id={id}
+                $fallbackUrlRemindLater = add_query_arg( array( $this->getQueryStringAction() => 'snoozed', 'pluginann_announcement_id' => $annId ) );
             }
 
-            // /?{$queryStringAction}=seen&announcement_id={id}
-            $fallbackUrlMarkAsSeen = add_query_arg( array( self::$queryStringAction => 'seen', 'announcement_id' => $annId ) );
+            // /?{$queryStringAction}=seen&pluginann_announcement_id={id}
+            $fallbackUrlMarkAsSeen = add_query_arg( array( $this->getQueryStringAction() => 'seen', 'pluginann_announcement_id' => $annId ) );
 
-            // /?{$queryStringAction}=never_show_any&announcement_id={id}
-            $fallbackUrlNeverShowAny = add_query_arg( array( self::$queryStringAction => 'never_show_any' ) );
+            // /?{$queryStringAction}=never_show_any&pluginann_announcement_id={id}
+            $fallbackUrlNeverShowAny = add_query_arg( array( $this->getQueryStringAction() => 'never_show_any' ) );
             ?>
                     <?php if ($isCallType === 'regular') { ?>
-                        <div id="wpacu-announcements-container">
+                        <div id="pluginann-announcements-container">
                     <?php } ?>
-                            <div class="notice notice-info is-dismissible wpacu-announcement"
-                                 data-wpacu-annoucement-priority="<?php echo $priority; ?>"
-                                 data-wpacu-announcement-id="<?php echo esc_attr( $annId ); ?>">
-                                <p class="wpacu-ann-title"><strong><?php echo $sanitizedTitle; ?></strong></p>
-                                <p class="wpacu-ann-message"><?php echo $sanitizedMsg; ?></p>
+                            <div class="notice notice-info is-dismissible pluginann-announcement"
+                                 data-pluginann-annoucement-priority="<?php echo $priority; ?>"
+                                 data-pluginann-announcement-id="<?php echo esc_attr( $annId ); ?>">
+
+                                <?php
+                                if ($sanitizedTitle !== '') {
+                                ?>
+                                    <p class="pluginann-ann-title"><strong><?php echo $sanitizedTitle; ?></strong></p>
+                                <?php
+                                }
+
+                                if ($sanitizedMsg !== '') {
+                                ?>
+                                    <p class="pluginann-ann-message"><?php echo $sanitizedMsg; ?></p>
+                                <?php
+                                }
+                                ?>
 
                                 <!-- [Action links] -->
-                                <ul id="wpacu-announcement-action-links">
+                                <ul id="pluginann-announcement-action-links">
                                     <?php if ($showRemindMeLaterAction) { ?>
-                                        <li><a href="<?php echo esc_url( $fallbackUrlRemindLater ); ?>"  class="wpacu-snooze-it"><span class="wpacu-icon wpacu-snooze" aria-hidden="true"></span> Remind Me Later</a></li>
+                                        <li><a href="<?php echo esc_url( $fallbackUrlRemindLater ); ?>"  class="pluginann-snooze-it"><span class="pluginann-icon pluginann-snooze" aria-hidden="true"></span> Remind Me Later</a></li>
                                     <?php } ?>
 
-                                    <li><a href="<?php echo esc_url( $fallbackUrlMarkAsSeen ); ?>"   class="wpacu-mark-it-as-seen wpacu-main-action-link"><span class="wpacu-icon wpacu-seen" aria-hidden="true"></span> Mark as Seen</a></li>
-                                    <li><a href="<?php echo esc_url( $fallbackUrlNeverShowAny ); ?>" class="wpacu-never-show-any"><span class="wpacu-icon wpacu-block" aria-hidden="true"></span> Never show plugin announcements</a></li>
+                                    <li><a href="<?php echo esc_url( $fallbackUrlMarkAsSeen ); ?>"   class="pluginann-mark-it-as-seen pluginann-main-action-link"><span class="pluginann-icon pluginann-seen" aria-hidden="true"></span> Mark as Seen</a></li>
+                                    <li><a href="<?php echo esc_url( $fallbackUrlNeverShowAny ); ?>" class="pluginann-never-show-any"><span class="pluginann-icon pluginann-block" aria-hidden="true"></span> Never show plugin announcements</a></li>
                                 </ul>
                                 <!-- [/Action links] -->
                                 <hr />
-                                <p style="font-size: 12px; font-style: italic; margin: 10px 0 10px;"><strong>Note:</strong> <?php echo WPACU_PLUGIN_TITLE; ?>'s annoucements can always be managed in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('admin.php?page=wpassetcleanup_settings&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-announcements'); ?>">"Settings" &rarr; "Plugin Usage Preferences" &rarr; "Announcements"</a></p>
+                                <p style="font-size: 12px; font-style: italic; margin: 10px 0 10px;"><strong>Note:</strong> <?php echo Plugin::getConfig('title'); ?>'s annoucements can always be managed in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('admin.php?page='.Plugin::getConfig('id').'_settings&pluginann_selected_tab_area=pluginann-setting-plugin-usage-settings&pluginann_selected_sub_tab_area=pluginann-plugin-usage-settings-announcements'); ?>">"Settings" &rarr; "Plugin Usage Preferences" &rarr; "Announcements"</a></p>
                             </div>
                     <?php if ($isCallType === 'regular') { ?>
                         </div>
@@ -628,41 +752,11 @@ class PluginAnnouncements
                 $this->snoozeNextAnnouncementsAfterCurrentOne($annId, $showableAnnouncementsIncludingAnySnoozed);
             }
 
+            echo $this->filterOutputForUniquePrefix(ob_get_clean());
+
             // Only show one announcement
             break;
         }
-    }
-
-    /**
-     * @param $conditions
-     *
-     * @return array
-     */
-    public static function getPluginUsageData($conditions)
-    {
-        $pluginUsageData = array();
-
-        // Note: the "key" has the same name as the ones from the JSON feed
-
-        // Days passed since first usage
-        $forKey = 'time_passed_in_days_after_first_activation';
-
-        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
-            $firstUsageTimestamp = get_option(WPACU_PLUGIN_ID . '_first_usage');
-            $differenceInSeconds = time() - $firstUsageTimestamp;
-            $differenceInDays    = floor($differenceInSeconds / DAY_IN_SECONDS);
-
-            $pluginUsageData[$forKey] = $differenceInDays;
-        }
-
-        // Total number of unloaded assets
-        $forKey = 'has_minimum_number_of_asset_rules';
-
-        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
-            $pluginUsageData[$forKey] = MiscAdmin::getTotalUnloadedAssets();
-        }
-
-        return $pluginUsageData;
     }
 
     /**
@@ -726,7 +820,8 @@ class PluginAnnouncements
         }
 
         if ($this->showAnnouncementWay === 'ajax') {
-            echo '<div id="wpacu-announcements-container" class="wpacu_hide"></div>'; // This will be filled by the AJAX call
+            $output = '<div id="pluginann-announcements-container" class="pluginann_hide"></div>'; // This will be filled by the AJAX call
+            echo $this->filterOutputForUniquePrefix($output);
             return;
         }
 
@@ -739,7 +834,7 @@ class PluginAnnouncements
      */
     public function fillAnnouncementContainerAjax()
     {
-        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(Plugin::getConfig('id') . '_announcements_nonce', 'nonce');
 
         $announcements = $this->getAnnouncementsFromTheFeed();
 
@@ -894,8 +989,11 @@ class PluginAnnouncements
      */
     public function handleFallbackActions()
     {
-        $actionType     = isset($_GET[self::$queryStringAction]) ? sanitize_text_field($_GET[self::$queryStringAction]) : '';
-        $announcementId = isset($_GET['announcement_id'])        ? sanitize_text_field($_GET['announcement_id']) : '';
+        $queryStringAction = $this->getQueryStringAction();
+        $annIdQuery        = $this->getQueryStringAction() . '_announcement_id';
+
+        $actionType     = isset($_GET[$queryStringAction]) ? sanitize_text_field($_GET[$queryStringAction]) : '';
+        $announcementId = isset($_GET[$annIdQuery])        ? sanitize_text_field($_GET[$annIdQuery])        : '';
 
         if ( empty($actionType) ) {
             return;
@@ -907,7 +1005,11 @@ class PluginAnnouncements
         // Clear any irrelevant query strings from the action fallback URL that might cause conflicts
         wp_safe_redirect(
             remove_query_arg(
-                array(self::$queryStringAction, 'announcement_id', 'wpacu_clear_announcements_cache', 'wpacu_clear_announcements_settings')
+                array(
+                    $annIdQuery,
+                    $this->getAnnPrefix(true) . '_clear_announcements_cache',
+                    $this->getAnnPrefix(true) . '_clear_announcements_settings'
+                )
             )
         );
 
@@ -919,32 +1021,32 @@ class PluginAnnouncements
      */
     public function handleCacheClearingOnRequest()
     {
-        $query = 'wpacu_clear_announcements_cache';
+        $query = $this->getAnnPrefix(true) . '_clear_announcements_cache';
 
-        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessAssetCleanUp();
+        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessPlugin();
 
         if ( ! $proceed ) {
             return;
         }
 
         // Delete the transient cache
-        delete_transient( $this->transientKey );
+        delete_transient( $this->getTransientKey() );
     }
 
     /**
      * @return void
      */
-    public static function handleSettingsClearingOnRequest()
+    public function handleSettingsClearingOnRequest()
     {
-        $query = 'wpacu_clear_announcements_settings';
+        $query = $this->getAnnPrefix(true) . '_clear_announcements_settings';
 
-        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessAssetCleanUp();
+        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessPlugin();
 
         if ( ! $proceed ) {
             return;
         }
 
-        $settingsAdmin         = new SettingsAdmin();
+        $settingsAdmin = new SettingsAdmin();
         $settingsAdmin->updateOption('announcements', array());
     }
 
@@ -975,10 +1077,12 @@ class PluginAnnouncements
      */
     public function handleAjaxActionRequest()
     {
-        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(Plugin::getConfig('id') . '_announcements_nonce', 'nonce');
 
-        $actionType     = isset($_POST['action_type'])     ? sanitize_text_field($_POST['action_type']) : '';
-        $announcementId = isset($_POST['announcement_id']) ? sanitize_text_field($_POST['announcement_id']) : '';
+        $annIdQuery = $this->getAnnIdQuery();
+
+        $actionType     = isset($_POST['action_type']) ? sanitize_text_field($_POST['action_type']) : '';
+        $announcementId = isset($_POST[$annIdQuery])   ? sanitize_text_field($_POST[$annIdQuery]) : '';
 
         self::updateAnnouncementsViaActionType($actionType, $announcementId, 'ajax');
     }
@@ -988,14 +1092,14 @@ class PluginAnnouncements
      */
     public function reloadAnnouncementsSettingsTab()
     {
-        check_ajax_referer(self::PLUGIN_ID . '_announcements_nonce', 'nonce');
+        check_ajax_referer(Plugin::getConfig('id') . '_announcements_nonce', 'nonce');
 
-        $wpacuSettings = new Settings;
-        $data = $wpacuSettings->getAll(); // It will be used in the inclusion
+        $settings = new Settings;
+        $data = $settings->getAll(); // It will be used in the inclusion
 
         $data['is_loaded_via_ajax'] = true;
 
-        include_once WPACU_PLUGIN_DIR.'/templates/_admin-page-settings-plugin-areas/_plugin-usage-settings/_announcements.php';
+        include_once Plugin::getConfig('dir').'/templates/_admin-page-settings-plugin-areas/_plugin-usage-settings/_announcements.php';
 
         exit();
     }
@@ -1011,9 +1115,11 @@ class PluginAnnouncements
         if ( ! $this->_showOnCurrentAdminPage() ) {
             return;
         }
+
+        ob_start();
         ?>
             <style>
-                .wpacu-custom-tooltip {
+                .pluginann-custom-tooltip {
                     position: absolute;
                     background-color: #004567; /* Tooltip background */
                     color: #fff; /* Text color */
@@ -1029,12 +1135,12 @@ class PluginAnnouncements
                 }
 
                 /* Show the tooltip */
-                .wpacu-custom-tooltip.show {
+                .pluginann-custom-tooltip.show {
                     opacity: 1; /* Fully visible */
                 }
 
                 /* Add the arrow */
-                .wpacu-custom-tooltip::after {
+                .pluginann-custom-tooltip::after {
                     content: ''; /* Empty content for the arrow */
                     position: absolute;
                     top: -16px; /* Position the arrow above the tooltip */
@@ -1044,219 +1150,230 @@ class PluginAnnouncements
                     border-color: transparent transparent #004567 transparent; /* Transparent sides, black bottom */
                 }
             </style>
-        <script type="text/javascript">
-            jQuery(document).ready(function($) {
-                var ajaxUrl = '<?php echo admin_url('admin-ajax.php'); ?>',
-                    nonce   = '<?php echo wp_create_nonce(self::PLUGIN_ID . '_announcements_nonce'); ?>';
+            <script type="text/javascript">
+                jQuery(document).ready(function($) {
+                    var ajaxUrl = '<?php echo admin_url('admin-ajax.php'); ?>',
+                        nonce   = '<?php echo wp_create_nonce(Plugin::getConfig('id') . '_announcements_nonce'); ?>';
 
-                <?php
-                if ($this->showAnnouncementWay === 'ajax') {
-                ?>
-                    // Create tooltip dynamically
-                    $(document).on('mouseenter', '#wpacu-announcements-container .notice-dismiss', function () {
-                        const tooltipText = 'Click to mark as Seen';
-                        const tooltip = $('<div class="wpacu-custom-tooltip"></div>').text(tooltipText);
-                        $('body').append(tooltip);
+                    <?php
+                    if ($this->showAnnouncementWay === 'ajax') {
+                    ?>
+                        // Create tooltip dynamically
+                        $(document).on('mouseenter', '#pluginann-announcements-container .notice-dismiss', function () {
+                            const tooltipText = 'Click to mark as Seen';
+                            const tooltip = $('<div class="pluginann-custom-tooltip"></div>').text(tooltipText);
+                            $('body').append(tooltip);
 
-                        // Position the tooltip below the button, aligned to the left
-                        const buttonOffset = $(this).offset();
-                        tooltip.css({
-                            top: buttonOffset.top + $(this).outerHeight() + 5, // Position below button
-                            left: buttonOffset.left - 104, // Align with the left edge of the button
-                        }).addClass('show');
+                            // Position the tooltip below the button, aligned to the left
+                            const buttonOffset = $(this).offset();
+                            tooltip.css({
+                                top: buttonOffset.top + $(this).outerHeight() + 5, // Position below button
+                                left: buttonOffset.left - 104, // Align with the left edge of the button
+                            }).addClass('show');
 
-                        // Add a fade-in effect
-                        tooltip.hide().fadeIn(200);
+                            // Add a fade-in effect
+                            tooltip.hide().fadeIn(200);
 
-                        // Store the tooltip reference for later removal
-                        $(this).data('tooltip', tooltip);
-                    }).on('mouseleave', '#wpacu-announcements-container .notice-dismiss', function () {
-                        const tooltip = $(this).data('tooltip');
-                        if (tooltip) {
-                            tooltip.fadeOut(200, function () {
-                                $(this).remove();
-                            });
-                        }
-                    });
-
-                    $(window).on('resize', function () {
-                        $('#wpacu-announcements-container .notice-dismiss .wpacu-custom-tooltip').remove();
-                    });
-
-                    // Fill announcement container dinamically
-                    $.ajax({
-                        url: ajaxUrl,
-                        method: 'POST',
-                        data: {
-                            action: '<?php echo WPACU_PLUGIN_ID; ?>_fill_announcement_container',
-                            nonce: nonce
-                        }
-                    }).done(function(response) {
-                        if (response.success && response.data.html) {
-                            $('#wpacu-announcements-container').css({'display': 'none'}).removeClass('wpacu_hide').html(response.data.html).slideDown();
-
-                            // If in the plugin's "Settings" area (other announcements are likely snoozed for one hour after this one was shown)
-                            wpacuRefillSettingsAnnouncementsArea();
-                        }
-
-                        // Reinitialize dismissible notice functionality
-                        $('.wpacu-announcement.is-dismissible').each(function () {
-                            var $announcement = $(this);
-                            var $buttonAnn = $('<button type="button" class="notice-dismiss"><span class="screen-reader-text">Mark this announcement as seen.</span></button>');
-
-                            $announcement.append($buttonAnn);
-
-                            // the "X" is clicked on the top right
-                            $buttonAnn.on('click', function (event) {
-                                event.preventDefault();
-
-                                var announcementId = $announcement.attr('data-wpacu-announcement-id');
-
-                                // Mark it as seen
-                                wpacuSendAnnouncementRequest('seen', announcementId).done(function(response) {
-                                    if (response.success) {
-                                        $announcement.parent().slideUp();
-                                    } else {
-                                        console.error(response.data.message || 'Error marking announcement as seen.');
-                                    }
-                                }).fail(function() {
-                                    console.log('Error processing request. Please try again later!');
+                            // Store the tooltip reference for later removal
+                            $(this).data('tooltip', tooltip);
+                        }).on('mouseleave', '#pluginann-announcements-container .notice-dismiss', function () {
+                            const tooltip = $(this).data('tooltip');
+                            if (tooltip) {
+                                tooltip.fadeOut(200, function () {
+                                    $(this).remove();
                                 });
-
-                                $announcement.slideUp();
-                            });
+                            }
                         });
 
-                    }).fail(function() {
-                        console.error('Error fetching announcements.');
-                    });
-                <?php
-                }
+                        $(window).on('resize', function () {
+                            $('#pluginann-announcements-container .notice-dismiss .pluginann-custom-tooltip').remove();
+                        });
 
-                if ($this->closeAnnouncementWay === 'ajax') {
-                ?>
-                    // Fill settings announcements container dinamically (if the admin is on the "Settings" page)
-                    // If it gets saved, it should save properly, since the settings were changed after this action
-                    function wpacuRefillSettingsAnnouncementsArea()
-                    {
-                        if ($('#wpacu-settings-annoucements-container').length === 0) {
-                            return;
-                        }
-
-                        $('#wpacu-settings-announcements-wrap .wpacu-overlay').css({'display':'flex'});
-
+                        // Fill announcement container dinamically
                         $.ajax({
                             url: ajaxUrl,
                             method: 'POST',
                             data: {
-                                action: '<?php echo self::PLUGIN_ID; ?>_reload_announcements_settings_tab',
+                                action: '<?php echo Plugin::getConfig('id'); ?>_fill_announcement_container',
                                 nonce: nonce
                             }
-                        }).done(function (response) {
-                            $('#wpacu-settings-annoucements-container').removeClass('wpacu_hide').html(response);
-                            $('#submit').prop('disabled', false);
-
-                            $('#wpacu-settings-announcements-wrap .wpacu-overlay').css({'display':'none'});
-                        }).fail(function () {
-                            console.error('AJAX Reload Failed: The announcements\' settings were not refetched!');
-                        });
-                    }
-
-                    // Send request on link click (e.g. snooze, seen, never show any)
-                    function wpacuSendAnnouncementRequest(actionType, announcementId) {
-                        var requestData = {
-                            action: '<?php echo self::PLUGIN_ID; ?>_announcements_action',
-                            nonce: nonce,
-                            action_type: actionType
-                        };
-
-                        if (announcementId) {
-                            requestData.announcement_id = announcementId;
-                        }
-
-                        $('#submit').prop('disabled', true);
-
-                        return $.ajax({
-                            url: ajaxUrl,
-                            method: 'POST',
-                            data: requestData
                         }).done(function(response) {
-                            wpacuRefillSettingsAnnouncementsArea(); // if in the plugin's "Settings" area
-                        }).fail(function () {
-                            console.log('Error processing request. Please try again later!');
+                            if (response.success && response.data.html) {
+                                $('#pluginann-announcements-container').css({'display': 'none'}).removeClass('pluginann_hide').html(response.data.html).slideDown();
+
+                                // If in the plugin's "Settings" area (other announcements are likely snoozed for one hour after this one was shown)
+                                pluginannRefillSettingsAnnouncementsArea();
+                            }
+
+                            // Reinitialize dismissible notice functionality
+                            $('.pluginann-announcement.is-dismissible').each(function () {
+                                var $announcement = $(this);
+                                var $buttonAnn = $('<button type="button" class="notice-dismiss"><span class="screen-reader-text">Mark this announcement as seen.</span></button>');
+
+                                $announcement.append($buttonAnn);
+
+                                // the "X" is clicked on the top right
+                                $buttonAnn.on('click', function (event) {
+                                    event.preventDefault();
+
+                                    var announcementId = $announcement.attr('data-pluginann-announcement-id');
+
+                                    // Mark it as seen
+                                    pluginannSendAnnouncementRequest('seen', announcementId).done(function(response) {
+                                        if (response.success) {
+                                            $announcement.slideUp();
+                                        } else {
+                                            console.error(response.data.message || 'Error marking announcement as seen.');
+                                        }
+                                    }).fail(function() {
+                                        console.log('Error processing request. Please try again later!');
+                                    });
+
+                                    $announcement.slideUp();
+                                });
+                            });
+
+                        }).fail(function() {
+                            console.error('Error fetching announcements.');
                         });
+                    <?php
                     }
 
-                    /*
-                     * "Remind me Later" click
-                     */
-                    $(document).on('click', '.wpacu-snooze-it', function(e) {
-                        e.preventDefault();
-
-                        var $announcement  = $(this).closest('[data-wpacu-announcement-id]');
-                        var announcementId = $announcement.data('wpacu-announcement-id');
-
-                        wpacuSendAnnouncementRequest('snoozed', announcementId).done(function(response) {
-                            if (response.success) {
-                                $announcement.parent().slideUp();
-                            } else {
-                                console.log(response.data.message || 'Error snoozing announcement.');
+                    if ($this->closeAnnouncementWay === 'ajax') {
+                    ?>
+                        // Fill settings announcements container dinamically (if the admin is on the "Settings" page)
+                        // If it gets saved, it should save properly, since the settings were changed after this action
+                        function pluginannRefillSettingsAnnouncementsArea()
+                        {
+                            if ($('#pluginann-settings-annoucements-container').length === 0) {
+                                return;
                             }
-                        }).fail(function() {
-                            console.log('Error processing request. Please try again later!');
-                        });
-                    });
 
-                    /*
-                     * "Mark as seen" click
-                     */
-                    $(document).on('click', '.wpacu-mark-it-as-seen', function(e) {
-                        // Case 1: If the actual "Mark as Seen" is clicked that also has the class "wpacu-main-action-link",
-                        // prevent its default behaviour (empty link anyway, it acts as a button)
+                            $('#pluginann-settings-announcements-wrap .pluginann-overlay').css({'display':'flex'});
 
-                        // Case 2: If one of the links from the message is clicked with the same "wpacu-mark-it-as-seen" class,
-                        // then keep its default behaviour (e.g. opening the link in a new tab), and also trigger the action to mark it as seen
-                        if ($(this).hasClass('wpacu-main-action-link')) {
-                            e.preventDefault();
+                            $.ajax({
+                                url: ajaxUrl,
+                                method: 'POST',
+                                data: {
+                                    action: '<?php echo Plugin::getConfig('id'); ?>_reload_announcements_settings_tab',
+                                    nonce: nonce
+                                }
+                            }).done(function (response) {
+                                $('#pluginann-settings-annoucements-container').removeClass('pluginann_hide').html(response);
+                                $('#submit').prop('disabled', false);
+
+                                $('#pluginann-settings-announcements-wrap .pluginann-overlay').css({'display':'none'});
+                            }).fail(function () {
+                                console.error('AJAX Reload Failed: The announcements\' settings were not refetched!');
+                            });
                         }
 
-                        var $announcement  = $(this).closest('[data-wpacu-announcement-id]');
-                        var announcementId = $announcement.data('wpacu-announcement-id');
+                        // Send request on link click (e.g. snooze, seen, never show any)
+                        function pluginannSendAnnouncementRequest(actionType, announcementId) {
+                            var requestData = {
+                                action: '<?php echo Plugin::getConfig('id'); ?>_announcements_action',
+                                nonce: nonce,
+                                action_type: actionType
+                            };
 
-                        wpacuSendAnnouncementRequest('seen', announcementId).done(function(response) {
-                            if (response.success) {
-                                $announcement.parent().slideUp();
-                            } else {
-                                console.log(response.data.message || 'Error marking announcement as seen.');
+                            if (announcementId) {
+                                requestData.pluginann_announcement_id = announcementId;
                             }
-                        }).fail(function() {
-                            console.log('Error processing request. Please try again later!');
+
+                            $('#submit').prop('disabled', true);
+
+                            return $.ajax({
+                                url:    ajaxUrl,
+                                method: 'POST',
+                                data:   requestData
+                            }).done(function(response) {
+                                pluginannRefillSettingsAnnouncementsArea(); // if in the plugin's "Settings" area
+                            }).fail(function () {
+                                console.log('Error processing request. Please try again later!');
+                            });
+                        }
+
+                        /*
+                         * "Remind me Later" click
+                         */
+                        $(document).on('click', '.pluginann-snooze-it', function(e) {
+                            e.preventDefault();
+
+                            var $announcement  = $(this).closest('[data-pluginann-announcement-id]');
+                            var announcementId = $announcement.data('pluginann-announcement-id');
+
+                            pluginannSendAnnouncementRequest('snoozed', announcementId).done(function(response) {
+                                if (response.success) {
+                                    $announcement.slideUp();
+                                } else {
+                                    console.log(response.data.message || 'Error snoozing announcement.');
+                                }
+                            }).fail(function() {
+                                console.log('Error processing request. Please try again later!');
+                            });
                         });
-                    });
 
-                    /*
-                     * "Never show any" click
-                     */
-                    $(document).on('click', '.wpacu-never-show-any', function(e) {
-                        e.preventDefault();
+                        /*
+                         * "Mark as seen" click
+                         */
+                        $(document).on('click', '.pluginann-mark-it-as-seen', function(e) {
+                            // Case 1: If the actual "Mark as Seen" is clicked that also has the class "pluginann-main-action-link",
+                            // prevent its default behaviour (empty link anyway, it acts as a button)
 
-                        var $announcement = $(this).closest('[data-wpacu-announcement-id]');
-
-                        wpacuSendAnnouncementRequest('never_show_any').done(function(response) {
-                            if (response.success) {
-                                $announcement.parent().slideUp();
-                            } else {
-                                console.log(response.data.message || 'Error disabling announcements.');
+                            // Case 2: If one of the links from the message is clicked with the same "pluginann-mark-it-as-seen" class,
+                            // then keep its default behaviour (e.g. opening the link in a new tab), and also trigger the action to mark it as seen
+                            if ($(this).hasClass('pluginann-main-action-link')) {
+                                e.preventDefault();
                             }
-                        }).fail(function() {
-                            console.log('Error processing request. Please try again later!');
+
+                            var $announcement  = $(this).closest('[data-pluginann-announcement-id]');
+                            var announcementId = $announcement.data('pluginann-announcement-id');
+
+                            pluginannSendAnnouncementRequest('seen', announcementId).done(function(response) {
+                                if (response.success) {
+                                    $announcement.slideUp();
+                                } else {
+                                    console.log(response.data.message || 'Error marking announcement as seen.');
+                                }
+                            }).fail(function() {
+                                console.log('Error processing request. Please try again later!');
+                            });
                         });
-                    });
-                <?php
-                }
-                ?>
-            });
-        </script>
+
+                        /*
+                         * "Never show any" click
+                         */
+                        $(document).on('click', '.pluginann-never-show-any', function(e) {
+                            e.preventDefault();
+
+                            var $announcement = $(this).closest('[data-pluginann-announcement-id]');
+
+                            pluginannSendAnnouncementRequest('never_show_any').done(function(response) {
+                                if (response.success) {
+                                    $announcement.slideUp();
+                                } else {
+                                    console.log(response.data.message || 'Error disabling announcements.');
+                                }
+                            }).fail(function() {
+                                console.log('Error processing request. Please try again later!');
+                            });
+                        });
+                    <?php
+                    }
+                    ?>
+                });
+            </script>
         <?php
+        echo $this->filterOutputForUniquePrefix(ob_get_clean());
+    }
+
+    /**
+     * @param $output
+     *
+     * @return array|string|string[]
+     */
+    public function filterOutputForUniquePrefix($output)
+    {
+        return str_replace('pluginann', $this->getAnnPrefix(), $output);
     }
 }

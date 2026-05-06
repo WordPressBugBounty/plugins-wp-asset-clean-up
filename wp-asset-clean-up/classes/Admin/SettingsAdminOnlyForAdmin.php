@@ -225,7 +225,7 @@ SQL;
         if ( ! ( isset($_POST['action'], $_POST['wpacu_user_id']) &&
                  $_POST['action'] && $_POST['wpacu_user_id'] &&
                  $_POST['action'] === WPACU_PLUGIN_ID . '_add_non_admin_users_to_chosen_list' ) ||
-             ! Menu::userCanAccessAssetCleanUp() ) {
+             ! Menu::userCanAccessPlugin() ) {
             exit();
         }
 

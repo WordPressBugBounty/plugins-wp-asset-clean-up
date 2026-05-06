@@ -119,8 +119,7 @@ class CriticalCss
 				}
 
 				// Marked for no alteration or for loading based on the media query match? Then, it's already non-render blocking, and it has to be skipped!
-				if (preg_match('#data-wpacu-skip([=>/ ])#i', $matchedTag)
-				    || strpos($matchedTag, 'data-wpacu-apply-media-query=') !== false) {
+				if (strpos($matchedTag, 'data-wpacu-apply-media-query=') !== false || Misc::hasExactDataAttr($matchedTag, 'data-wpacu-skip')) {
 					continue;
 				}
 

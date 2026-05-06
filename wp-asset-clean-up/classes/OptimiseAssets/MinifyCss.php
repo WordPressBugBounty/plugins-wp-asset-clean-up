@@ -305,7 +305,7 @@ class MinifyCss
 		// Request Minify On The Fly
 		// It will preview the page with CSS minified
 		// Only if the admin is logged in as it uses more resources (CPU / Memory)
-		if ( isset($_GET['wpacu_css_minify']) && Menu::userCanAccessAssetCleanUp() ) {
+		if ( isset($_GET['wpacu_css_minify']) && Menu::userCanAccessPlugin() ) {
 			self::isMinifyCssEnabledChecked('true');
 			return true;
 		}
@@ -313,7 +313,7 @@ class MinifyCss
 		if ( isset($_REQUEST['wpacu_no_css_minify']) || // not on query string request (debugging purposes)
 		     is_admin() || // not for Dashboard view
 		     (! Main::instance()->settings['minify_loaded_css']) || // Minify CSS has to be Enabled
-		     (Main::instance()->settings['test_mode'] && ! Menu::userCanAccessAssetCleanUp()) ) { // Does not trigger if "Test Mode" is Enabled
+		     (Main::instance()->settings['test_mode'] && ! Menu::userCanAccessPlugin()) ) { // Does not trigger if "Test Mode" is Enabled
 			self::isMinifyCssEnabledChecked('false');
 			return false;
 		}

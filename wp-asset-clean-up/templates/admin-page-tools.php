@@ -125,27 +125,33 @@ do_action('wpacu_admin_notices');
         if ($data['for'] === 'storage') {
 	        $currentStorageDirRel        = OptimizeCommon::getRelPathPluginCacheDir();
 	        $currentStorageDirFull       = WP_CONTENT_DIR . $currentStorageDirRel;
-	        $currentStorageDirIsWritable = is_writable($currentStorageDirFull);
 
-	        if (! $currentStorageDirIsWritable) {
-		        ?>
+            if ( ! is_dir($currentStorageDirFull) ) {
+                @mkdir($currentStorageDirFull, FS_CHMOD_DIR, true);
+            }
+
+            $currentStorageDirIsWritable = is_writable($currentStorageDirFull);
+
+            if ( ! $currentStorageDirIsWritable ) {
+                ?>
                 <div class="wpacu-warning" style="width: 98%;">
                     <p style="margin: 0;">
                         <span style="color: #cc0000;" class="dashicons dashicons-warning"></span>
-				        <?php echo sprintf(
-					        __('The system detected the storage directory as non-writable, thus the minify &amp; combine CSS/JS files feature will not work. Please %smake it writable%s or raise a ticket with your hosting company about this matter.', 'wp-asset-clean-up'),
-					        '<a href="https://wordpress.org/support/article/changing-file-permissions/">',
-					        '</a>'
-				        ); ?>
+                        <?php echo sprintf(
+                            __('The system detected the storage directory as non-writable, thus the minify &amp; combine CSS/JS files feature will not work. Please %smake it writable%s or raise a ticket with your hosting company about this matter.', 'wp-asset-clean-up'),
+                            '<a href="https://wordpress.org/support/article/changing-file-permissions/">',
+                            '</a>'
+                        ); ?>
                     </p>
                 </div>
-	        <?php }
-	        ?>
+            <?php
+            }
+            ?>
             <p>
-		        <?php _e('Current storage directory', 'wp-asset-clean-up'); ?>: <code><?php echo WP_CONTENT_DIR; ?><strong><?php echo esc_html($currentStorageDirRel); ?></strong></code>
+                <?php _e('Current storage directory', 'wp-asset-clean-up'); ?>: <code><?php echo WP_CONTENT_DIR; ?><strong><?php echo esc_html($currentStorageDirRel); ?></strong></code>
                 &nbsp; <?php if ($currentStorageDirIsWritable) {
-			        echo '<span style="color: green;"><span class="dashicons dashicons-yes"></span> '.__('writable', 'wp-asset-clean-up').'</span>';
-		        } ?>
+                    echo '<span style="color: green;"><span class="dashicons dashicons-yes"></span> '.__('writable', 'wp-asset-clean-up').'</span>';
+                } ?>
             </p>
 
             <p><?php _e('Depending on the current settings, a storage caching directory of the optimized files is needed', 'wp-asset-clean-up'); ?>. Reason being that specific CSS/JS files had to be altered and they are retrieved faster from the caching directory, rather than altering then "on the fly" on every page load. <span style="color: #004567;" class="dashicons dashicons-info"></span> <a target="_blank" href="https://assetcleanup.com/docs/?p=526">Read more</a></p>
@@ -154,36 +160,46 @@ do_action('wpacu_admin_notices');
 	        $storageStats = OptimizeCommon::getStorageStats();
 
 	        if (isset($storageStats['total_size'], $storageStats['total_files'])) {
+                if ($storageStats['total_files'] === 0) {
+                    ?>
+                    <p><strong>Note:</strong> There are no cached files yet. As visitors browse your site, any CSS or JavaScript files that can be optimized (like minified) will be added to the cache automatically.</p>
+                    <?php
+                } else {
 		        ?>
-                <p><?php _e('Total storage files', 'wp-asset-clean-up'); ?>: <strong><?php echo (int)$storageStats['total_files']; ?></strong>, <?php echo esc_html($storageStats['total_size']); ?> of which <strong><?php echo (int)$storageStats['total_files_assets']; ?></strong> are CSS/JS assets, <?php echo (int)$storageStats['total_size_assets']; ?></p>
+                    <p><?php _e('Total storage files', 'wp-asset-clean-up'); ?>: <strong><?php echo (int)$storageStats['total_files']; ?></strong> having <?php echo $storageStats['total_size']; ?> of which <strong><?php echo $storageStats['total_files_assets']; ?></strong> are CSS/JS assets, having <?php echo $storageStats['total_size_assets']; ?></p>
 		        <?php
+                }
 	        }
 
-	        $cssJsDirMarker = '<span class="dashicons dashicons-yes-alt" style="font-size: 19px; vertical-align: top; color: green;"></span>';
-	        ?>
-            <p>The following list prints each directory (local path) and its size. Only the ones marked with <?php echo wp_kses($cssJsDirMarker, array('span' => array('class' => array(), 'style' => array()))); ?> have CSS/JS files there. The other unmarked ones contain .json (for reference purposes), index.php or .htaccess file types.</p>
-            <div class="wpacu_clearfix"></div>
-            <?php
-	        echo '<ul style="margin-top: 0;margin-left: 25px; list-style: disc;">';
+            if ( ! empty($storageStats['dirs_files_sizes']) ) {
+                $cssJsDirMarker = '<span class="dashicons dashicons-yes-alt" style="font-size: 19px; vertical-align: top; color: green;"></span>';
+            ?>
+                <p>The following list prints each directory (local path) and its size. Only the ones marked with <?php echo wp_kses($cssJsDirMarker, array('span' => array('class' => array(), 'style' => array()))); ?> have CSS/JS files there. The other unmarked ones contain .json (for reference purposes), index.php or .htaccess file types.</p>
+                <div class="wpacu_clearfix"></div>
+                <?php
+                echo '<ul style="margin-top: 0;margin-left: 25px; list-style: disc;">';
 
-	        foreach ($storageStats['dirs_files_sizes'] as $localDirPath => $localDirFileSizes) {
-		        $localDirPath = trim($localDirPath);
-		        $totalDirSize = array_sum($localDirFileSizes);
+                foreach ($storageStats['dirs_files_sizes'] as $localDirPath => $localDirFileSizes) {
+                    $localDirPath = trim($localDirPath);
+                    $totalDirSize = array_sum($localDirFileSizes);
 
-		        $cssJsDirMarkerOutput = '';
-		        if (in_array($localDirPath, $storageStats['dirs_css_js'])) {
-			        $cssJsDirMarkerOutput = wp_kses($cssJsDirMarker, array('span' => array('class' => array(), 'style' => array())));
-		        }
+                    $cssJsDirMarkerOutput = '';
 
-		        $rowStyle = '';
-		        if ($cssJsDirMarkerOutput) {
-			        $rowStyle = 'background: rgba(0,0,0,.07); padding: 4px; display: inline;';
-		        }
+                    if (in_array($localDirPath, $storageStats['dirs_css_js'])) {
+                        $cssJsDirMarkerOutput = wp_kses($cssJsDirMarker, array('span' => array('class' => array(), 'style' => array())));
+                    }
 
-                echo '<li><div style="'.esc_html($rowStyle).'">'.esc_html($localDirPath).': <strong>'.MiscAdmin::formatBytes($totalDirSize).'</strong> '.$cssJsDirMarkerOutput.'</div></li>';
-	        }
+                    $rowStyle = '';
 
-	        echo '</ul>';
+                    if ($cssJsDirMarkerOutput) {
+                        $rowStyle = 'background: rgba(0,0,0,.07); padding: 4px; display: inline;';
+                    }
+
+                    echo '<li><div style="'.esc_html($rowStyle).'">'.esc_html($localDirPath).': <strong>'.MiscAdmin::formatBytes($totalDirSize).'</strong> '.$cssJsDirMarkerOutput.'</div></li>';
+                }
+
+                echo '</ul>';
+            }
             ?>
             <hr />
             <p><?php echo sprintf(__('On certain hosting platforms such as Pantheon, the number of writable directories is limited, in this case you have to change it to %s', 'wp-asset-clean-up'), '<code><strong>/uploads/asset-cleanup/</strong></code>'); ?></p>

@@ -206,7 +206,7 @@ JS;
      */
 	public static function getOwnAssetsHandles($assetType = '')
     {
-        if ( ! Menu::userCanAccessAssetCleanUp() ) {
+        if ( ! Menu::userCanAccessPlugin() ) {
             return array();
         }
 
@@ -435,7 +435,7 @@ JS;
      */
     public function stylesAndScriptsForAdmin()
     {
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return;
 		}
 
@@ -454,7 +454,7 @@ JS;
 		}
 
 		// Only for the administrator with the right permission
-		if (! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::userCanAccessPlugin()) {
 			return;
 		}
 

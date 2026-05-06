@@ -34,7 +34,7 @@ class Plugin
 		register_deactivation_hook(WPACU_PLUGIN_FILE, array($this, 'whenDeactivated'));
 	}
 
-	/**
+    /**
 	 *
 	 */
 	public function init()
@@ -42,40 +42,14 @@ class Plugin
 		// After fist time activation or in specific situations within the Dashboard
 		add_action('admin_init', array($this, 'adminInit'));
 
-		// [wpacu_lite]
-		// Admin footer text: Ask the user to review the plugin
-		add_filter('admin_footer_text', array($this, 'adminFooterText'), 1, 1);
-		// [/wpacu_lite]
-
 		// Show default action links: "Getting Started", "Settings"
 		add_filter('plugin_action_links_'.WPACU_PLUGIN_BASE, array($this, 'addActionLinksInPluginsPage'));
 
-        }
-
-	// [wpacu_lite]
-	/**
-	 * @param $text
-	 *
-	 * @return string
-	 */
-	public function adminFooterText($text)
-	{
-		if (Menu::isPluginPage()) {
-			$text = sprintf(__('Thank you for using %s', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE.' v'.WPACU_PLUGIN_VERSION)
-			        . ' <span class="dashicons dashicons-smiley"></span> &nbsp;&nbsp;';
-
-			$text .= sprintf(
-				__('If you like it, please %s<strong>rate</strong> %s%s %s on WordPress.org to help me spread the word to the community.', 'wp-asset-clean-up'),
-				'<a target="_blank" href="'.self::RATE_URL.'">',
-				WPACU_PLUGIN_TITLE,
-				'</a>',
-				'<a target="_blank" href="'.self::RATE_URL.'"><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span></a>'
-			);
-		}
-
-		return $text;
+        // [wpacu_lite]
+        // Admin footer text: Ask the user to review the plugin
+        add_filter('admin_footer_text', array($this, 'adminFooterText'), 1, 1);
+        // [/wpacu_lite]
 	}
-	// [/wpacu_lite]
 
 	/**
 	 * Actions taken when the plugin is activated
@@ -359,4 +333,94 @@ HTACCESS;
 	{
         Misc::addUpdateOption(WPACU_PLUGIN_ID . '_first_usage', time());
 	}
+
+    /**
+     * @param $key
+     *
+     * @return string|void
+     */
+    public static function getConfig($key = 'id')
+    {
+        if ($key === 'url') {
+            return WPACU_PLUGIN_URL;
+        } elseif($key === 'dir') {
+            return WPACU_PLUGIN_DIR;
+        } elseif($key === 'title') {
+            return WPACU_PLUGIN_TITLE;
+        } elseif ($key === 'id') {
+            return WPACU_PLUGIN_ID;
+        }
+    }
+
+    /**
+     * @param $conditions
+     *
+     * @return array
+     */
+    public static function getPluginUsageData($conditions)
+    {
+        $pluginUsageData = array();
+
+        // Note: the "key" has the same name as the ones from the JSON feed
+
+        // Days passed since first usage
+        $forKey = 'time_passed_in_days_after_first_activation';
+
+        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
+            $firstUsageTimestamp = get_option(WPACU_PLUGIN_ID . '_first_usage');
+            $differenceInSeconds = time() - $firstUsageTimestamp;
+            $differenceInDays    = floor($differenceInSeconds / DAY_IN_SECONDS);
+
+            $pluginUsageData[$forKey] = $differenceInDays;
+        }
+
+        // Total number of unloaded assets
+        $forKey = 'has_minimum_number_of_asset_rules';
+
+        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
+            $pluginUsageData[$forKey] = MiscAdmin::getTotalUnloadedAssets();
+        }
+
+        // [wpacu_pro]
+        // Total number of unloaded plugins, in both front-end and /wp-admin/
+        $forKey = 'has_minimum_number_of_plugin_rules';
+
+        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
+            $pluginRulesFiltered = PluginsManagerProAdmin::getPluginRulesFiltered(true, true);
+
+            $totalFront = isset($pluginRulesFiltered['plugins'])      ? count($pluginRulesFiltered['plugins']) : 0;
+            $totalDash  = isset($pluginRulesFiltered['plugins_dash']) ? count($pluginRulesFiltered['plugins_dash']) : 0;
+
+            $totalPluginRules = ($totalFront + $totalDash);
+
+            $pluginUsageData[$forKey] = $totalPluginRules;
+        }
+        // [/wpacu_pro]
+
+        return $pluginUsageData;
+    }
+    // [wpacu_lite]
+    /**
+     * @param $text
+     *
+     * @return string
+     */
+    public function adminFooterText($text)
+    {
+        if (Menu::isPluginPage()) {
+            $text = sprintf(__('Thank you for using %s', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE.' v'.WPACU_PLUGIN_VERSION)
+                    . ' <span class="dashicons dashicons-smiley"></span> &nbsp;&nbsp;';
+
+            $text .= sprintf(
+                __('If you like it, please %s<strong>rate</strong> %s%s %s on WordPress.org to help me spread the word to the community.', 'wp-asset-clean-up'),
+                '<a target="_blank" href="'.self::RATE_URL.'">',
+                WPACU_PLUGIN_TITLE,
+                '</a>',
+                '<a target="_blank" href="'.self::RATE_URL.'"><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span></a>'
+            );
+        }
+
+        return $text;
+    }
+    // [/wpacu_lite]
 }

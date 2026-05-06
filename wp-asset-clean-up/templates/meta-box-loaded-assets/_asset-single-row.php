@@ -132,6 +132,6 @@ $hideTrRow = $isCoreFile && $hideCoreFiles;
 	        include __DIR__ . '/_asset-single-row/_asset-single-row-notes.php';
 	        ?>
 	    </div>
-        <img style="display: none;" class="wpacu_ajax_loader" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-ajax-loading-spinner.svg" alt="<?php echo esc_html__('Loading'); ?>..." />
+        <img style="display: none;" class="wpacu_ajax_loader" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-loading-spinner.svg" alt="<?php echo esc_html__('Loading'); ?>..." />
 	</td>
 </tr>

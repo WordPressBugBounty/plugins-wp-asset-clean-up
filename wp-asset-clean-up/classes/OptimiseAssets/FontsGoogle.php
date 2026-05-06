@@ -207,7 +207,7 @@ class FontsGoogle
 						}
 
 						// Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not continue and leave it as it is (non-combined)
-						if ( preg_match( '#data-wpacu-skip([=>/ ])#i', $linkTag ) ) {
+						if ( Misc::hasExactDataAttr($linkTag, 'data-wpacu-skip') ) {
 							continue;
 						}
 
@@ -277,7 +277,7 @@ class FontsGoogle
 						}
 
 						// Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not continue and leave it as it is (non-altered)
-						if ( preg_match( '#data-wpacu-skip([=>/ ])#i', $linkTag ) ) {
+						if ( Misc::hasExactDataAttr($linkTag, 'data-wpacu-skip') ) {
 							continue;
 						}
 
@@ -397,7 +397,7 @@ class FontsGoogle
 			list($styleInlineTag, $styleInlineContent) = $styleInlineArray;
 
 			// Check if the STYLE tag has any 'data-wpacu-skip' attribute; if it does, do not continue
-			if (preg_match('#data-wpacu-skip([=>/ ])#i', $styleInlineTag)) {
+			if (Misc::hasExactDataAttr($styleInlineTag, 'data-wpacu-skip')) {
 				continue;
 			}
 

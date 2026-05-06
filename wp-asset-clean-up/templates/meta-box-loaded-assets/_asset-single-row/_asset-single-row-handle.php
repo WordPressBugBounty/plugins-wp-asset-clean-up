@@ -108,7 +108,7 @@ if (! empty($childHandles) && $showDependencyNotice) {
                     }
                 }
 
-                $childHandlesOutput .= '<a title="'.$title.'" style="color:'.$color.';font-weight:300;" href="#wpacu_script_row_'.$childHandle.'">'.$childHandle.'</a>, ';
+                $childHandlesOutput .= '<a title="'.$title.'" style="color:'.$color.';font-weight:300;" href="#wpacu_'.$assetTypeS.'_row_'.$childHandle.'">'.$childHandle.'</a>, ';
             }
 
             echo trim($childHandlesOutput, ', ');

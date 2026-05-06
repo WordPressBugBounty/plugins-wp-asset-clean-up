@@ -45,19 +45,16 @@ if (empty($handleAllStatuses)) {
     $handleAllStatuses[] = 'is_independent';
 }
 
+$showMatchMediaFeature = false;
+
 if ($assetType === 'styles') {
+    // CSS assets
     $showMatchMediaFeature = true;
 } else {
-    $showMatchMediaFeature = false;
-
+    // JavaScript assets
     // Is "independent" or has "parents" (is "child") with nothing under it (no "children")
     if ( in_array('is_independent', $handleAllStatuses) || ( in_array('is_child', $handleAllStatuses) && ! in_array('is_parent', $handleAllStatuses) ) ) {
-        // "extra" is fine, "after" and "before" are more tricky to accept (at least at this time)
-        $wpacuHasExtraInline = ! empty($data['row']['extra_before_js']) || ! empty($data['row']['extra_after_js']);
-
-        if ( ! $wpacuHasExtraInline ) {
-            $showMatchMediaFeature = true;
-        }
+        $showMatchMediaFeature = true;
     }
 }
 
@@ -77,6 +74,7 @@ $showMatchMediaAlertForParentCss = $assetType === 'styles' && in_array('is_paren
     ?>
         Make the browser download the file&nbsp;
 
+        <!-- [wpacu_lite] -->
         <select id="<?php echo esc_attr($wpacuDataForSelectId); ?>"
                 data-handle="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
                 data-wpacu-input="media-query-select"
@@ -108,6 +106,7 @@ $showMatchMediaAlertForParentCss = $assetType === 'styles' && in_array('is_paren
              style="vertical-align: middle; margin-left: 2px;">
             <a style="text-decoration: none; color: inherit;" target="_blank" href="https://assetcleanup.com/docs/?p=1023"><span class="dashicons dashicons-editor-help"></span></a>
         </div>
+        <!-- [/wpacu_lite] -->
     </div>
 </div>
 <div class="wpacu_clearfix"></div>

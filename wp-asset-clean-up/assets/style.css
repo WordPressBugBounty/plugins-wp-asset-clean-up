@@ -828,6 +828,10 @@ tr.wpacu_remove_preload_row.wpacu_selected {
   background: #e7e7e7;
 }
 
+table.wpacu-overview-list-table tr.wpacu_global_rule_row:hover {
+  background: #e7e7e7;
+}
+
 /* Manage CSS/JS | Manage Critical CSS */
 .wpacu-sub-page-tabs-wrap {
   min-width: 320px;
@@ -4293,6 +4297,168 @@ body.logged-in:not(.wp-admin) .wpacu-view-more-code:active {
   border: 0;
 }
 
+/* [Overview] */
+#wpacu-overview-render-edit-mode-toggle-area {
+  text-align: right;
+  margin: 10px 0;
+  float: right;
+}
+#wpacu-overview-render-edit-mode-toggle-area[data-wpacu-overview-edit-mode] div[data-wpacu-button-area] a {
+  padding: 6px 8px 5px 37px;
+}
+#wpacu-overview-render-edit-mode-toggle-area[data-wpacu-overview-edit-mode] div[data-wpacu-button-area] a .dashicons {
+  left: 8px;
+  top: calc(50% - 2px);
+  font-size: 24px;
+}
+#wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-text-notice-area] {
+  display: inline-block;
+  margin: 4px 6px 0;
+}
+#wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] {
+  display: inline-block;
+  vertical-align: middle;
+}
+#wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a {
+  position: relative;
+  padding: 5px 8px 5px 33px;
+}
+#wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a .dashicons {
+  position: absolute;
+  left: 6px;
+  top: calc(50% - 2px);
+  font-size: 24px;
+  transform: translateY(-50%);
+}
+
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode {
+  /* Stil de bază pentru label */
+  /* Stilizare checkbox */
+  /* Când checkbox-ul e bifat - bifa albă */
+  /* Când checkbox-ul este bifat — întregul label are fundal */
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode label.wpacu-delete-label {
+  color: #b30000;
+  background-color: transparent;
+  padding: 5px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease-in-out;
+  cursor: pointer;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode label.wpacu-delete-label input[type=checkbox].wpacu-delete-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #cc0000;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  transition: 0.2s;
+  margin-right: 2px;
+  margin-bottom: -4px;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode label.wpacu-delete-label input[type=checkbox].wpacu-delete-checkbox:checked {
+  background-color: #cc0000;
+  border-color: #cc0000;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode label.wpacu-delete-label input[type=checkbox].wpacu-delete-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 3px;
+  height: 6px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode label.wpacu-delete-label:has(input[type=checkbox].wpacu-delete-checkbox:checked) {
+  background-color: #ffe6e6;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode input[type=checkbox].wpacu-delete-checkbox:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(204, 0, 0, 0.3);
+  /* roșu transparent */
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpbody {
+  position: relative;
+  /* required for sticky child elements */
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 10px 0 0 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10px;
+  padding: 16px 20px;
+  z-index: 10;
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+@media screen and (max-width: 782px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar {
+    display: block;
+    padding: 20px;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-selection-notice {
+  font-weight: 400;
+}
+@media screen and (max-width: 782px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-selection-notice {
+    display: block;
+    width: 100%;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-selection-notice strong {
+  font-weight: 600;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media screen and (max-width: 782px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area {
+    display: block;
+    margin: 20px 0 0;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area #wpacu-apply-changes {
+  padding: 5px 10px 5px 32px;
+  position: relative;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area #wpacu-apply-changes .dashicons {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area #wpacu-clear-all-rules-marked-for-deletion {
+  margin-right: 4px 10px 0 0;
+}
+@media screen and (max-width: 782px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area #wpacu-clear-all-rules-marked-for-deletion {
+    padding-left: 0;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-buttom-bar-action-area #wpacu-clear-all-rules-marked-for-deletion:disabled {
+  opacity: 0.5;
+  font-style: italic;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
 body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap .wpacu-overview-list-table tr:not(.wpacu-top):hover td {
   border-top: 1px solid #ccd0d4;
   border-bottom: 1px solid #ccd0d4;
@@ -4325,6 +4491,7 @@ body.wp-admin[class*=asset-cleanup] table.wp-list-table:not(.wpacu-overview-list
   box-shadow: inset 0 0 2px 1px #B3B3B3;
 }
 
+/* [/Overview] */
 .wp-list-table .wpacu_restore_position_row.wpacu_selected {
   background: #e7e7e7 !important;
 }

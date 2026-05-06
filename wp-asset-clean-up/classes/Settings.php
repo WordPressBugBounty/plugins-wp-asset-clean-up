@@ -270,6 +270,9 @@ class Settings
 	        'combine_loaded_css_exceptions' => '/wd-instagram-feed/(.*?).css',
 	        'combine_loaded_js_exceptions'  => '/wd-instagram-feed/(.*?).js',
 
+            // Since 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
+            'resource_loading' => array('_enabled' => 1),
+
 	        // [CRITICAL CSS]
 	        'critical_css_status' => 'on',
 	        // [/CRITICAL CSS]
@@ -441,6 +444,13 @@ class Settings
 		if ($settings['minify_loaded_js_inline']) {
 		    $settings['minify_loaded_js_for'] = 'all';
 		}
+
+        // "resource_loading[_enabled]" is either 1 or 0
+        // If it doesn't exist, it was never saved because the user didn't update the settings after updating to 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
+        // Thus it will be activated by default: 1
+        if ( ! isset($settings['resource_loading']['_enabled']) || $settings['resource_loading']['_enabled'] === '' ) {
+            $settings['resource_loading']['_enabled'] = 1;
+        }
 
 		// Google Fonts Removal is enabled; make sure other related settings are nullified
 		if ($settings['google_fonts_remove']) {

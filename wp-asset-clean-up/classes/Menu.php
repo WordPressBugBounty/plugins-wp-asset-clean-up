@@ -95,7 +95,7 @@ class Menu
     public function activeMenu()
     {
 	    // User should be of 'administrator' role and allowed to activate plugins
-	    if (! self::userCanAccessAssetCleanUp()) {
+	    if (! self::userCanAccessPlugin()) {
 		    return;
 	    }
 
@@ -252,7 +252,7 @@ class Menu
      *
      * @return bool
      */
-    public static function userCanAccessAssetCleanUp()
+    public static function userCanAccessPlugin()
 	{
 		if (is_super_admin()) {
 			return true; // For security reasons, super admins will always be able to access the plugin's settings
@@ -340,7 +340,7 @@ class Menu
 
 		// Only show it to the user that has "administrator" access, and it's in the following list (if a certain list of admins is provided)
 		// "Settings" -> "Plugin Usage Preferences" -> "Allow managing assets to:"
-		if (self::userCanAccessAssetCleanUp() && AssetsManager::currentUserCanViewAssetsList()) {
+		if (self::userCanAccessPlugin() && AssetsManager::currentUserCanViewAssetsList()) {
 			/*
 			 * You can reset the default $actions with your own array, or simply merge them
 			 * here I want to rewrite my Edit link, remove the Quick-link, and introduce a

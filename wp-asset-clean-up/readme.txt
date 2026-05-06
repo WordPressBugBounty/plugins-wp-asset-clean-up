@@ -3,7 +3,7 @@ Contributors: gabelivan
 Tags: minify css, minify javascript, defer css javascript, page speed, dequeue
 Donate link: https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=wp_org_lite&utm_medium=donate
 Requires at least: 4.6
-Tested up to: 6.7.2
+Tested up to: 6.9.4
 Stable tag: 1.4.0.3
 Requires PHP: 5.6
 License: GPLv3
@@ -192,6 +192,19 @@ With the recently released "Test Mode" feature, you can safely unload assets on 
 4. Homepage CSS & JS Management (List sorted by location)
 
 == Changelog ==
+= 1.4.0.4 =
+* New: Resource Loading – Control how images are loaded by adding attributes such as "fetchpriority", "loading" and "decoding" based on custom rules (supports simple matching and RegEx) / read more: https://www.assetcleanup.com/docs/?p=2279
+* Improved asset minification stability (library update)
+* Improved security for method "clearItemStorageForPost" within "OptimizeCommon": Patchstack reported it as vulnerable to Broken Access Control
+* "Plugin Announcement" area: Make sure it slides up when it's closed; The font-size has been increased; Fix: "Uncaught TypeError: usort(): Argument #1 ($array) must be of type array, string given in [...]/classes/Admin/PluginAnnouncements.php:492"
+* Multisite extra compatibility: The structure of the caching directory has been updated, and now each site has its own directory. When the cache is cleared, it will only scan the cached CSS/JS files belonging to the current website, thus saving resources and not affecting in any way the files belonging to other websites. If a switch is made from a single site to a multisite, the structure will be updated and all cache files will be re-created, while the older ones will be cleared after 30 days (to ensure no static cached HTML pages are still referencing them).
+* Hardcoded assets: Highlight the ones belonging to the 'Slider Revolution' plugin to make them easier to identify.
+* Optimize JS: When the WordPress core file "wp-i18n" is unloaded, the SCRIPT tag is replaced with another tag (much ligther) keeping "setLocaleData" and other functions active to avoid JS errors being shown in the console (ideal for websites with just one language)
+* Optimize JS: When a JS asset is unloaded and the option 'Ignore dependency rule and keep the "children" loaded' is used, make sure the inline JS associated with the asset is also cleared to avoid any JS errors in the console or even broken page functionality
+* Improvement: Detect an attribute found in a tag without using RegEx (for faster PHP processing)
+* Fix: When using the "Direct" assets retrieval method, any unloaded plugins for the homepage, would not show up as unloaded in the CSS/JS manager, confusing the admin that the rules might not be applied
+* Fix: Avoid errors such as the following (in case plugin functions are called too early by external code): 'Asset CleanUp's object cache is not valid (from method "WpAssetCleanUp\ObjectCache::wpacu_cache_get").'
+
 = 1.4.0.3 =
 * Fix: "CSS & JS Manager" -- "Manage CSS/JS" -- "Custom Taxonomy" was not showing the guiding information
 * Fix: When managing CSS/JS in the front-end view, plugin's core JS file was not loading, causing some lack of functionality in the CSS/JS manager from the bottom of the page

@@ -804,6 +804,26 @@ class HardcodedAssets
                 'text' => '"Smart Slider 3" plugin',
                 'dir'  => 'smart-slider-3'
             ),
+
+            // Slider Revolution
+            'SR7.E.wp_plugin_url' => array(
+                'text' => '"Slider Revolution" plugin',
+                'dir'  => 'revslider'
+            ),
+            '/*! Slider Revolution 7.0 - Page Processor */' => array(
+                'text' => '"Slider Revolution" plugin',
+                'dir'  => 'revslider'
+            ),
+            'SR7.PMH ??={};' => array(
+                'text' => '"Slider Revolution" plugin',
+                'dir'  => 'revslider'
+            ),
+
+            // Slider Revolution Particle Wave Add-On
+            'SR7.E.resources.particlewave' => array(
+                'text' => '"Slider Revolution Particle Wave Add-On" plugin',
+                'dir'  => 'revslider-particlewave-addon'
+            )
         );
 
 		foreach ($belongList as $ifContains => $isFromSourceArray) {

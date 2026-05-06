@@ -3,6 +3,8 @@
 
 namespace WpAssetCleanUp\OptimiseAssets;
 
+use WpAssetCleanUp\Misc;
+
 /**
  * Class FontsGoogle
  * @package WpAssetCleanUp\OptimiseAssets
@@ -74,7 +76,7 @@ class FontsGoogleRemove
 				}
 
 				// Check if the Google Fonts CSS has any 'data-wpacu-skip' attribute; if it does, do not remove it
-				if (preg_match('#data-wpacu-skip([=>/ ])#i', $linkTag)) {
+				if (Misc::hasExactDataAttr($linkTag, 'data-wpacu-skip')) {
 					continue;
 				}
 
@@ -109,7 +111,7 @@ class FontsGoogleRemove
 			list($styleInlineTag, $styleInlineContent) = $styleInlineArray;
 
 			// Check if the STYLE tag has any 'data-wpacu-skip' attribute; if it does, do not continue
-			if (preg_match('#data-wpacu-skip([=>/ ])#i', $styleInlineTag)) {
+			if (Misc::hasExactDataAttr($styleInlineTag, 'data-wpacu-skip')) {
 				continue;
 			}
 

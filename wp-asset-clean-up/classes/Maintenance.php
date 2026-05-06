@@ -18,11 +18,13 @@ class Maintenance
 	 */
 	public function __construct()
 	{
-		// Schedule cron events
-		add_action('wp',   array($this, 'scheduleEvents'));
-		add_action('init', array($this, 'scheduleTrigger'));
+		add_action('wpacu_daily_scheduled_events',     array($this, 'triggerDailyScheduleEvents'));
+        add_action('wpacu_daily_scheduled_events_two', array($this, 'triggerDailyScheduleEventsTwo'));
 
-		if (is_admin() && Menu::isPluginPage()) {
+        add_action('init', array($this, 'scheduleTriggerForDebugByAdmin'));
+		add_action('init', array($this, 'scheduleDailyEvents'));
+
+		if ( is_admin() && Menu::isPluginPage() ) {
 			add_action('admin_init', static function() {
 				Maintenance::cleanUnusedAssetsFromInfoArea();
 				Maintenance::combineNewOptionUpdate(); // Since v1.1.7.3 (Pro) & v1.3.6.4 (Lite)
@@ -30,12 +32,6 @@ class Maintenance
 				OptimizeCommon::limitAlreadyMarkedAsMinified(); // Since v1.1.7.4 (Pro) & v1.3.6.6 (Lite)
 			});
 		}
-
-		add_action('init', static function() {
-			if ( is_user_logged_in() && Menu::userCanAccessAssetCleanUp() ) {
-				Maintenance::combineNewOptionUpdate(); // Since v1.1.7.3 (Pro) & v1.3.6.4 (Lite)
-			}
-		});
 
 		}
 
@@ -46,23 +42,79 @@ class Maintenance
 	 * @since 1.6
 	 * @return void
 	 */
-	public function scheduleEvents()
+	public function scheduleDailyEvents()
 	{
 		// Daily events
-		if (! wp_next_scheduled('wpacu_daily_scheduled_events')) {
-			wp_schedule_event(current_time('timestamp', true), 'daily', 'wpacu_daily_scheduled_events');
+        $hookOne = 'wpacu_daily_scheduled_events';
+
+		if ( ! wp_next_scheduled($hookOne) ) {
+			wp_schedule_event($this->getNextRun('03:00'), 'daily', $hookOne);
 		}
+
+        $hookTwo = 'wpacu_daily_scheduled_events_two';
+
+        if ( ! wp_next_scheduled($hookTwo) ) {
+            wp_schedule_event($this->getNextRun('04:00'), 'daily', $hookTwo);
+        }
 	}
+
+    /**
+     * Returns a timestamp
+     *
+     * @param $triggerTime
+     *
+     * @return float|int|string
+     * @throws \Exception
+     */
+    public function getNextRun($triggerTime)
+    {
+        $nextRun = $this->wpLocalTimeToTimestamp($triggerTime); // today at {$triggerTime} in WP local time
+
+        if ($nextRun <= current_time('timestamp')) {
+            $nextRun = $this->wpLocalTimeToTimestamp($triggerTime, 'tomorrow');
+        }
+
+        return $nextRun;
+    }
+
+    /**
+     * @param $timeString
+     * @param $day
+     *
+     * @return float|int|string
+     * @throws \Exception
+     */
+    public function wpLocalTimeToTimestamp($timeString = '03:00', $day = 'today')
+    {
+        if (class_exists('\DateTime') && function_exists('wp_timezone')) {
+            // Get the WordPress timezone (string like 'Europe/Bucharest', 'UTC', etc.)
+            $timezone = wp_timezone(); // WP 5.3+
+
+            // Create the full time string like 'today 03:00' or 'tomorrow 03:00'
+            $dateTimeStr = "$day $timeString";
+
+            // Create the DateTime object with WP timezone
+            $dt = new \DateTime($dateTimeStr, $timezone);
+
+            // Return UNIX timestamp
+            return $dt->getTimestamp();
+        } else {
+            $timestamp = strtotime("$day $timeString");
+            $offset = get_option('gmt_offset') * HOUR_IN_SECONDS;
+
+            return $timestamp - date('Z') + $offset;
+        }
+    }
 
 	/**
 	 * Trigger scheduled events
 	 *
 	 * @return void
 	 */
-	public function scheduleTrigger()
+	public function scheduleTriggerForDebugByAdmin()
 	{
 		// Debugging purposes: trigger directly the code meant to be scheduled
-		if (Menu::userCanAccessAssetCleanUp()) {
+		if (Menu::userCanAccessPlugin()) {
 			if (isset($_GET['wpacu_toggle_inline_code_to_combined_assets'])) {
 				self::updateAppendOrNotInlineCodeToCombinedAssets(true);
 			}
@@ -70,10 +122,10 @@ class Maintenance
 			if (isset($_GET['wpacu_clear_cache_conditionally'])) {
 				self::updateAppendOrNotInlineCodeToCombinedAssets(true);
 			}
-		}
 
-		if (Misc::doingCron()) {
-			add_action('wpacu_daily_scheduled_events', array($this, 'triggerDailyScheduleEvents'));
+            if ( is_user_logged_in() ) {
+                Maintenance::combineNewOptionUpdate(); // Since v1.1.7.3 (Pro) & v1.3.6.4 (Lite)
+            }
 		}
 	}
 
@@ -89,6 +141,233 @@ class Maintenance
         self::removeAnyDuplicateMetaKeysFromUsersTable();
 
 		}
+
+    /**
+     *
+     */
+    public function triggerDailyScheduleEventsTwo()
+    {
+        // MultiSite update: from v1.2.6.8 (Pro) and v1.4.0.4 (Lite)
+        $this->lazyCleanCacheOldSubdirsBeforeMultiSiteUpdate();
+    }
+
+    /**
+     * @param $maxFilesPerRun
+     *
+     * @return int
+     */
+    public function lazyCleanCacheOldSubdirsBeforeMultiSiteUpdate($maxFilesPerRun = 200)
+    {
+        $rootDir = WP_CONTENT_DIR . OptimizeCommon::getRelPathPluginCacheDir(false);
+
+        if ( ! is_dir($rootDir) ) {
+            return 0;
+        }
+
+        $maxAgeInSeconds = 30 * 24 * 60 * 60; // 30 days
+
+        $currentTime = time();
+
+        $existingBlogIds = array();
+
+        $deletedCount = 0;
+        $dirIterator = new \FilesystemIterator($rootDir, \FilesystemIterator::SKIP_DOTS);
+
+        $allAsItShouldBe = true; // default
+
+        // Check if all the root files are in place, and if they are, do not continue, since there are no leftovers
+        if ( is_multisite() ) {
+            global $wpdb;
+
+            $existingBlogIds = $wpdb->get_col("SELECT blog_id FROM {$wpdb->blogs} WHERE archived = '0' AND deleted = '0'");
+
+            foreach ($dirIterator as $item) {
+                if ( $item->isFile() && ! in_array($item->getBasename(), array('.htaccess', 'index.php')) ) {
+                    $allAsItShouldBe = false;
+                    break;
+                }
+
+                if ($item->isDir()) {
+                    if ( ! ctype_digit($item->getBasename()) ) {
+                        // e.g. old ones such as "_storage", "css", "js"
+                        $allAsItShouldBe = false;
+                        break;
+                    } elseif ( ctype_digit($item->getBasename()) ) {
+                        $dirName = (int)$item->getBasename();
+
+                        // A site ID that was likely deleted and it has leftovers
+                        if ( ! in_array($dirName, $existingBlogIds) ) {
+                            $allAsItShouldBe = false;
+                            break;
+                        }
+                    }
+                }
+
+                }
+        } else {
+            // Single site (most cases)
+            $expected = array('.htaccess' => 'file', 'index.php' => 'file', 'one' => 'dir');
+            $found    = array();
+
+            $allAsItShouldBe = true;
+            $dirIterator     = new \FilesystemIterator($rootDir, \FilesystemIterator::SKIP_DOTS);
+
+            foreach ($dirIterator as $item) {
+                $name = $item->getBasename();
+
+                if ( ! isset($expected[$name]) ) {
+                    $allAsItShouldBe = false;
+                    break;
+                }
+
+                $typeOk = ($expected[$name] === 'file' && $item->isFile()) ||
+                          ($expected[$name] === 'dir'  && $item->isDir());
+
+                if ( ! $typeOk ) {
+                    $allAsItShouldBe = false;
+                    break;
+                }
+
+                $found[$name] = true;
+            }
+
+            if ( $allAsItShouldBe && count($found) !== count($expected) ) {
+                $allAsItShouldBe = false;
+            }
+        }
+
+        // All in its place without any leftovers? Stop here!
+        if ( $allAsItShouldBe ) {
+            return 0;
+        }
+
+        // Root old files (if any left)
+        foreach ($dirIterator as $item) {
+            if ( ! $item->isFile() ) {
+                continue;
+            }
+
+            if ( in_array($item->getBasename(), array('.htaccess', 'index.php')) ) {
+                continue; // leave these ones
+            }
+
+            // Root files detected
+            if ($this->maybeDeleteUselessFile($item, $currentTime, $maxAgeInSeconds)) {
+                $deletedCount++;
+            }
+
+            if ($deletedCount >= $maxFilesPerRun) {
+                return $deletedCount;
+            }
+        }
+
+        // Sub-directories (irrelevant old ones)
+        foreach ($dirIterator as $item) {
+            if ( ! $item->isDir() ) {
+                continue;
+            }
+
+            $subDirPath = $item->getPathname();
+
+            // Sub-directory detected (e.g. "css", "js", "_storage")
+            $dirName = $item->getBasename();
+
+            if (is_multisite() && ctype_digit($dirName)) {
+                $dirInt = (int)$dirName;
+
+                // If it's an existing blog ID or the main site ID, skip it
+                if (in_array($dirInt, $existingBlogIds)) {
+                    continue;
+                }
+            } elseif ($dirName === OptimizeCommon::$cacheDirNameSingleNoMultiSite) {
+                continue;
+            }
+
+            if ( ! is_dir($subDirPath) ) {
+                continue; // perhaps deleted from the code below
+            }
+
+            if (iterator_count(new \FilesystemIterator($item, \FilesystemIterator::SKIP_DOTS)) === 0) {
+                $this->maybeDeleteUselessDir($item, $currentTime, $maxAgeInSeconds);
+            }
+
+            try {
+                $fileOrSubdirIterator = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($subDirPath,
+                        \FilesystemIterator::SKIP_DOTS |
+                        \FilesystemIterator::CURRENT_AS_FILEINFO |
+                        \FilesystemIterator::KEY_AS_PATHNAME
+                    ),
+                    \RecursiveIteratorIterator::CHILD_FIRST // <<< Important difference!
+                );
+
+                foreach ($fileOrSubdirIterator as $fileOrDirInfo) {
+                    if ($fileOrDirInfo->isDir()) {
+                        // Directory: delete it (only after contents are already processed)
+                        $this->maybeDeleteUselessDir($fileOrDirInfo, $currentTime, $maxAgeInSeconds);
+                    } else {
+                        // File: delete if old enough
+                        if ($this->maybeDeleteUselessFile($fileOrDirInfo, $currentTime, $maxAgeInSeconds)) {
+                            $deletedCount++;
+                        }
+
+                        if ($deletedCount >= $maxFilesPerRun) {
+                            return $deletedCount;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+
+        return $deletedCount;
+    }
+
+    /**
+     * @param $dirInfo
+     * @param $currentTime
+     * @param $maxAgeInSeconds
+     *
+     * @return false|void
+     */
+    public function maybeDeleteUselessDir($dirInfo, $currentTime, $maxAgeInSeconds)
+    {
+        if ( ! $dirInfo->isFile() ) {
+            return false;
+        }
+
+        $fileMTime = $dirInfo->getMTime();
+
+        if (($currentTime - $fileMTime) >= $maxAgeInSeconds) {
+            @rmdir($dirInfo->getPathname());
+        }
+    }
+
+    /**
+     * Deletes a file if it's older than the given age.
+     *
+     * @param \SplFileInfo $fileInfo
+     * @param int $currentTime
+     * @param int $maxAgeInSeconds
+     * @return bool True if the file was deleted, false otherwise
+     */
+    public function maybeDeleteUselessFile($fileInfo, $currentTime, $maxAgeInSeconds)
+    {
+        if ( ! $fileInfo->isFile() ) {
+            return false;
+        }
+
+        $fileMTime = $fileInfo->getMTime();
+
+        if (($currentTime - $fileMTime) >= $maxAgeInSeconds) {
+            $filePath = $fileInfo->getPathname();
+
+            @unlink($filePath);
+
+            return true;
+        }
+
+        return false;
+    }
 
     /**
      * @return void
@@ -221,7 +500,7 @@ SQL;
 
 		if ( ($pluginSettings['combine_loaded_css'] === 'for_admin' ||
 		     (isset($pluginSettings['combine_loaded_css_for_admin_only']) && $pluginSettings['combine_loaded_css_for_admin_only'] == 1) )
-		    && Menu::userCanAccessAssetCleanUp() ) {
+		    && Menu::userCanAccessPlugin() ) {
             $settingsAdminClass = new SettingsAdmin();
             $settingsAdminClass->updateOption('combine_loaded_css', '');
             $settingsAdminClass->updateOption('combine_loaded_css_for_admin_only', '');
@@ -229,7 +508,7 @@ SQL;
 
 		if ( ($pluginSettings['combine_loaded_js'] === 'for_admin' ||
 		     (isset($pluginSettings['combine_loaded_js_for_admin_only']) && $pluginSettings['combine_loaded_js_for_admin_only'] == 1) )
-		    && Menu::userCanAccessAssetCleanUp() ) {
+		    && Menu::userCanAccessPlugin() ) {
             $settingsAdminClass = new SettingsAdmin();
             $settingsAdminClass->updateOption('combine_loaded_js', '');
             $settingsAdminClass->updateOption('combine_loaded_js_for_admin_only', '');
@@ -421,23 +700,18 @@ SQL;
 		 */
 		$wpacuGlobalDataArray = wpacuGetGlobalData();
 
-		foreach ( array(
-			'404',
-			'assets_info',
-			'date',
-			'everywhere',
-			'ignore_child',
-			'load_it_logged_in',
-			'load_regex',
-			'notes',
-			'positions',
-			'preloads',
-			'search',
-			'unload_regex' ) as $dataType ) {
-			if ( ! empty( $wpacuGlobalDataArray[ $assetType ][ $dataType ] ) && array_key_exists($assetHandle,  $wpacuGlobalDataArray[ $assetType ][ $dataType ]) ) {
-				unset( $wpacuGlobalDataArray[ $assetType ][ $dataType ][ $assetHandle ]);
-			}
-		}
+		if ( ! empty( $wpacuGlobalDataArray[ $assetType ] ) && is_array( $wpacuGlobalDataArray[ $assetType ] ) ) {
+            foreach ( $wpacuGlobalDataArray[ $assetType ] as $dataType => $dataTypeData ) {
+                if ( ! is_array( $dataTypeData ) ) {
+                    continue;
+                }
+
+                if ( array_key_exists( $assetHandle, $dataTypeData ) ) {
+                    unset( $wpacuGlobalDataArray[ $assetType ][ $dataType ][ $assetHandle ] );
+                }
+
+                }
+        }
 
 		Misc::addUpdateOption(
 			WPACU_PLUGIN_ID . '_global_data',

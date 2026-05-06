@@ -228,7 +228,7 @@ class MainAdmin
 			return;
 		}
 
-		if (! isset($_POST['action']) || ! Menu::userCanAccessAssetCleanUp()) {
+		if (! isset($_POST['action']) || ! Menu::userCanAccessPlugin()) {
 			return;
 		}
 
@@ -258,7 +258,7 @@ class MainAdmin
 	 */
 	public function ajaxFetchActivePluginsJsFooterCode()
 	{
-		if (! Menu::isPluginPage() || ! Menu::userCanAccessAssetCleanUp()) {
+		if (! Menu::isPluginPage() || ! Menu::userCanAccessPlugin()) {
 			return;
 		}
 
@@ -371,7 +371,7 @@ class MainAdmin
     {
         // The logged-in admin needs to be outside the Dashboard (in the front-end view)
         // "Manage in the Front-end" is enabled in "Settings" -> "Plugin Usage Preferences"
-        return ! is_admin() && ! Main::instance()->isGetAssetsCall && Menu::userCanAccessAssetCleanUp() && AssetsManager::instance()->frontendShow();
+        return ! is_admin() && ! Main::instance()->isGetAssetsCall && Menu::userCanAccessPlugin() && AssetsManager::instance()->frontendShow();
     }
 
     /**
@@ -988,6 +988,7 @@ class MainAdmin
             }
 
             $data['post_id'] = ($type === 'front_page') ? 0 : Main::instance()->getCurrentPostId();
+
             ObjectCache::wpacu_cache_set('wpacu_settings_frontend_data', $data);
 
             self::instance()->parseTemplate('settings-frontend', $data, true);
@@ -1127,16 +1128,23 @@ class MainAdmin
 			// EITHER the enqueued or hardcoded list of assets HAS TO BE RETRIEVED
 			// Print out the 'error' response to make the user aware about it
 			if ( ! ($wpacuListE || $wpacuListH) ) {
-				// 'body' is set, and it's not an array
-				if ( is_wp_error($wpRemotePost) ) {
-                    $wpRemotePost['response']['message'] = $wpRemotePost->get_error_message();
-				} elseif ( isset( $wpRemotePost['body']) ) {
-					if ( trim( $wpRemotePost['body'] ) === '' ) {
-						$wpRemotePost['body'] = '<strong>Error (blank page):</strong> It looks the targeted page is loading, but it has no content. The page seems to be blank. Please load it in incognito mode (when you are not logged-in) via your browser.';
-					} elseif ( ! is_array( $wpRemotePost['body'] ) ) {
-						$wpRemotePost['body'] = strip_tags( $wpRemotePost['body'], '<p><a><strong><b><em><i>' );
-					}
-				}
+                // 'body' is set, and it's not an array
+                if ( is_wp_error($wpRemotePost) ) {
+                    // Replace the error object with an array structure to avoid fatal error
+                    $wpRemotePost = array(
+                        'response' => array(
+                            'code'    => $wpRemotePost->get_error_code(),
+                            'message' => $wpRemotePost->get_error_message()
+                        ),
+                        'body' => '<strong>Error:</strong> ' . esc_html( $wpRemotePost->get_error_message() )
+                    );
+                } elseif ( isset( $wpRemotePost['body']) ) {
+                    if ( trim( $wpRemotePost['body'] ) === '' ) {
+                        $wpRemotePost['body'] = '<strong>Error (blank page):</strong> It looks the targeted page is loading, but it has no content. The page seems to be blank. Please load it in incognito mode (when you are not logged-in) via your browser.';
+                    } elseif ( ! is_array( $wpRemotePost['body'] ) ) {
+                        $wpRemotePost['body'] = strip_tags( $wpRemotePost['body'], '<p><a><strong><b><em><i>' );
+                    }
+                }
 
 				$data = array(
 					'is_dashboard_view' => true,
@@ -1325,7 +1333,7 @@ class MainAdmin
 				return;
 			}
 
-			if ( ! (Menu::userCanAccessAssetCleanUp() && ! is_admin()) ) {
+			if ( ! (Menu::userCanAccessPlugin() && ! is_admin()) ) {
 				return;
 			}
 

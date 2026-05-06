@@ -79,7 +79,7 @@ if (is_admin()) {
 
 // The following are only relevant when you're logged in
 add_action('init', function() {
-	if (\WpAssetCleanUp\Menu::userCanAccessAssetCleanUp()) {
+	if (\WpAssetCleanUp\Menu::userCanAccessPlugin()) {
 		\WpAssetCleanUp\AssetsManager::instance();
 
         $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache = is_admin() ||
@@ -107,7 +107,7 @@ if ( ! is_admin() ) {
 		$wpacuSettings = $wpacuSettingsClass->getAll();
 
 		// If "Manage in the front-end" is enabled & the admin is logged-in, do not trigger any Autoptimize caching at all
-		if ( $wpacuSettings['frontend_show'] && ! defined( 'AUTOPTIMIZE_NOBUFFER_OPTIMIZE' ) && \WpAssetCleanUp\Menu::userCanAccessAssetCleanUp() ) {
+		if ( $wpacuSettings['frontend_show'] && ! defined( 'AUTOPTIMIZE_NOBUFFER_OPTIMIZE' ) && \WpAssetCleanUp\Menu::userCanAccessPlugin() ) {
 			define( 'AUTOPTIMIZE_NOBUFFER_OPTIMIZE', true );
 		}
 	}, - PHP_INT_MAX );
@@ -117,7 +117,7 @@ if ( ! is_admin() ) {
 add_action('init', function() {
 	if ( ( ! \WpAssetCleanUp\Main::instance()->settings['hide_from_admin_bar'] ) &&
 		 is_admin_bar_showing() &&
-         \WpAssetCleanUp\Menu::userCanAccessAssetCleanUp() ) {
+         \WpAssetCleanUp\Menu::userCanAccessPlugin() ) {
 		new WpAssetCleanUp\AdminBar();
 	}
 });

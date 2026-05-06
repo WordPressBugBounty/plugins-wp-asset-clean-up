@@ -536,7 +536,7 @@ SQL;
 	 */
 	public static function downloadFile($localPathToFile)
     {
-	    if (! Menu::userCanAccessAssetCleanUp()) {
+	    if (! Menu::userCanAccessPlugin()) {
 		    exit();
 	    }
 
@@ -555,7 +555,7 @@ SQL;
 	 */
 	public function downloadSystemInfo()
     {
-	    if (! Menu::userCanAccessAssetCleanUp()) {
+	    if (! Menu::userCanAccessPlugin()) {
 		    exit();
 	    }
 
@@ -600,7 +600,7 @@ SQL;
 			exit('Error: Action needs to be confirmed.');
 		}
 
-		if ( ! Menu::userCanAccessAssetCleanUp() ) {
+		if ( ! Menu::userCanAccessPlugin() ) {
 			exit();
 		}
 
