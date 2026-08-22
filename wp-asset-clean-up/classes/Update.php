@@ -103,10 +103,7 @@ HTML;
 
 	    // e.g. when "+" or "-" is used within an asset's row (CSS/JS manager), the state is updated in the background to be remembered
 	    add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_update_asset_row_state',              array($this, 'ajaxUpdateAssetRowState') );
-	    add_action( 'wp_ajax_nopriv_' . WPACU_PLUGIN_ID . '_update_asset_row_state',       array($this, 'ajaxUpdateAssetRowState') );
-
 	    add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_area_update_assets_row_state',        array($this, 'ajaxAreaUpdateAssetsRowState') );
-	    add_action( 'wp_ajax_nopriv_' . WPACU_PLUGIN_ID . '_area_update_assets_row_state', array($this, 'ajaxAreaUpdateAssetsRowState') );
     }
 
 	/**
@@ -114,7 +111,7 @@ HTML;
 	 */
 	public function triggersAfterInit()
     {
-	    if (! is_admin() && AssetsManager::instance()->frontendShow()) {
+	    if ( ! is_admin() && Main::showAssetsManagerInFrontend()) {
 		    if (! empty($_POST)) {
 			    $wpacuAction = Misc::isElementorMaintenanceModeOn() ? 'template_redirect' : 'wp';
 
@@ -146,7 +143,7 @@ HTML;
 
         $updateAction = Misc::getVar('post', 'wpacu_update_asset_frontend');
 
-        if ($updateAction != 1 || ! AssetsManager::instance()->frontendShow()) {
+        if ($updateAction != 1 || ! Main::showAssetsManagerInFrontend()) {
             return;
         }
 
@@ -189,6 +186,8 @@ HTML;
             return;
         }
 
+        do_action('wpacu_internal_frontend_update_before_common_updates');
+
         // Any preloads
 	    self::updatePreloads();
 
@@ -202,6 +201,17 @@ HTML;
 	    self::updateIgnoreChild();
 
 	    self::clearTransients();
+
+	    do_action('wpacu_internal_frontend_update_after_common_updates');
+
+        // In case Combine CSS/JS was enabled and there are traces of JSON files in the caching directory
+        // Clear them if the caching timing expired as they are not relevant anymore and reduce the disk's space
+        OptimizeCommon::clearItemStorageForPost($postId, true);
+
+        self::afterPostUpdate($postId);
+
+        // Note: Cache is cleared (except the JSON files related to CSS/JS combine option) after the post/page is updated via a separate AJAX call
+        // To avoid the usage of too much memory (good for shared environments) and avoid any memory related errors showing up to the user which could be confusing
     }
 
 	/**
@@ -390,11 +400,19 @@ SQL;
 	    // Could be just these fields available in the form (e.g. unavailable CSS/JS manager due to the page set to not load the plugin at all)
 	    $this->updatePageOptions($post->ID);
 
-	    // This is triggered only if the "Asset CleanUp" meta box was loaded with the list of assets (either in edit post/page or in "CSS & JS Manager" -> "Manage CSS/JS")
+	    // This is triggered only if the plugin's meta box was loaded with the list of assets (either in edit post/page or in "CSS & JS Manager" -> "Manage CSS/JS")
 	    // Otherwise, $_POST[WPACU_PLUGIN_ID] will be taken as empty which might be not if there are values in the database
     	if (! Misc::getVar('post', 'wpacu_unload_assets_area_loaded')) {
     	    return;
 	    }
+
+	    do_action('wpacu_internal_asset_info_update', 'post', $postId);
+
+	    // Unload it on pages that matches RegEx
+	    do_action('wpacu_internal_update_regex_rules', 'unload');
+
+	    // Load it on pages that matches RegEx (global rule, different from "load it on this page")
+	    do_action('wpacu_internal_update_regex_rules', 'load_exception');
 
         $wpacuNoLoadAssets = Misc::getVar('post', WPACU_PLUGIN_ID, array());
 
@@ -434,7 +452,9 @@ SQL;
 
         // Any bulk unloads or removed? (e.g. all pages of a certain post type)
 	    $this->saveToBulkUnloads($post);
-	    $this->removeBulkUnloads($post->post_type);
+	    $this->removeBulkUnloads(array(), array(), 'post_type', $post->post_type);
+
+        do_action('wpacu_internal_post_update_after_bulk_changes', $post->post_type);
 
         // Any preloads
 	    self::updatePreloads();
@@ -451,6 +471,12 @@ SQL;
 	    add_action('wpacu_admin_notices', array($this, 'pageUpdated'));
 
 	    self::clearTransients();
+
+        // When any unload rule for a hardcoded asset is set in the form, the contents of the tag will be stored in the database
+        // To be later viewed in places such as "Overview"
+        // This one NEEDS to trigger AFTER all other updates have been made
+
+        do_action('wpacu_internal_after_common_update_rules_stored');
 
 	    // In case Combine CSS/JS was enabled and there are traces of JSON files in the caching directory
         // Clear them if the caching timing expired as they are not relevant anymore and reduce the disk's space
@@ -484,7 +510,7 @@ SQL;
         }
 
         $postPageOptions['_page_uri'] = Misc::getPageUri($postId);
-        update_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_page_options', wp_json_encode(Misc::filterList($postPageOptions)));
+        update_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_page_options', wp_json_encode(MiscArray::filterList($postPageOptions)));
     }
 
     /**
@@ -509,6 +535,8 @@ SQL;
 	    // Was the Assets List Layout changed?
 	    self::updateSettingsChangedOutsideTheMainArea();
 
+        do_action('wpacu_internal_front_page_update_before_common_updates');
+
         $jsonNoAssetsLoadList = wp_json_encode( $wpacuNoLoadAssets );
 	    Misc::addUpdateOption( WPACU_PLUGIN_ID . '_front_page_no_load', $jsonNoAssetsLoadList );
 
@@ -531,6 +559,8 @@ SQL;
         self::updateIgnoreChild();
 
 	    add_action('wpacu_admin_notices', array($this, 'homePageUpdated'));
+
+	    do_action('wpacu_internal_front_page_update_after_common_updates');
 
         $this->frontEndUpdateFor['homepage'] = true;
 
@@ -637,6 +667,10 @@ SQL;
         } elseif ($type === 'front_page') {
             delete_option( WPACU_PLUGIN_ID . '_front_page_load_exceptions');
         }
+        elseif ($type === 'for_pro') {
+	        // Clear existing list for pages like: taxonomy, 404, search, date etc.
+	        do_action( 'wpacu_internal_clear_load_exceptions' );
+        }
 	    // [End] Clear existing list first
 
         // Load Exception
@@ -648,8 +682,7 @@ SQL;
 	        if ( ! empty( $_POST[$postKey] ) ) {
 		        foreach ( $_POST[$postKey] as $wpacuHandle ) {
 			        // Do not append it if the global unload is removed
-			        if ( isset( $_POST[$optionsKey][ $wpacuHandle ] )
-			             && $_POST[$optionsKey][ $wpacuHandle ] === 'remove' ) {
+			        if ( isset( $_POST[$optionsKey][ $wpacuHandle ] ) && $_POST[$optionsKey][ $wpacuHandle ] === 'remove' ) {
 				        continue;
 			        }
 			        $loadExceptions[$assetType][] = $wpacuHandle;
@@ -674,12 +707,16 @@ SQL;
 	            }
             }
 
-            $jsonLoadExceptions = wp_json_encode(Misc::filterList($list));
+            $jsonLoadExceptions = wp_json_encode(MiscArray::filterList($list));
 
             if ( $type === 'post' && (! add_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_load_exceptions', $jsonLoadExceptions, true)) ) {
                 update_post_meta( $postId, '_' . WPACU_PLUGIN_ID . '_load_exceptions', $jsonLoadExceptions );
             } elseif ($type === 'front_page') {
 	            Misc::addUpdateOption( WPACU_PLUGIN_ID . '_front_page_load_exceptions', $jsonLoadExceptions );
+            }
+            elseif ($type === 'for_pro') {
+	            // Update any load exceptions for pages like: custom poty type archive, taxonomy, 404, search, date etc.
+	            do_action( 'wpacu_internal_update_load_exceptions', $jsonLoadExceptions );
             }
         }
     }
@@ -820,7 +857,7 @@ SQL;
 		    }
 	    }
 
-	    Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+	    Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
     }
 
 	/**
@@ -853,7 +890,7 @@ SQL;
 		    // Save the page URI as it's needed instead of get_permalink() that can't be called too early (e.g. outside an action hook or in a MU plugin)
 		    $pageOptions['_page_uri'] = Misc::getPageUri($postId);
 
-		    $pageOptionsJson = wp_json_encode( Misc::filterList($pageOptions) );
+		    $pageOptionsJson = wp_json_encode( MiscArray::filterList($pageOptions) );
 
 		    if ( ! add_post_meta( $postId, '_' . WPACU_PLUGIN_ID . '_page_options', $pageOptionsJson, true ) ) {
 			    update_post_meta( $postId, '_' . WPACU_PLUGIN_ID . '_page_options', $pageOptionsJson );
@@ -868,7 +905,7 @@ SQL;
 
 		    $existingList['page_options']['homepage'] = $pageOptions;
 
-		    Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_data', wp_json_encode(Misc::filterList($existingList)));
+		    Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_data', wp_json_encode(MiscArray::filterList($existingList)));
 	    }
 	}
 
@@ -928,7 +965,7 @@ SQL;
 	        }
         }
 
-        Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_unload', wp_json_encode(Misc::filterList($existingList)));
+        Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_unload', wp_json_encode(MiscArray::filterList($existingList)));
     }
 
 	/**
@@ -998,7 +1035,7 @@ SQL;
             }
 
             if ($isUpdated) {
-                Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_unload', wp_json_encode(Misc::filterList($existingList)));
+                Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_unload', wp_json_encode(MiscArray::filterList($existingList)));
             }
         }
 
@@ -1072,35 +1109,27 @@ SQL;
             }
         }
 
-	    Misc::addUpdateOption( WPACU_PLUGIN_ID . '_bulk_unload', wp_json_encode(Misc::filterList($existingList)));
+	    Misc::addUpdateOption( WPACU_PLUGIN_ID . '_bulk_unload', wp_json_encode(MiscArray::filterList($existingList)));
     }
 
-    /**
-     * Lite Version: For post, pages, custom post types
+	/**
+     * @param array $stylesList
+     * @param array $scriptsList
+	 * @param string $bulkType (e.g. 'post_type')
+     * @param string $value (e.g. 'post')
+     * @param string $checkType e.g. if it's 'post' the $stylesList and $scriptsList lists will be built from the $_POST
+     * if $checkType is empty, then $stylesList or $scriptsList need to have values passed directly
+	 *
+	 * @return bool
      *
-     * @param mixed $value
-     *
-     * @return bool
      * @noinspection NestedAssignmentsUsageInspection
      */
-    public function removeBulkUnloads($value = '')
+	public function removeBulkUnloads($stylesList = array(), $scriptsList = array(), $bulkType = '', $value = '', $checkType = '')
     {
-        if ( ! $value ) {
-            global $post;
-
-            // In the LITE version, post type unload is the only option for bulk unloads
-            // $postType could be 'post', 'page' or a custom post type such as 'product' (WooCommerce), 'download' (Easy Digital Downloads), etc.
-            $value = isset($post->post_type) ? $post->post_type : false;
-
-            if ( ! $value ) {
-            	return false;
-            }
+        if ($checkType === 'post') {
+            $stylesList  = Misc::getVar('post', 'wpacu_options_' . $bulkType . '_styles', array());
+            $scriptsList = Misc::getVar('post', 'wpacu_options_' . $bulkType . '_scripts', array());
         }
-
-	    $bulkType = 'post_type';
-
-        $stylesList = Misc::getVar('post', 'wpacu_options_'.$bulkType.'_styles', array());
-        $scriptsList = Misc::getVar('post', 'wpacu_options_'.$bulkType.'_scripts', array());
 
         if (empty($stylesList) && empty($scriptsList)) {
         	return false;
@@ -1148,15 +1177,29 @@ SQL;
                     continue;
                 }
 
-                foreach ($existingList[$assetType][$bulkType][$value] as $handleKey => $handle) {
-                    if (in_array($handle, $list)) {
-                        unset($existingList[$assetType][$bulkType][$value][$handleKey]);
-                        $isUpdated = true;
+                if (in_array($bulkType, array('search', 'date', '404')) || (strpos($bulkType, 'custom_post_type_archive_') !== false)) {
+                    if ( ! empty($existingList[$assetType][$bulkType]) ) {
+                        foreach ($existingList[$assetType][$bulkType] as $handleKey => $handle) {
+                            if (in_array($handle, $list)) {
+                                unset($existingList[$assetType][$bulkType][$handleKey]);
+                                $isUpdated = true;
+                            }
+                        }
+                    }
+                } elseif ($value) {
+                	// has $value
+                    if ( ! empty($existingList[$assetType][$bulkType][$value]) ) {
+                        foreach ($existingList[$assetType][$bulkType][$value] as $handleKey => $handle) {
+                            if (in_array($handle, $list)) {
+                                unset($existingList[$assetType][$bulkType][$value][$handleKey]);
+                                $isUpdated = true;
+                            }
+                        }
                     }
                 }
             }
 
-	        Misc::addUpdateOption(WPACU_PLUGIN_ID . '_bulk_unload', wp_json_encode(Misc::filterList($existingList)));
+	        Misc::addUpdateOption(WPACU_PLUGIN_ID . '_bulk_unload', wp_json_encode(MiscArray::filterList($existingList)));
         }
 
         return $isUpdated;
@@ -1210,7 +1253,7 @@ SQL;
 			}
 		}
 
-		Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
 	/**
@@ -1273,7 +1316,7 @@ SQL;
 		    }
 	    }
 
-	    Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+	    Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
     }
 
 	/**
@@ -1328,7 +1371,7 @@ SQL;
 			}
 		}
 
-		Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
 	/**
@@ -1356,54 +1399,152 @@ SQL;
 	}
 
 	/**
-     * This function is called via AJAX whenever "+" or "-" is used on an asset's row
+     * This function is called via AJAX whenever "+" or "-" is used on an asset's row.
      *
-	 * @param $newState
-	 * @param $handle
-	 * @param $handleFor
+	 * @param mixed $newState
+	 * @param mixed $handle
+	 * @param mixed $handleFor
 	 *
 	 * @return array|false
 	 */
 	public static function updateHandleRowStatus($newState, $handle, $handleFor)
 	{
-		$optionToUpdate = WPACU_PLUGIN_ID . '_global_data';
-		$globalKey = 'handle_row_contracted'; // Contracted or Expanded (default)
+        $newState  = self::sanitizeAssetRowState($newState);
+        $handle    = self::sanitizeAssetHandle($handle);
+        $handleFor = self::sanitizeAssetHandleType($handleFor);
 
-		$existingListEmpty = array('styles' => array($globalKey => array()), 'scripts' => array($globalKey => array()));
+        if ($newState === '' || $handle === '' || $handleFor === '') {
+            return false;
+        }
+
+        list($optionToUpdate, $globalKey, $existingList) = self::getAssetRowStatusStorage();
+
+        self::applyAssetRowStatusToList($existingList, $newState, $handle, $handleFor, $globalKey);
+        self::saveAssetRowStatusStorage($optionToUpdate, $existingList);
+
+        return self::getContractedAssetRowsFromList($existingList, $globalKey);
+	}
+
+    /**
+     * @return array
+     */
+    private static function getAssetRowStatusStorage()
+    {
+        $optionToUpdate    = WPACU_PLUGIN_ID . '_global_data';
+        $globalKey         = 'handle_row_contracted';
+        $existingListEmpty = array(
+            'styles'  => array($globalKey => array()),
+            'scripts' => array($globalKey => array()),
+        );
         $existingListJson = get_option($optionToUpdate);
+        $existingListData = Main::instance()->existingList($existingListJson, $existingListEmpty);
 
-		$existingListData = Main::instance()->existingList($existingListJson, $existingListEmpty);
-		$existingList = $existingListData['list'];
+        return array($optionToUpdate, $globalKey, $existingListData['list']);
+    }
 
-		if ($handleFor === 'style') {
-		    $keyList = 'styles';
-		} elseif ($handleFor === 'script') {
-		    $keyList = 'scripts';
-		} else {
-		    return false;
+    /**
+     * @param array  $existingList
+     * @param string $newState
+     * @param string $handle
+     * @param string $handleFor
+     * @param string $globalKey
+     *
+     * @return void
+     */
+    private static function applyAssetRowStatusToList(&$existingList, $newState, $handle, $handleFor, $globalKey)
+    {
+        $keyList = ($handleFor === 'style') ? 'styles' : 'scripts';
+
+        if ( ! isset($existingList[$keyList]) || ! is_array($existingList[$keyList]) ) {
+            $existingList[$keyList] = array();
         }
 
-        // The database value should be equal with '1' suggesting it's contracted (no value means it's expanded by default)
-        if ( $newState === 'expanded' && isset( $existingList[$keyList][ $globalKey ][ $handle ] ) ) {
-            unset( $existingList[$keyList][ $globalKey ][ $handle ] ); // "expanded" (default)
-        } elseif ( $newState === 'contracted' ) {
-            $existingList[$keyList][ $globalKey ][ $handle ] = 1; // "contracted"
+        if ( ! isset($existingList[$keyList][$globalKey]) || ! is_array($existingList[$keyList][$globalKey]) ) {
+            $existingList[$keyList][$globalKey] = array();
         }
 
-		Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+        if ($newState === 'expanded') {
+            unset($existingList[$keyList][$globalKey][$handle]);
+        } else {
+            $existingList[$keyList][$globalKey][$handle] = 1;
+        }
+    }
 
-        $toReturn = array();
+    /**
+     * @param string $optionToUpdate
+     * @param array  $existingList
+     *
+     * @return void
+     */
+    private static function saveAssetRowStatusStorage($optionToUpdate, $existingList)
+    {
+        Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
+    }
 
-        if (isset($existingList['styles'][$globalKey])) {
-	        $toReturn['styles'] = $existingList['styles'][$globalKey];
+    /**
+     * @param array  $existingList
+     * @param string $globalKey
+     *
+     * @return array
+     */
+    private static function getContractedAssetRowsFromList($existingList, $globalKey)
+    {
+        $toReturn = array('styles' => array(), 'scripts' => array());
+
+        if (isset($existingList['styles'][$globalKey]) && is_array($existingList['styles'][$globalKey])) {
+            $toReturn['styles'] = $existingList['styles'][$globalKey];
         }
 
-		if (isset($existingList['scripts'][$globalKey])) {
-			$toReturn['scripts'] = $existingList['scripts'][$globalKey];
+        if (isset($existingList['scripts'][$globalKey]) && is_array($existingList['scripts'][$globalKey])) {
+            $toReturn['scripts'] = $existingList['scripts'][$globalKey];
         }
 
         return $toReturn;
-	}
+    }
+
+    /**
+     * @param mixed $newState
+     *
+     * @return string
+     */
+    private static function sanitizeAssetRowState($newState)
+    {
+        $newState = is_scalar($newState) ? sanitize_key(wp_unslash((string)$newState)) : '';
+
+        return in_array($newState, array('contracted', 'expanded'), true) ? $newState : '';
+    }
+
+    /**
+     * @param mixed $handleFor
+     *
+     * @return string
+     */
+    private static function sanitizeAssetHandleType($handleFor)
+    {
+        $handleFor = is_scalar($handleFor) ? sanitize_key(wp_unslash((string)$handleFor)) : '';
+
+        return in_array($handleFor, array('style', 'script'), true) ? $handleFor : '';
+    }
+
+    /**
+     * @param mixed $handle
+     *
+     * @return string
+     */
+    private static function sanitizeAssetHandle($handle)
+    {
+        if ( ! is_scalar($handle) ) {
+            return '';
+        }
+
+        $handle = trim(sanitize_text_field(wp_unslash((string)$handle)));
+
+        if ($handle === '' || strlen($handle) > 500 || strpos($handle, "\0") !== false) {
+            return '';
+        }
+
+        return $handle;
+    }
 
 	/**
      * This is triggered automatically and sets a transient with the handles info
@@ -1442,11 +1583,24 @@ SQL;
 					$assetArray['src'] = Misc::assetFromHrefToRelativeUri( $assetArray['src'], $assetType );
 				}
 
+                $assetArray = apply_filters(
+					'wpacu_internal_update_handles_info_asset_array',
+					$assetArray,
+					$assetType,
+					$globalKey,
+					$assetHandle,
+					$existingList
+				);
+
+				if ($assetArray === false) {
+					continue;
+				}
+
                 $existingList[$assetType][$globalKey][$assetHandle] = $assetArray;
 			}
 		}
 
-		update_option($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		update_option($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
 	/**
@@ -1507,130 +1661,302 @@ SQL;
     }
 
 	/**
+	 * Return a normalized scheme/host/port key for an HTTP(S) URL.
+	 *
+	 * @param string $url
+	 *
+	 * @return string|false
+	 */
+	private static function getHttpUrlLocationKey($url)
+	{
+		$urlParts = wp_parse_url($url);
+
+		if ( ! is_array($urlParts)
+		     || empty($urlParts['scheme'])
+		     || empty($urlParts['host'])
+		     || isset($urlParts['user'])
+		     || isset($urlParts['pass'])
+		) {
+			return false;
+		}
+
+		$scheme = strtolower($urlParts['scheme']);
+
+		if ( ! in_array($scheme, array('http', 'https'), true) ) {
+			return false;
+		}
+
+		$host = strtolower(rtrim($urlParts['host'], '.'));
+		$port = isset($urlParts['port']) ? (int)$urlParts['port'] : ($scheme === 'https' ? 443 : 80);
+
+		if ($host === '' || $port < 1 || $port > 65535) {
+			return false;
+		}
+
+		return $scheme . '://' . $host . ':' . $port;
+	}
+
+	/**
+	 * Guest preloading is allowed only for the exact HTTP(S) location configured
+	 * as the WordPress or front-end site URL.
+	 *
+	 * @param string $url
+	 *
+	 * @return bool
+	 */
+	private static function isGuestPreloadUrlAllowed($url)
+	{
+		$targetLocationKey = self::getHttpUrlLocationKey($url);
+
+		if ($targetLocationKey === false) {
+			return false;
+		}
+
+		foreach (array(home_url('/'), site_url('/')) as $allowedSiteUrl) {
+			$allowedSiteUrlVariants = array(
+				$allowedSiteUrl,
+				set_url_scheme($allowedSiteUrl, 'http'),
+				set_url_scheme($allowedSiteUrl, 'https')
+			);
+
+			foreach ($allowedSiteUrlVariants as $allowedSiteUrlVariant) {
+				if (self::getHttpUrlLocationKey($allowedSiteUrlVariant) === $targetLocationKey) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Fetch a same-site URL while validating every redirect. Redirect handling is
+	 * kept inside the plugin so this remains safe on the minimum supported
+	 * WordPress versions as well.
+	 *
+	 * @param string $url
+	 * @param int    $maxRedirects
+	 *
+	 * @return array|\WP_Error
+	 */
+	private static function remoteGetGuestPreloadUrl($url, $maxRedirects = 3)
+	{
+		$currentUrl   = $url;
+		$maxRedirects = max(0, (int)$maxRedirects);
+
+		for ($redirectCount = 0; $redirectCount <= $maxRedirects; $redirectCount++) {
+			if ( ! self::isGuestPreloadUrlAllowed($currentUrl) ) {
+				return new \WP_Error(
+					'wpacu_guest_preload_url_not_allowed',
+					'The preload URL does not match the configured site URL.'
+				);
+			}
+
+			$response = wp_remote_get($currentUrl, array(
+				'timeout'     => 15,
+				'redirection' => 0
+			));
+
+			if (is_wp_error($response)) {
+				return $response;
+			}
+
+			$responseCode = (int)wp_remote_retrieve_response_code($response);
+
+			if ($responseCode < 300 || $responseCode > 399) {
+				return $response;
+			}
+
+			$redirectLocation = wp_remote_retrieve_header($response, 'location');
+
+			if (is_array($redirectLocation)) {
+				$redirectLocation = end($redirectLocation);
+			}
+
+			if ( ! is_string($redirectLocation) || trim($redirectLocation) === '' ) {
+				return $response;
+			}
+
+			if ($redirectCount === $maxRedirects) {
+				return new \WP_Error(
+					'wpacu_guest_preload_too_many_redirects',
+					'The preload request exceeded the allowed number of redirects.'
+				);
+			}
+
+			$currentUrl = \WP_Http::make_absolute_url(trim($redirectLocation), $currentUrl);
+		}
+
+		return new \WP_Error(
+			'wpacu_guest_preload_request_failed',
+			'The preload request could not be completed.'
+		);
+	}
+
+	/**
 	 * This is triggered when /admin/admin-ajax.php is called (default WordPress AJAX handler)
 	 */
 	public function ajaxPreloadGuest()
-    {
-        // Check nonce
-	    if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_ajax_preload_url_nonce' ) ) {
-		    echo 'Error: The security nonce is not valid.';
-		    exit();
-	    }
+	{
+		// Check nonce
+		if ( ! isset($_POST['wpacu_nonce']) || ! wp_verify_nonce($_POST['wpacu_nonce'], 'wpacu_ajax_preload_url_nonce') ) {
+			echo 'Error: The security nonce is not valid.';
+			exit();
+		}
 
-        $pageUrl = isset($_POST['page_url']) ? $_POST['page_url'] : false;
-	    $pageUrlDomain = parse_url($pageUrl, PHP_URL_HOST);
-	    $pageUrlPreload = add_query_arg( array( 'wpacu_preload' => 1 ), $pageUrl );
+		// Check privileges
+		if ( ! Menu::userCanAccessPlugin() ) {
+			echo 'Error: Not enough privileges to perform this action.';
+			exit();
+		}
 
-	    // Check if the URL is valid
-	    if (! filter_var($pageUrlPreload, FILTER_VALIDATE_URL)) {
-		    echo 'The URL `'.$pageUrlPreload.'` is not valid.';
-		    exit();
-	    }
+		$pageUrl = isset($_POST['page_url']) && is_string($_POST['page_url'])
+			? esc_url_raw(wp_unslash($_POST['page_url']))
+			: '';
 
-	    // Check the domain from "page_url" parameter
-	    if (strpos(site_url(), $pageUrlDomain) === false) {
-	        echo 'Error: Possible hacking attempt! The host name of the requested URL is not the same as the one of "Site Address (URL)" from "Settings" - "General".';
-	        exit();
-	    }
+		if ( ! self::isGuestPreloadUrlAllowed($pageUrl) ) {
+			echo 'Error: The requested URL does not match the configured WordPress or Site Address URL.';
+			exit();
+		}
 
-	    // Check privileges
-	    if (! Menu::userCanAccessPlugin()) {
-		    echo 'Error: Not enough privileges to perform this action.';
-		    exit();
-	    }
+		$pageUrlPreload = add_query_arg(array('wpacu_preload' => 1), $pageUrl);
 
-	    $response = wp_remote_get($pageUrlPreload);
+		if ( ! self::isGuestPreloadUrlAllowed($pageUrlPreload) ) {
+			echo 'The preload URL is not valid.';
+			exit();
+		}
 
-	    if (is_wp_error($response)) {
-	        // Any error generated during the fetch? Print it
-	        echo 'Error: '.$response->get_error_code();
-	    } else {
-	        // No errors
-		    echo 'Status Code: '.wp_remote_retrieve_response_code($response).' /  Page URL (preload): ' . $pageUrlPreload . "\n\n";
-		    echo isset($response['body']) ? $response['body'] : 'No "body" key found from wp_remote_get(), the preload might not have triggered';
-	    }
+		$response = self::remoteGetGuestPreloadUrl($pageUrlPreload);
 
-	    exit();
-    }
+		if (is_wp_error($response)) {
+			// Any error generated during the fetch? Print it
+			echo 'Error: '.$response->get_error_code();
+		} else {
+			// No errors
+			echo 'Status Code: '.wp_remote_retrieve_response_code($response).' /  Page URL (preload): ' . $pageUrlPreload . "\n\n";
+			echo wp_remote_retrieve_body($response);
+		}
+
+		exit();
+	}
 
 	/**
+	 * Persist the expanded/contracted state for one asset row.
 	 *
+	 * @return void
 	 */
 	public function ajaxUpdateAssetRowState()
     {
-	    // Option: "On Assets List Layout Load, keep the groups:"
-	    if (isset($_POST['wpacu_update_asset_row_state'])) {
-		    if ( ! isset( $_POST['action'], $_POST['wpacu_asset_row_state'], $_POST['wpacu_handle'], $_POST['wpacu_handle_for'] )
-                 || ! Menu::userCanAccessPlugin() ) {
-			    return;
-		    }
+        if ( ! Menu::userCanAccessPlugin() ) {
+            wp_send_json_error(array('message' => 'You are not allowed to update asset row states.'));
+        }
 
-		    if ( $_POST['wpacu_update_asset_row_state'] !== 'yes' ) {
-			    return;
-		    }
+        $nonce = isset($_POST['wpacu_nonce']) && is_string($_POST['wpacu_nonce'])
+            ? wp_unslash($_POST['wpacu_nonce'])
+            : '';
 
-		    if ( ! isset($_POST['wpacu_nonce']) ) {
-			    echo 'Error: The security nonce was not sent for verification. Location: '.__METHOD__;
-			    return;
-		    }
+        if ( ! wp_verify_nonce($nonce, 'wpacu_update_asset_row_state_nonce') ) {
+            wp_send_json_error(array('message' => 'The security check has failed.'));
+        }
 
-		    if ( ! wp_verify_nonce($_POST['wpacu_nonce'], 'wpacu_update_asset_row_state_nonce') ) {
-			    echo 'Error: The security check has failed. Location: '.__METHOD__;
-			    return;
-		    }
+        $requestFlag = isset($_POST['wpacu_update_asset_row_state']) && is_string($_POST['wpacu_update_asset_row_state'])
+            ? wp_unslash($_POST['wpacu_update_asset_row_state'])
+            : '';
 
-		    $assetRowState = $_POST['wpacu_asset_row_state'];
+        if ($requestFlag !== 'yes') {
+            wp_send_json_error(array('message' => 'The request is not valid.'));
+        }
 
-            $newContractedList = self::updateHandleRowStatus($assetRowState, $_POST['wpacu_handle'], $_POST['wpacu_handle_for']);
+        $newContractedList = self::updateHandleRowStatus(
+            isset($_POST['wpacu_asset_row_state']) ? $_POST['wpacu_asset_row_state'] : '',
+            isset($_POST['wpacu_handle']) ? $_POST['wpacu_handle'] : '',
+            isset($_POST['wpacu_handle_for']) ? $_POST['wpacu_handle_for'] : ''
+        );
 
-		    echo "<pre>" . print_r($newContractedList, true);
-	    }
+        if ($newContractedList === false) {
+            wp_send_json_error(array('message' => 'The asset row state parameters are not valid.'));
+        }
 
-	    exit();
+        wp_send_json_success(array('contracted' => $newContractedList));
     }
 
 	/**
-     * Update state for all assets within a plugin
+     * Persist the state for all asset rows in an area with one option write.
      *
 	 * @return void
 	 */
 	public function ajaxAreaUpdateAssetsRowState()
     {
-        if (isset($_POST['wpacu_area_update_assets_row_state'])) {
-	        if ( ! isset( $_POST['action'], $_POST['wpacu_area_assets_row_state'], $_POST['wpacu_area_handles'], $_POST['wpacu_nonce'] )
-	             || ! Menu::userCanAccessPlugin() ) {
-		        return;
-	        }
+        if ( ! Menu::userCanAccessPlugin() ) {
+            wp_send_json_error(array('message' => 'You are not allowed to update asset row states.'));
+        }
 
-	        if ( $_POST['wpacu_area_update_assets_row_state'] !== 'yes' ) {
-		        return;
-	        }
+        $nonce = isset($_POST['wpacu_nonce']) && is_string($_POST['wpacu_nonce'])
+            ? wp_unslash($_POST['wpacu_nonce'])
+            : '';
 
-	        if ( ! isset($_POST['wpacu_nonce']) ) {
-		        echo 'Error: The security nonce was not sent for verification. Location: '.__METHOD__;
-		        return;
-	        }
+        if ( ! wp_verify_nonce($nonce, 'wpacu_area_update_assets_row_state_nonce') ) {
+            wp_send_json_error(array('message' => 'The security check has failed.'));
+        }
 
-	        if ( ! wp_verify_nonce($_POST['wpacu_nonce'], 'wpacu_area_update_assets_row_state_nonce') ) {
-		        echo 'Error: The security check has failed. Location: '.__METHOD__;
-		        return;
-	        }
+        $requestFlag = isset($_POST['wpacu_area_update_assets_row_state']) && is_string($_POST['wpacu_area_update_assets_row_state'])
+            ? wp_unslash($_POST['wpacu_area_update_assets_row_state'])
+            : '';
 
-	        $areaAllAssetsRowState = $_POST['wpacu_area_assets_row_state'];
+        if ($requestFlag !== 'yes') {
+            wp_send_json_error(array('message' => 'The request is not valid.'));
+        }
 
-            if ( ! empty($_POST['wpacu_area_handles']) && is_array($_POST['wpacu_area_handles']) ) {
-                foreach ($_POST['wpacu_area_handles'] as $areaAssetHandleFormat) {
-	                $areaAssetHandleFor = substr(strrchr($areaAssetHandleFormat, '_'), 1);
-                    $areaAssetHandle    = substr($areaAssetHandleFormat, 0, -(strlen($areaAssetHandleFor) + 1));
+        $newState = self::sanitizeAssetRowState(
+            isset($_POST['wpacu_area_assets_row_state']) ? $_POST['wpacu_area_assets_row_state'] : ''
+        );
+        $rawHandles = isset($_POST['wpacu_area_handles']) && is_array($_POST['wpacu_area_handles'])
+            ? $_POST['wpacu_area_handles']
+            : array();
 
-	                echo 'New State: '.$areaAllAssetsRowState.' / Handle: '.$areaAssetHandle . ' / For: '.$areaAssetHandleFor."\n";
+        if ($newState === '' || empty($rawHandles)) {
+            wp_send_json_error(array('message' => 'The asset row state parameters are not valid.'));
+        }
 
-	                $newContractedList = self::updateHandleRowStatus( $areaAllAssetsRowState, $areaAssetHandle, $areaAssetHandleFor );
-	                echo "<pre>" . print_r( $newContractedList, true );
-                }
+        list($optionToUpdate, $globalKey, $existingList) = self::getAssetRowStatusStorage();
+        $updated = 0;
+        $seen    = array();
+
+        foreach ($rawHandles as $areaAssetHandleFormat) {
+            if ( ! is_scalar($areaAssetHandleFormat) ) {
+                continue;
             }
 
-	        exit();
+            $areaAssetHandleFormat = sanitize_text_field(wp_unslash((string)$areaAssetHandleFormat));
+            $separatorPosition     = strrpos($areaAssetHandleFormat, '_');
+
+            if ($separatorPosition === false) {
+                continue;
+            }
+
+            $handle    = self::sanitizeAssetHandle(substr($areaAssetHandleFormat, 0, $separatorPosition));
+            $handleFor = self::sanitizeAssetHandleType(substr($areaAssetHandleFormat, $separatorPosition + 1));
+            $uniqueKey = $handleFor . ':' . $handle;
+
+            if ($handle === '' || $handleFor === '' || isset($seen[$uniqueKey])) {
+                continue;
+            }
+
+            $seen[$uniqueKey] = true;
+            self::applyAssetRowStatusToList($existingList, $newState, $handle, $handleFor, $globalKey);
+            $updated++;
         }
+
+        if ($updated < 1) {
+            wp_send_json_error(array('message' => 'No valid asset rows were supplied.'));
+        }
+
+        self::saveAssetRowStatusStorage($optionToUpdate, $existingList);
+
+        wp_send_json_success(array(
+            'updated'    => $updated,
+            'contracted' => self::getContractedAssetRowsFromList($existingList, $globalKey),
+        ));
     }
+
 }

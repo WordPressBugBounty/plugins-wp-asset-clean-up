@@ -8,84 +8,272 @@ if (! isset($data)) {
     exit;
 }
 
-global $wp_version;
-
+/* Keep the existing tab ID from the current template if it differs. */
 $tabIdArea = 'wpacu-setting-cdn-rewrite-urls';
-$styleTabContent = isset($selectedTabArea) && ($selectedTabArea === $tabIdArea) ? 'style="display: table-cell;"' : '';
+$styleTabContent = isset($selectedTabArea) && ($selectedTabArea === $tabIdArea)
+    ? 'style="display: table-cell;"'
+    : '';
 
-$wpacuCloudFlareIconUrl = WPACU_PLUGIN_URL . '/assets/icons/icon-cloudflare.svg';
+$settingsInputName = WPACU_PLUGIN_ID . '_settings';
+
+$cdnRewriteEnabled = isset($data['cdn_rewrite_enable']) && ((int) $data['cdn_rewrite_enable'] === 1);
+$cdnRewriteUrlCss  = isset($data['cdn_rewrite_url_css']) ? (string) $data['cdn_rewrite_url_css'] : '';
+$cdnRewriteUrlJs   = isset($data['cdn_rewrite_url_js']) ? (string) $data['cdn_rewrite_url_js'] : '';
+
+$cacheRelativePath = str_replace(
+    dirname(WP_CONTENT_DIR),
+    '',
+    '/' . WP_CONTENT_DIR . OptimizeCommon::getRelPathPluginCacheDir()
+);
+
+$cacheRelativePath = '/' . ltrim(wp_normalize_path($cacheRelativePath), '/');
+$cacheRelativePath = trailingslashit($cacheRelativePath);
 ?>
-<div id="<?php echo esc_attr($tabIdArea); ?>" class="wpacu-settings-tab-content" <?php echo wp_kses($styleTabContent, array('style' => array())); ?>>
-    <h2 class="wpacu-settings-area-title"><?php _e('Rewrite cached static assets URLs with the CDN ones if necessary', 'wp-asset-clean-up'); ?></h2>
-
-    <div class="wpacu-warning" style="margin: 0 0 20px;">
-        <p style="margin: 0;"><strong>Note:</strong> This option is only needed if you <strong>already use a CDN</strong> (apart from Cloudflare) and the URL to any cached CSS/JS from Asset CleanUp Pro is the local one and not the one from CDN. <span style="white-space: nowrap;"><a style="display: inline; text-decoration: none; color: #0073aa;" target="_blank" href="https://assetcleanup.com/docs/?p=957"><span style="font-size: 25px; margin-top: -4px; margin-left: -4px; margin-right: 6px;" class="dashicons dashicons-editor-help"></span</a> <a style="display: inline; margin-left: 6px;" target="_blank" href="https://assetcleanup.com/docs/?p=957">Read more about it</a></span></p>
-        <p id="wpacu-site-uses-cloudflare" style="display: none; margin: 10px 0 0 0;"><img alt="" style="margin-left: 4px; vertical-align: middle; width: 22px; height: 22px;" src="<?php echo esc_url($wpacuCloudFlareIconUrl); ?>" /> Cloudflare CDN/Proxy is used for your website, meaning that a CDN is already active. Unless the assets are already set to load from a different CDN for any reason, then you <strong>do not need</strong> to enable this feature.</p>
-    </div>
-
-    <table class="wpacu-form-table">
-        <tr valign="top">
-            <th scope="row" class="setting_title">
-                <label for="wpacu_cdn_rewrite_enable"><?php esc_html_e('Enable CDN URL rewrite?', 'wp-asset-clean-up'); ?></label>
-                <p class="wpacu_subtitle"><small><em><?php echo sprintf(esc_html__('This applies ONLY to files saved in %s', 'wp-asset-clean-up'), '<code style="font-size: inherit;">'.str_replace(dirname(WP_CONTENT_DIR), '', '/' . WP_CONTENT_DIR . OptimizeCommon::getRelPathPluginCacheDir().'</code>')); ?></em></small></p>
-            </th>
-            <td>
-                <label class="wpacu_switch">
-                    <input id="wpacu_cdn_rewrite_enable"
-                           data-target-opacity="wpacu_cdn_rewrite_enable_area"
-                           type="checkbox"
-                           <?php
-                           echo (($data['cdn_rewrite_enable'] == 1) ? 'checked="checked"' : '');
-                           ?>
-                           name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[cdn_rewrite_enable]"
-                           value="1" /> <span class="wpacu_slider wpacu_round"></span> </label>
-
-                &nbsp;If you're using a CDN enabled through your hosting company or by another party plugin, the external URL is not always recognisable by <?php echo WPACU_PLUGIN_TITLE; ?> and it's considered an external URL unconnected to your website's CSS/JS files. To fix, this, please put the CDN's CNAME/URL in the inputs below to make sure the files are detected as local files and optimized accordingly.
-
-                <?php
-				$cdnRewriteAreaStyle = ($data['cdn_rewrite_enable'] == 1) ? 'opacity: 1;' : 'opacity: 0.4;';
-				?>
-                <div id="wpacu_cdn_rewrite_enable_area" style="<?php echo esc_attr($cdnRewriteAreaStyle); ?>">
-                    <div style="margin-top: 20px; margin-bottom: 0;"></div>
-                    <table>
-                        <tr>
-                            <td style="vertical-align: top;" valign="top">For Stylesheet (.css) Files:&nbsp;&nbsp;</td>
-                            <td style="padding-bottom: 10px;">
-                                <label for="wpacu_cdn_rewrite_url_css"><input id="wpacu_cdn_rewrite_url_css"
-                                        name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[cdn_rewrite_url_css]"
-                                        value="<?php echo esc_attr($data['cdn_rewrite_url_css']); ?>"
-                                        style="width: 300px;" /><br />
-                                </label>
-
-                                <ul style="font-style: italic; line-height: 13px; font-size: 12px; margin-top: 5px; margin-bottom: 0;">
-                                    <li>e.g. //css-zone-name.kxcdn.com</li>
-                                    <li>zone-name.kxcdn.com etc.</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="vertical-align: top;" valign="top">For JavaScript (.js) Files:&nbsp;&nbsp;</td>
-                            <td style="padding-bottom: 3px;"><label for="wpacu_cdn_rewrite_url_js">
-                                    <input id="wpacu_cdn_rewrite_url_js"
-                                           name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[cdn_rewrite_url_js]"
-                                           value="<?php echo esc_attr($data['cdn_rewrite_url_js']); ?>"
-                                           style="width: 300px;" /><br />
-                                </label>
-                                <ul style="font-style: italic; line-height: 13px; font-size: 12px; margin-top: 5px;">
-                                    <li>e.g. //js-zone-name.kxcdn.com</li>
-                                    <li>zone-name.kxcdn.com etc.</li>
-                                </ul>
-                            </td>
-                        </tr>
-                    </table>
-                    <hr />
-                    <p style="margin-top: 10px;"><strong>Note:</strong> Most of the time the CNAME / CDN URL is the same for both CSS &amp; JS files. You can use the same value in both fields.</p>
-
-                    <p class="wpacu-warning" style="font-size: inherit;">
-                        <span class="dashicons dashicons-warning"></span> If you're unsure if the <strong>C</strong>ontent <strong>D</strong>elivery <strong>N</strong>etwork's CNAME/URL is the right one, please enable "Test Mode" to test it out, thus making sure the layout won't be broken for your website visitors.
+<div id="<?php echo esc_attr($tabIdArea); ?>"
+     class="wpacu-settings-tab-content"
+     <?php echo wp_kses($styleTabContent, array('style' => array())); ?>>
+    <main id="wpacu-cdn-rewrite-settings" class="wpacu-cdn-page">
+        <section class="wpacu-cdn-panel" aria-labelledby="wpacuCdnPageTitle">
+            <header class="wpacu-cdn-header">
+                <div>
+                    <div class="wpacu-cdn-eyebrow">
+                        <?php esc_html_e('CDN integration', 'wp-asset-clean-up'); ?>
+                    </div>
+                    <h2 id="wpacuCdnPageTitle">
+                        <?php esc_html_e('Serve generated cache files from your CDN', 'wp-asset-clean-up'); ?>
+                    </h2>
+                    <p>
+                        <?php esc_html_e('Use this setting only when a CDN is already configured and CSS or JavaScript cache files generated by Asset CleanUp still load from your site hostname.', 'wp-asset-clean-up'); ?>
                     </p>
                 </div>
-			</td>
-		</tr>
-	</table>
+                <div class="wpacu-cdn-header-badge">
+                    <?php esc_html_e('Cached CSS/JS only', 'wp-asset-clean-up'); ?>
+                </div>
+            </header>
+
+            <div class="wpacu-cdn-body">
+                <section class="wpacu-cdn-intro" aria-labelledby="wpacuCdnIntroTitle">
+                    <div class="wpacu-cdn-intro-icon" aria-hidden="true">
+                        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 3h5v5"></path>
+                            <path d="m21 3-7 7"></path>
+                            <path d="M8 21H3v-5"></path>
+                            <path d="m3 21 7-7"></path>
+                            <path d="M21 14v5a2 2 0 0 1-2 2h-5"></path>
+                            <path d="M3 10V5a2 2 0 0 1 2-2h5"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 id="wpacuCdnIntroTitle">
+                            <?php esc_html_e('Only the hostname is replaced', 'wp-asset-clean-up'); ?>
+                        </h3>
+                        <p>
+                            <?php
+                            echo wp_kses(
+                                sprintf(
+                                    __('This does not configure a CDN and does not rewrite URLs across the whole site. It changes the hostname only for generated cache files inside %s. The file path and filename stay unchanged.', 'wp-asset-clean-up'),
+                                    '<code>' . esc_html($cacheRelativePath) . '</code>'
+                                ),
+                                array('code' => array())
+                            );
+                            ?>
+                        </p>
+                    </div>
+                </section>
+
+                <section class="wpacu-cdn-url-example" aria-labelledby="wpacuCdnExampleTitle">
+                    <div class="wpacu-cdn-section-heading">
+                        <div>
+                            <h3 id="wpacuCdnExampleTitle">
+                                <?php esc_html_e('What the rewrite changes', 'wp-asset-clean-up'); ?>
+                            </h3>
+                            <p><?php esc_html_e('The hostname changes; the cache path and filename remain exactly the same.', 'wp-asset-clean-up'); ?></p>
+                        </div>
+                    </div>
+
+                    <div class="wpacu-cdn-url-flow">
+                        <div class="wpacu-cdn-url-row">
+                            <span class="wpacu-cdn-url-label"><?php esc_html_e('Current URL', 'wp-asset-clean-up'); ?></span>
+                            <code><span class="wpacu-cdn-url-host">https://www.example.com</span><span><?php echo esc_html($cacheRelativePath); ?>css/style.css</span></code>
+                        </div>
+
+                        <div class="wpacu-cdn-url-arrow" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M5 12h14"></path>
+                                <path d="m13 6 6 6-6 6"></path>
+                            </svg>
+                        </div>
+
+                        <div class="wpacu-cdn-url-row wpacu-cdn-url-row--result">
+                            <span class="wpacu-cdn-url-label"><?php esc_html_e('Rewritten URL', 'wp-asset-clean-up'); ?></span>
+                            <code><span class="wpacu-cdn-url-host">https://cdn.example.com</span><span><?php echo esc_html($cacheRelativePath); ?>css/style.css</span></code>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="wpacu-cdn-scope-grid">
+                    <section class="wpacu-cdn-scope-card" aria-labelledby="wpacuCdnChangedTitle">
+                        <div class="wpacu-cdn-scope-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 6 9 17l-5-5"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 id="wpacuCdnChangedTitle"><?php esc_html_e('Changed by this setting', 'wp-asset-clean-up'); ?></h3>
+                            <ul>
+                                <li><?php esc_html_e('CSS cache file URLs generated by Asset CleanUp', 'wp-asset-clean-up'); ?></li>
+                                <li><?php esc_html_e('JavaScript cache file URLs generated by Asset CleanUp', 'wp-asset-clean-up'); ?></li>
+                                <li><?php esc_html_e('The hostname portion of those URLs', 'wp-asset-clean-up'); ?></li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section class="wpacu-cdn-scope-card wpacu-cdn-scope-card--neutral" aria-labelledby="wpacuCdnUnchangedTitle">
+                        <div class="wpacu-cdn-scope-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M8 12h8"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 id="wpacuCdnUnchangedTitle"><?php esc_html_e('Not changed', 'wp-asset-clean-up'); ?></h3>
+                            <ul>
+                                <li><?php esc_html_e('Your site address or page URLs', 'wp-asset-clean-up'); ?></li>
+                                <li><?php esc_html_e('Images, fonts, uploads, or other site files', 'wp-asset-clean-up'); ?></li>
+                                <li><?php esc_html_e('Original theme or plugin asset URLs', 'wp-asset-clean-up'); ?></li>
+                                <li><?php esc_html_e('The CDN configuration itself', 'wp-asset-clean-up'); ?></li>
+                            </ul>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="wpacu-cdn-master-section" aria-labelledby="wpacuCdnEnableTitle">
+                    <input id="wpacu_cdn_rewrite_enable"
+                           class="wpacu-cdn-master-input"
+                           type="checkbox"
+                           aria-labelledby="wpacuCdnEnableTitle"
+                           aria-describedby="wpacuCdnEnableDescription"
+                           name="<?php echo esc_attr($settingsInputName); ?>[cdn_rewrite_enable]"
+                           value="1"
+                        <?php checked($cdnRewriteEnabled); ?>>
+
+                    <label class="wpacu-cdn-master-card" for="wpacu_cdn_rewrite_enable">
+                        <span class="wpacu-cdn-master-copy">
+                            <span class="wpacu-cdn-master-title" id="wpacuCdnEnableTitle">
+                                <?php esc_html_e('Rewrite cache file URLs', 'wp-asset-clean-up'); ?>
+                            </span>
+                            <span class="wpacu-cdn-master-description" id="wpacuCdnEnableDescription">
+                                <?php esc_html_e('Apply the CDN hostnames below only to CSS and JavaScript cache files generated by Asset CleanUp.', 'wp-asset-clean-up'); ?>
+                            </span>
+                        </span>
+
+                        <span class="wpacu-cdn-master-control" aria-hidden="true">
+                            <span class="wpacu-cdn-master-status wpacu-cdn-master-status--off"><?php esc_html_e('Disabled', 'wp-asset-clean-up'); ?></span>
+                            <span class="wpacu-cdn-master-status wpacu-cdn-master-status--on"><?php esc_html_e('Enabled', 'wp-asset-clean-up'); ?></span>
+                            <span class="wpacu-cdn-switch-visual" aria-hidden="true"></span>
+                        </span>
+                    </label>
+
+                    <div id="wpacu_cdn_rewrite_enable_area" class="wpacu-cdn-config">
+                        <div class="wpacu-cdn-config-heading">
+                            <div>
+                                <h3><?php esc_html_e('CDN hostnames', 'wp-asset-clean-up'); ?></h3>
+                                <p><?php esc_html_e('Most setups use the same hostname for both file types. Use different values only when CSS and JavaScript are served from separate CDN zones.', 'wp-asset-clean-up'); ?></p>
+                            </div>
+                            <span class="wpacu-cdn-inactive-note"><?php esc_html_e('Saved values remain inactive until the option is enabled.', 'wp-asset-clean-up'); ?></span>
+                        </div>
+
+                        <div class="wpacu-cdn-field-grid">
+                            <div class="wpacu-cdn-field-card">
+                                <label for="wpacu_cdn_rewrite_url_css">
+                                    <span class="wpacu-cdn-field-title"><?php esc_html_e('CSS cache hostname', 'wp-asset-clean-up'); ?></span>
+                                    <span class="wpacu-cdn-field-subtitle"><?php esc_html_e('Used only for .css cache files generated by Asset CleanUp', 'wp-asset-clean-up'); ?></span>
+                                </label>
+                                <div class="wpacu-cdn-input-wrap">
+                                    <span class="wpacu-cdn-input-icon" aria-hidden="true">
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                            <path d="M3 12h18"></path>
+                                            <path d="M12 3a15 15 0 0 1 0 18"></path>
+                                            <path d="M12 3a15 15 0 0 0 0 18"></path>
+                                        </svg>
+                                    </span>
+                                    <input id="wpacu_cdn_rewrite_url_css"
+                                           type="text"
+                                           name="<?php echo esc_attr($settingsInputName); ?>[cdn_rewrite_url_css]"
+                                           value="<?php echo esc_attr($cdnRewriteUrlCss); ?>"
+                                           placeholder="Example: cdn.example.com"
+                                           autocomplete="off"
+                                           spellcheck="false">
+                                </div>
+                                <p class="wpacu-cdn-field-help"><?php esc_html_e('Example: cdn.example.com or //cdn.example.com. Enter only the CDN hostname or URL; do not add the cache path.', 'wp-asset-clean-up'); ?></p>
+                            </div>
+
+                            <div class="wpacu-cdn-field-card">
+                                <label for="wpacu_cdn_rewrite_url_js">
+                                    <span class="wpacu-cdn-field-title"><?php esc_html_e('JavaScript cache hostname', 'wp-asset-clean-up'); ?></span>
+                                    <span class="wpacu-cdn-field-subtitle"><?php esc_html_e('Used only for .js cache files generated by Asset CleanUp', 'wp-asset-clean-up'); ?></span>
+                                </label>
+                                <div class="wpacu-cdn-input-wrap">
+                                    <span class="wpacu-cdn-input-icon" aria-hidden="true">
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                            <path d="M3 12h18"></path>
+                                            <path d="M12 3a15 15 0 0 1 0 18"></path>
+                                            <path d="M12 3a15 15 0 0 0 0 18"></path>
+                                        </svg>
+                                    </span>
+                                    <input id="wpacu_cdn_rewrite_url_js"
+                                           type="text"
+                                           name="<?php echo esc_attr($settingsInputName); ?>[cdn_rewrite_url_js]"
+                                           value="<?php echo esc_attr($cdnRewriteUrlJs); ?>"
+                                           placeholder="Example: cdn.example.com"
+                                           autocomplete="off"
+                                           spellcheck="false">
+                                </div>
+                                <p class="wpacu-cdn-field-help"><?php esc_html_e('Use the same value as CSS unless JavaScript files are delivered from a different CDN hostname.', 'wp-asset-clean-up'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <aside id="wpacu-site-uses-cloudflare" class="wpacu-cdn-note wpacu-cdn-note--cloudflare" style="display: none;">
+                    <div class="wpacu-cdn-note-inner">
+                        <?php if (isset($wpacuCloudFlareIconUrl) && $wpacuCloudFlareIconUrl !== '') { ?>
+                            <img src="<?php echo esc_url($wpacuCloudFlareIconUrl); ?>" alt="" width="24" height="24">
+                        <?php } else { ?>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z"></path>
+                            </svg>
+                        <?php } ?>
+                        <p>
+                            <strong><?php esc_html_e('Cloudflare detected.', 'wp-asset-clean-up'); ?></strong>
+                            <?php esc_html_e('This setting is normally unnecessary when Cloudflare is the only CDN because it proxies the existing site hostname. Enable it only when these cache files must use a separate CDN hostname.', 'wp-asset-clean-up'); ?>
+                        </p>
+                    </div>
+                </aside>
+
+                <aside class="wpacu-cdn-note wpacu-cdn-note--warning">
+                    <div class="wpacu-cdn-note-inner">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"></path>
+                            <path d="M12 9v4"></path>
+                            <path d="M12 17h.01"></path>
+                        </svg>
+                        <p>
+                            <strong><?php esc_html_e('Test before publishing.', 'wp-asset-clean-up'); ?></strong>
+                            <?php esc_html_e('An incorrect hostname can prevent CSS or JavaScript cache files generated by Asset CleanUp from loading. Enable Test Mode, check the optimized page while logged in, then disable Test Mode and verify the public page after clearing all relevant caches.', 'wp-asset-clean-up'); ?>
+                        </p>
+                    </div>
+                </aside>
+
+                <div class="wpacu-cdn-footer-link">
+                    <a target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/cdn-rewrite-assets-url/">
+                        <?php esc_html_e('Learn how CDN URL rewriting works', 'wp-asset-clean-up'); ?>
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
 </div>

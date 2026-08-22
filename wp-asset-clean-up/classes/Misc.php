@@ -14,7 +14,7 @@ use WpAssetCleanUp\OptimiseAssets\OptimizeCommon;
 class Misc
 {
     /**
-     * @var
+     * @var string|bool
      */
     public static $showOnFront;
 
@@ -111,14 +111,16 @@ class Misc
         return true;
     }
 
-	/**
-	 * @param $postId
-	 *
-	 * @return string
-	 */
-	public static function getPageUrl($postId)
+    /**
+     * @param $postId
+     *
+     * @return string|false
+     */
+    public static function getPageUrl($postId)
     {
-        if (is_404() || is_search()) {
+        // Keep the existing front-end behavior.
+        // Important: this method is also used when managing CSS/JS from the front-end.
+        if (! is_admin() && (is_404() || is_search())) {
             return false;
         }
 
@@ -128,16 +130,25 @@ class Misc
             return self::_filterPageUrl(get_permalink($postId));
         }
 
-
         if (is_admin()) {
-            // If we're in the Dashboard area, and the page is not a taxonomy one
-            // Then, it's either a homepage or a post one (post, page, custom post type)
-            // If $postId equals 0, then it's a homepage
+            // Internal extension point used by the Pro version for Dashboard taxonomy/archive/search/404 pages.
+            $pageUrlFromAdminArea = apply_filters(
+                'wpacu_internal_misc_get_page_url_admin_area',
+                '',
+                $postId
+            );
+
+            if ($pageUrlFromAdminArea) {
+                return self::_filterPageUrl($pageUrlFromAdminArea);
+            }
+
+            // If we're in the Dashboard area, and the page is not a taxonomy/archive one,
+            // then it's either homepage or a singular object flow.
             if ($postId === 0) {
                 if (get_site_url() !== get_home_url()) {
-                    $pageUrl = get_home_url();
+                    $pageUrl = get_home_url('/');
                 } else {
-                    $pageUrl = get_site_url();
+                    $pageUrl = get_site_url(null, '/');
                 }
 
                 return self::_filterPageUrl($pageUrl);
@@ -145,8 +156,8 @@ class Misc
         }
 
         // Front-end view
-	    // It could be: Archive page (e.g. author, category, tag, date, custom taxonomy), Search page, 404 page etc.
-        if ( ! is_admin() ) {
+        // It could be: Archive page (e.g. author, category, tag, date, custom taxonomy), Search page, 404 page etc.
+        if (! is_admin()) {
             global $wp;
 
             $permalinkStructure = get_option('permalink_structure');
@@ -348,7 +359,12 @@ class Misc
 	 */
 	public static function getCurrentPageUrl($clean = true)
     {
-	    $currentPageUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . parse_url(site_url(), PHP_URL_HOST) . $_SERVER['REQUEST_URI'];
+	    $siteUrlParts = wp_parse_url(site_url());
+	    $siteHost     = isset($siteUrlParts['host']) ? $siteUrlParts['host'] : '';
+	    $sitePort     = isset($siteUrlParts['port']) ? ':' . $siteUrlParts['port'] : '';
+	    $requestUri   = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+
+	    $currentPageUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $siteHost . $sitePort . $requestUri;
 
 	    if ($clean && strpos($currentPageUrl, '?') !== false) {
 		    list($currentPageUrl) = explode('?', $currentPageUrl);
@@ -449,8 +465,14 @@ class Misc
 			if ($attribute === '') {
 				$attribute = 'type';
 			}
-		} else {
-			return false; // the tag it neither 'script' nor 'link'
+        } elseif (strncmp($tagOutput, '<img', 4) === 0 ) {
+            $tagNameToCheck = 'img';
+
+            if ($attribute === '') {
+                $attribute = 'src';
+            }
+        } else {
+			return false; // The tag is not within the allowed tags
 		}
 
 		if ($method === 'dom_with_fallback') {
@@ -522,6 +544,14 @@ class Misc
 			preg_match_all( '#<link.*?'.$attribute.'\s*=\s*(.*?)#Usmi', $tagOutput, $outputMatches );
 		}
 
+        if (strncmp($tagOutput, '<img', 4) === 0 ) {
+            if ( $attribute === '' ) {
+                $attribute = 'src';
+            }
+
+            preg_match_all( '#<img.*?'.$attribute.'\s*=\s*(.*?)#Usmi', $tagOutput, $outputMatches );
+        }
+
 		if (strncmp($tagOutput, '<style', 6) === 0 ) {
 			if ( $attribute === '' ) {
 				$attribute = 'type';
@@ -574,7 +604,12 @@ class Misc
 
 		$status = array('has_records' => false); // default
 
-		$hasRecords = $wpdb->get_var('SELECT COUNT(*) FROM `'.$wpdb->posts.'` WHERE post_type=\''.$postType.'\'');
+		$hasRecords = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$wpdb->posts}` WHERE post_type = %s",
+				$postType
+			)
+		);
 
 		if ($hasRecords) {
 			$status['has_records'] = $hasRecords;
@@ -858,6 +893,27 @@ HTML;
 		return $arrayKeys[0];
 	}
 
+    /**
+     * Polyfill for wp_unique_id() (available since WordPress 5.0.3)
+     *
+     * Gets unique ID: a numeric string, optionally prefixed.
+     * IDs are unique within the current request / PHP process.
+     *
+     * @param string $prefix
+     *
+     * @return string
+     */
+    public static function uniqueId($prefix = '')
+    {
+        if (function_exists('wp_unique_id')) {
+            return wp_unique_id($prefix);
+        }
+
+        static $idCounter = 0;
+
+        return $prefix . (string) ++$idCounter;
+    }
+
 	/**
 	 * @param $requestMethod
 	 * @param $key
@@ -932,25 +988,62 @@ HTML;
 	 */
 	public static function addUpdateOption($optionName, $optionValue, $autoload = 'no')
     {
+		// Internal edition hook: Pro can enrich an option value before it is persisted.
+        // This runs before empty-value handling and cache sync so all representations stay identical.
+        $optionValue = apply_filters('wpacu_internal_add_update_option_value', $optionValue, $optionName);
+
 		$optionValue = is_string($optionValue) ? trim($optionValue) : $optionValue;
 
 	    // Empty array encoded into JSON; No point in keeping the option in the database if it's already there
 	    if ($optionValue === '[]') {
 		    delete_option($optionName);
+            self::maybeSyncGlobalDataCache($optionName, $optionValue);
 		    return;
 	    }
 
     	// Nothing in the database? Since option does not exist, add it
     	if (get_option($optionName) === false) {
 		    add_option($optionName, $optionValue, '', $autoload);
+            self::maybeSyncGlobalDataCache($optionName, $optionValue);
 		    return;
 	    }
 
 		// get_option($optionName) didn't return false, thus the option is either an empty string or it has a value
 	    // either way, it exists in the database, and the update will be triggered
 
-    	// Value is in the database already | Update it
-    	return update_option($optionName, $optionValue, $autoload);
+        // Value is in the database already | Update it
+        $updated = update_option($optionName, $optionValue, $autoload);
+
+        self::maybeSyncGlobalDataCache($optionName, $optionValue);
+
+        return $updated;
+    }
+
+    /**
+     * @param $optionName
+     * @param $optionValue
+     *
+     * @return void
+     */
+    private static function maybeSyncGlobalDataCache($optionName, $optionValue)
+    {
+        if ($optionName !== WPACU_PLUGIN_ID . '_global_data') {
+            return;
+        }
+
+        if ($optionValue === '[]') {
+            $GLOBALS['wpacu_global_data_json_decoded'] = array();
+            return;
+        }
+
+        $decodedOptionValue = is_string($optionValue) ? json_decode($optionValue, true) : $optionValue;
+
+        if (is_array($decodedOptionValue) && wpacuJsonLastError() === JSON_ERROR_NONE) {
+            $GLOBALS['wpacu_global_data_json_decoded'] = $decodedOptionValue;
+            return;
+        }
+
+        unset($GLOBALS['wpacu_global_data_json_decoded']);
     }
 
 	/**
@@ -1091,6 +1184,71 @@ HTML;
         return $nextChar === '' || $nextChar === '=' || $nextChar === '>' || $nextChar === '/' || ctype_space($nextChar);
     }
 
+    /**
+     * Determine whether a SCRIPT type uses classic JavaScript semantics.
+     * Empty type values are classic scripts in HTML. Unknown/non-JavaScript
+     * types (for example module, importmap or speculationrules) are excluded.
+     *
+     * @param mixed $scriptType
+     *
+     * @return bool
+     */
+    public static function isClassicScriptType($scriptType)
+    {
+        $scriptType = strtolower(trim((string)$scriptType));
+
+        if ($scriptType === '') {
+            return true;
+        }
+
+        if (strpos($scriptType, ';') !== false) {
+            list($scriptType) = explode(';', $scriptType, 2);
+            $scriptType = trim($scriptType);
+        }
+
+        return in_array($scriptType, array(
+            'application/ecmascript',
+            'application/javascript',
+            'application/x-ecmascript',
+            'application/x-javascript',
+            'text/ecmascript',
+            'text/javascript',
+            'text/javascript1.0',
+            'text/javascript1.1',
+            'text/javascript1.2',
+            'text/javascript1.3',
+            'text/javascript1.4',
+            'text/javascript1.5',
+            'text/jscript',
+            'text/livescript',
+            'text/x-ecmascript',
+            'text/x-javascript',
+        ), true);
+    }
+
+    /**
+     * Check for an exact HTML attribute, including boolean attributes such as
+     * nomodule. It deliberately does not match names such as data-nomodule.
+     *
+     * @param mixed $tagOutput
+     * @param mixed $attribute
+     *
+     * @return bool
+     */
+    public static function hasAttributeInHtmlTag($tagOutput, $attribute)
+    {
+        $tagOutput = (string)$tagOutput;
+        $attribute = trim((string)$attribute);
+
+        if ($tagOutput === '' || $attribute === '') {
+            return false;
+        }
+
+        $pattern = "#\\s" . preg_quote($attribute, '#') . "(?:\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s>]+))?(?=\\s|/?>)#i";
+
+        return (bool)preg_match($pattern, $tagOutput);
+    }
+
 	/**
 	 * @return string
 	 */
@@ -1135,7 +1293,7 @@ HTML;
 			return true;
 		}
 
-		if (defined( 'DOING_CRON') && (true === DOING_CRON)) {
+		if (defined( 'DOING_CRON') && constant('DOING_CRON') === true) {
 			return true;
 		}
 
@@ -1264,51 +1422,6 @@ HTML;
 	{
 		global $wp_version;
 		return version_compare($wp_version, $targetVersion) >= 0;
-	}
-
-	/**
-	 * @param $list
-	 * @param string $for
-	 *
-	 * @return array
-	 */
-	public static function filterList($list, $for = 'empty_values')
-	{
-		if (! empty($list) && $for === 'empty_values') {
-			$list = self::arrayUnsetRecursive($list);
-		}
-
-		return $list;
-	}
-
-	/**
-	 * Source: https://stackoverflow.com/questions/7696548/php-how-to-remove-empty-entries-of-an-array-recursively
-	 *
-	 * @param $array
-	 *
-	 * @return array
-	 */
-	public static function arrayUnsetRecursive($array)
-	{
-		$array = (array)$array; // in case it's object, convert it to array
-
-		foreach ($array as $key => $value) {
-			if (is_array($value) || is_object($value)) {
-				$array[$key] = self::arrayUnsetRecursive($value);
-			}
-
-			// Values such as '0' are not considered empty values
-			if (is_string($value) && trim($value) === '0') {
-				continue;
-			}
-
-			// Clear it if it's empty
-			if (empty($array[$key])) {
-				unset($array[$key]);
-			}
-		}
-
-		return $array;
 	}
 
     /**

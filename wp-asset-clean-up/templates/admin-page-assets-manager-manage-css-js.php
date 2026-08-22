@@ -49,6 +49,46 @@ if (isset($data['for']) && $data['for']) {
     }
 
     if (is_file($maybeIncludeFile)) {
-        include_once $maybeIncludeFile;
+        ?>
+        <div id="wpacu-css-js-manager-dashboard-area-tab-content">
+            <?php
+            include_once $maybeIncludeFile;
+            ?>
+        </div>
+        <?php
+
+        if (in_array($data['for'], array('posts', 'pages', 'custom_post_types', 'category', 'tag', 'custom_taxonomies', 'author'))) {
+            ?>
+            <script>
+                var wpacuTopSpinner = document.createElement('span');
+
+                wpacuTopSpinner.className = 'wpacu-area-spinner-loader';
+                wpacuTopSpinner.setAttribute('aria-hidden', 'true');
+                wpacuTopSpinner.style.top = '-32px';
+
+                document.getElementById('wpacu-css-js-manager-dashboard-area-tab-content').appendChild(wpacuTopSpinner);
+
+                function wpacuMarkCssJsTabContentAreaAsLoading() {
+                    document.getElementById('wpacu-css-js-manager-dashboard-area-tab-content').classList.add('wpacu-area-spinner-not-ready');
+                }
+
+                wpacuMarkCssJsTabContentAreaAsLoading(); // on page load
+
+                document.addEventListener('change', function (event) {
+                    if (event.target.matches('#wpacu-custom-taxonomy-choice, #wpacu-custom-post-type-choice, #wpacu-custom-post-type-archive-choice')) {
+                        wpacuMarkCssJsTabContentAreaAsLoading(); // when a selection from the drop-down is made
+                    }
+                });
+            </script>
+
+            <script>
+                (function() {
+                    document.addEventListener('DOMContentLoaded', function () {
+                        document.getElementById('wpacu-css-js-manager-dashboard-area-tab-content').classList.remove('wpacu-area-spinner-not-ready');
+                    });
+                })();
+            </script>
+            <?php
+        }
     }
 }

@@ -43,13 +43,6 @@ class Menu
             add_filter('admin_body_class', array($this, 'filterAdminBodyClass'), PHP_INT_MAX);
         }
 
-        // [wpacu_lite]
-        if (isset($_GET['page']) && $_GET['page'] === WPACU_PLUGIN_ID . '_go_pro') {
-        	header('Location: '.apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=plugin_go_pro'));
-        	exit();
-        }
-        // [/wpacu_lite]
-
 	    add_filter( 'post_row_actions', array($this, 'editPostRowActions'), 10, 2 );
 	    add_filter( 'page_row_actions', array($this, 'editPostRowActions'), 10, 2 );
 
@@ -61,7 +54,7 @@ class Menu
      */
     public static function getAllMenuPages()
     {
-        return array(
+        $menuPages = array(
             WPACU_PLUGIN_ID . '_getting_started',
             WPACU_PLUGIN_ID . '_settings',
             WPACU_PLUGIN_ID . '_assets_manager',
@@ -70,9 +63,10 @@ class Menu
             WPACU_PLUGIN_ID . '_overview',
             WPACU_PLUGIN_ID . '_tools',
             WPACU_PLUGIN_ID . '_license',
-            WPACU_PLUGIN_ID . '_get_help',
-            WPACU_PLUGIN_ID . '_go_pro'
+            WPACU_PLUGIN_ID . '_get_help'
         );
+
+        return apply_filters('wpacu_internal_menu_all_pages', $menuPages);
     }
 
     /**
@@ -82,7 +76,7 @@ class Menu
      */
     public function filterAdminBodyClass($classes)
     {
-        $sanitizedData = 'asset-cleanup';
+        $sanitizedData = apply_filters('wpacu_internal_admin_body_class_plugin_page_prefix', 'asset-cleanup');
 
         $classes .= ' '.$sanitizedData.'_page_'.sanitize_title($_GET['page']).' ';
 
@@ -176,17 +170,15 @@ class Menu
 		    array(new Tools, 'toolsPage')
 	    );
 
-        // [wpacu_lite]
         // License Page
         add_submenu_page(
             $parentSlug,
             __('License', 'wp-asset-clean-up'),
-            __('License', 'wp-asset-clean-up'),
+            apply_filters('wpacu_internal_license_submenu_label', __('License', 'wp-asset-clean-up')),
             self::getAccessCapability(),
             WPACU_PLUGIN_ID . '_license',
-            array(new Info, 'license')
+            apply_filters('wpacu_internal_license_submenu_callback', '__return_null')
         );
-        // [/wpacu_lite]
 
         // Get Help | Support Page
         add_submenu_page(
@@ -198,17 +190,7 @@ class Menu
             array(new Info, 'help')
         );
 
-		// [wpacu_lite]
-	    // Upgrade to "Go Pro" | Redirects to sale page
-	    add_submenu_page(
-            $parentSlug,
-		    __('Go Pro', 'wp-asset-clean-up'),
-		    __('Go Pro', 'wp-asset-clean-up') . ' <span style="font-size: 16px; color: inherit;" class="dashicons dashicons-star-filled"></span>',
-		    self::getAccessCapability(),
-		    WPACU_PLUGIN_ID . '_go_pro',
-		    function() {}
-	    );
-		// [/wpacu_lite]
+        do_action('wpacu_internal_admin_menu_after_get_help', $parentSlug);
 
         // Add plugin settings link to the main "Settings" menu within the Dashboard, for easier navigation
         add_options_page(

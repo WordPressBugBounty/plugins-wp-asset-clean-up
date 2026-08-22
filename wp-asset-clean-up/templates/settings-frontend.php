@@ -89,6 +89,8 @@ if (! isset($data)) {
                 <?php
             }
 
+            require WPACU_PLUGIN_DIR . '/templates/_common/hooks/frontend-before-asset-list.php';
+
             // Perhaps "Do not load Asset CleanUp Pro on this page (this will disable any functionality of the plugin)" is set for this page
             // Or it's matched from "Settings" -> "Plugin Usage Preferences" -> "Do not load the plugin on certain pages"
 	        if (isset($data['status']) && in_array($data['status'], array(5, 6)) && in_array($data['wpacu_type'], array('post', 'front_page'))) {

@@ -4,6 +4,7 @@ namespace WpAssetCleanUp\Admin;
 use WpAssetCleanUp\Main;
 use WpAssetCleanUp\Menu;
 use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\OptimiseAssets\CriticalCss;
 use WpAssetCleanUp\OptimiseAssets\OptimizeCommon;
 use WpAssetCleanUp\OptimiseAssets\OptimizeCss;
 use WpAssetCleanUp\OptimiseAssets\OptimizeJs;
@@ -20,7 +21,14 @@ class Tools
 	/**
 	 * @var string
 	 */
-	public $wpacuFor = 'reset';
+	public $wpacuFor = 'system_info';
+
+	/**
+	 * Selected subsection within Tools -> Storage.
+	 *
+	 * @var string
+	 */
+	public $storageArea = 'generated_files';
 
 	/**
 	 * @var array
@@ -28,7 +36,7 @@ class Tools
 	public $errorLogsData = array();
 
 	/**
-	 * @var
+	 * @var string
 	 */
 	public $resetChoice;
 
@@ -43,6 +51,13 @@ class Tools
 	public $cachedAssetsRemoved = false;
 
 	/**
+	 * Counts and errors collected during the latest reset operation.
+	 *
+	 * @var array
+	 */
+	public $resetResult = array();
+
+	/**
 	 * @var array
 	 */
 	public $data = array();
@@ -52,7 +67,17 @@ class Tools
 	 */
 	public function __construct()
 	{
-		$this->wpacuFor = Misc::getVar('request', 'wpacu_for', $this->wpacuFor);
+		$wpacuForRaw = Misc::getVar('request', 'wpacu_for', $this->wpacuFor);
+		$wpacuFor = is_string($wpacuForRaw) ? sanitize_key(wp_unslash($wpacuForRaw)) : 'system_info';
+		$allowedTools = array('reset', 'system_info', 'storage', 'debug', 'import_export');
+		$this->wpacuFor = in_array($wpacuFor, $allowedTools, true) ? $wpacuFor : 'system_info';
+
+		if ($this->wpacuFor === 'storage') {
+			$storageAreaRaw = Misc::getVar('request', 'wpacu_storage_area', $this->storageArea);
+			$storageArea = is_string($storageAreaRaw) ? sanitize_key(wp_unslash($storageAreaRaw)) : 'generated_files';
+			$allowedStorageAreas = array('generated_files', 'database_map');
+			$this->storageArea = in_array($storageArea, $allowedStorageAreas, true) ? $storageArea : 'generated_files';
+		}
 
 		if ($this->wpacuFor === 'debug') {
 			$isLogPHPErrors       = @ini_get( 'log_errors' );
@@ -84,9 +109,9 @@ class Tools
 			$this->downloadSystemInfo();
 		}
 
-		if (Misc::getVar('post', 'wpacu-get-error-log') && is_file($this->errorLogsData['log_file'])) {
-		    self::downloadFile($this->errorLogsData['log_file']);
-        }
+		if (Misc::getVar('post', 'wpacu-get-error-log')) {
+			$this->downloadErrorLog();
+		}
 
 		if (! empty($_POST) && $this->wpacuFor === 'import_export') {
 			$wpacuImportExport = new ImportExport();
@@ -99,6 +124,18 @@ class Tools
 		}
 
 		if (isset($_GET['page']) && $_GET['page'] === WPACU_PLUGIN_ID. '_tools') {
+			// "Import" Failed
+			if (Misc::getVar('get', 'wpacu_import_error')) {
+				$importErrorMessage = get_transient(WPACU_PLUGIN_ID . '_import_error');
+
+				if (is_string($importErrorMessage) && $importErrorMessage !== '') {
+					$this->data['import_error_message'] = $importErrorMessage;
+					add_action('wpacu_admin_notices', array($this, 'importError'));
+				}
+
+				delete_transient(WPACU_PLUGIN_ID . '_import_error');
+			}
+
 			// "Import" Completed
 			if (Misc::getVar('get', 'wpacu_import_done') && $resetDoneListArray = get_transient(WPACU_PLUGIN_ID . '_import_done')) {
 				if (! is_array($resetDoneListArray)) {
@@ -124,12 +161,14 @@ class Tools
 				$this->resetChoice         = isset($resetDoneInfoArray['reset_choice']) ? $resetDoneInfoArray['reset_choice'] : '';
 				$this->licenseDataRemoved  = isset($resetDoneInfoArray['license_data_removed']) ? $resetDoneInfoArray['license_data_removed'] : '';
 				$this->cachedAssetsRemoved = isset($resetDoneInfoArray['cached_assets_removed']) ? $resetDoneInfoArray['cached_assets_removed'] : '';
+				$this->resetResult         = isset($resetDoneInfoArray['result']) && is_array($resetDoneInfoArray['result']) ? $resetDoneInfoArray['result'] : array();
 
 				delete_transient(WPACU_PLUGIN_ID . '_reset_done');
 
 				// Show the confirmation that the reset was completed
 				add_action('wpacu_admin_notices', array($this, 'resetDone'));
 			}
+
 		}
 	}
 
@@ -140,9 +179,21 @@ class Tools
 	{
 		$this->data['for'] = $this->wpacuFor;
 
-		if ($this->data['for'] === 'system_info') {
-		    $this->data['system_info'] = $this->getSystemInfo();
-        }
+		if ($this->data['for'] === 'storage') {
+			$this->data['storage_area'] = $this->storageArea;
+
+			// Keep the filesystem overview fast and side-effect free from database-map queries.
+			// The aggregate database snapshot is built only when its subsection is opened.
+			if ($this->storageArea === 'database_map') {
+				$this->data['database_storage_map'] = DatabaseStorageMap::getPageData();
+			}
+		}
+
+		if ($this->data['for'] === 'reset' && ! Misc::getVar('get', 'wpacu_uninstall_cleanup_done')) {
+			$pluginsManagerRules = PluginsManagerAdmin::getPluginRulesFiltered(false, true);
+			$this->data['has_plugins_manager_front_rules'] = ! empty($pluginsManagerRules['plugins']);
+			$this->data['has_plugins_manager_dash_rules']  = ! empty($pluginsManagerRules['plugins_dash']);
+		}
 
 		if ($this->data['for'] === 'debug') {
 			$this->data['error_log'] = $this->errorLogsData;
@@ -156,32 +207,35 @@ class Tools
 	 */
 	public function maybeGetHost()
     {
-	    if ( defined( 'WPE_APIKEY' ) ) {
-		    $host = 'WP Engine';
-	    } elseif( defined( 'PAGELYBIN' ) ) {
-		    $host = 'Pagely';
-	    } elseif( DB_HOST === 'localhost:/tmp/mysql5.sock' ) {
-		    $host = 'ICDSoft';
-	    } elseif( DB_HOST === 'mysqlv5' ) {
-		    $host = 'NetworkSolutions';
-	    } elseif( strpos( DB_HOST, 'ipagemysql.com' ) !== false ) {
-		    $host = 'iPage';
-	    } elseif( strpos( DB_HOST, 'ipowermysql.com' ) !== false ) {
-		    $host = 'IPower';
-	    } elseif( strpos( DB_HOST, '.gridserver.com' ) !== false ) {
-		    $host = 'MediaTemple Grid';
-	    } elseif( strpos( DB_HOST, '.pair.com' ) !== false ) {
-		    $host = 'pair Networks';
-	    } elseif( strpos( DB_HOST, '.stabletransit.com' ) !== false ) {
-		    $host = 'Rackspace Cloud';
-	    } elseif( strpos( DB_HOST, '.sysfix.eu' ) !== false ) {
-		    $host = 'SysFix.eu Power Hosting';
-	    } elseif( strpos( $_SERVER['SERVER_NAME'], 'Flywheel' ) !== false ) {
-		    $host = 'Flywheel';
-	    } else {
-		    // Fallback
-		    $host = 'DBH: ' . DB_HOST . ', SRV: ' . $_SERVER['SERVER_NAME'];
-	    }
+        $dbHost     = defined('DB_HOST') ? DB_HOST : '';
+        $serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+
+        if (defined('WPE_APIKEY')) {
+            $host = 'WP Engine';
+        } elseif (defined('PAGELYBIN')) {
+            $host = 'Pagely';
+        } elseif ($dbHost === 'localhost:/tmp/mysql5.sock') {
+            $host = 'ICDSoft';
+        } elseif ($dbHost === 'mysqlv5') {
+            $host = 'NetworkSolutions';
+        } elseif (strpos($dbHost, 'ipagemysql.com') !== false) {
+            $host = 'iPage';
+        } elseif (strpos($dbHost, 'ipowermysql.com') !== false) {
+            $host = 'IPower';
+        } elseif (strpos($dbHost, '.gridserver.com') !== false) {
+            $host = 'MediaTemple Grid';
+        } elseif (strpos($dbHost, '.pair.com') !== false) {
+            $host = 'pair Networks';
+        } elseif (strpos($dbHost, '.stabletransit.com') !== false) {
+            $host = 'Rackspace Cloud';
+        } elseif (strpos($dbHost, '.sysfix.eu') !== false) {
+            $host = 'SysFix.eu Power Hosting';
+        } elseif (strpos($serverName, 'Flywheel') !== false) {
+            $host = 'Flywheel';
+        } else {
+            // Fallback
+            $host = 'DBH: ' . ($dbHost !== '' ? $dbHost : 'Not set') . ', SRV: ' . ($serverName !== '' ? $serverName : 'Not set');
+        }
 
 	    return $host;
     }
@@ -192,15 +246,18 @@ class Tools
      * @noinspection PhpUndefinedConstantInspection
      * @noinspection PhpUndefinedFieldInspection
      */
-	public function getSystemInfo()
+	public function getSystemInfo($includeSensitiveData = false)
     {
 	    global $wpdb;
 
 	    $return = '### Begin System Info ###' . "\n";
+	    $return .= 'Report mode:              ' . ($includeSensitiveData ? 'Detailed (contains sensitive environment data)' : 'Redacted (review before sharing)') . "\n";
+		    $return .= 'Sharing notice:           Asset CleanUp rules and metadata are included and can contain custom URLs, paths or identifiers.' . "\n";
+	    $return .= 'Generated:                ' . gmdate('c') . "\n";
 
 	    $return .= "\n" . '# Site Info' . "\n";
-	    $return .= 'Site URL:                  ' . site_url() . "\n";
-	    $return .= 'Home URL:                  ' . home_url() . "\n";
+	    $return .= 'Site URL:                  ' . self::redactUrl(site_url(), $includeSensitiveData) . "\n";
+	    $return .= 'Home URL:                  ' . self::redactUrl(home_url(), $includeSensitiveData) . "\n";
 	    $return .= 'Multisite:                 ' . ( is_multisite() ? 'Yes' : 'No' ) . "\n";
 
 	    $host = $this->maybeGetHost();
@@ -208,23 +265,29 @@ class Tools
 
 	    if ($host) {
 		    $return .= "\n" . '# Hosting Provider' . "\n";
-		    $return .= 'Host: ' . $host . "\n";
+		    $return .= 'Host: ' . ($includeSensitiveData ? $host : '[redacted]') . "\n";
 	    }
 
 	    if ($browser) {
 		    $return .= "\n" . '# User Browser' . "\n";
-		    $return .= strip_tags($browser)."\n";
+		    $return .= 'Browser: ' . $browser->getBrowser() . ' ' . $browser->getVersion() . "\n";
+		    $return .= 'Platform: ' . $browser->getPlatform() . "\n";
+		    if ($includeSensitiveData) {
+		        $return .= 'User Agent: ' . $browser->getUserAgent() . "\n";
+		    }
         }
 
 	    // WordPress' configuration.
 	    // Get theme info.
-	    $theme_data = wp_get_theme();
-	    $theme      = $theme_data->Name . ' ' . $theme_data->Version;
+        $themeData = wp_get_theme();
+	    $theme      = $themeData->get('Name') . ' ' . $themeData->get('Version');
 
 	    $return .= "\n" . '# WordPress Configuration' . "\n";
 	    $return .= 'Version:                   ' . get_bloginfo( 'version' ) . "\n";
-	    $return .= 'Language:                  ' . ( defined( 'WPLANG' ) && WPLANG ? WPLANG : 'en_US' ) . "\n";
-	    $return .= 'Permalink Structure:       ' . ( get_option( 'permalink_structure' ) ? get_option( 'permalink_structure' ) : 'Default' ) . "\n";
+
+	    $return .= 'Language:                  ' . get_locale() . "\n";
+
+        $return .= 'Permalink Structure:       ' . ( get_option( 'permalink_structure' ) ? get_option( 'permalink_structure' ) : 'Default' ) . "\n";
 	    $return .= 'Active Theme:              ' . $theme . "\n";
 	    $return .= 'Show On Front:             ' . get_option( 'show_on_front' ) . "\n";
 
@@ -237,24 +300,33 @@ class Tools
 		    $return .= 'Page For Posts:            ' . ( 0 != $blog_page_id ? get_the_title( $blog_page_id ) . ' (ID: ' . $blog_page_id . ')' : 'Unset' ) . "\n";
 	    }
 
-	    $return .= 'ABSPATH:                   ' . ABSPATH . "\n";
+	    $return .= 'ABSPATH:                   ' . self::redactPath(ABSPATH, $includeSensitiveData) . "\n";
 	    $return .= 'WP_DEBUG:                  ' . ( defined( 'WP_DEBUG' ) ? (WP_DEBUG ? 'Enabled' : 'Disabled') : 'Not set' ) . "\n";
-	    $return .= 'Memory Limit:              ' . WP_MEMORY_LIMIT . "\n";
+
+        $wpMemoryLimit = defined('WP_MEMORY_LIMIT') ? WP_MEMORY_LIMIT : ini_get('memory_limit');
+        $return .= 'Memory Limit:              ' . $wpMemoryLimit . "\n";
 
 	    $return .= "\n" . '# WordPress Uploads/Constants' . "\n";
-	    $return .= 'WP_CONTENT_DIR:            ' . ( defined( 'WP_CONTENT_DIR' ) ? (WP_CONTENT_DIR ? WP_CONTENT_DIR : 'Disabled') : 'Not set' ) . "\n";
-	    $return .= 'WP_CONTENT_URL:            ' . ( defined( 'WP_CONTENT_URL' ) ? (WP_CONTENT_URL ? WP_CONTENT_URL : 'Disabled') : 'Not set' ) . "\n";
-	    $return .= 'UPLOADS:                   ' . ( defined( 'UPLOADS' ) ? (UPLOADS ? UPLOADS : 'Disabled') : 'Not set' ) . "\n";
 
-        $return .= 'FS_CHMOD_DIR:               '  . FS_CHMOD_DIR . "\n";
-	    $return .= 'FS_CHMOD_FILE:              '  . FS_CHMOD_FILE . "\n";
+        $wpContentUrl = function_exists('content_url') ? content_url() : 'Not set';
+        $uploadDir    = function_exists('wp_get_upload_dir') ? wp_get_upload_dir() : array();
+
+	    $return .= 'WP_CONTENT_DIR:               ' . ( defined('WP_CONTENT_DIR') && WP_CONTENT_DIR ? self::redactPath(WP_CONTENT_DIR, $includeSensitiveData) : 'Not set' ) . "\n";
+
+	    $return .= 'content_url():                ' . self::redactUrl($wpContentUrl, $includeSensitiveData) . "\n";
+
+	    $return .= 'wp_get_upload_dir()[basedir]: ' . (! empty($uploadDir['basedir']) ? self::redactPath($uploadDir['basedir'], $includeSensitiveData) : 'Not set') . "\n";
+	    $return .= 'wp_get_upload_dir()[baseurl]: ' . (! empty($uploadDir['baseurl']) ? self::redactUrl($uploadDir['baseurl'], $includeSensitiveData) : 'Not set') . "\n";
+
+	    $return .= 'FS_CHMOD_DIR:                 ' . (defined('FS_CHMOD_DIR') ? FS_CHMOD_DIR : 'Not set') . "\n";
+	    $return .= 'FS_CHMOD_FILE:                ' . (defined('FS_CHMOD_FILE') ? FS_CHMOD_FILE : 'Not set') . "\n";
 
 	    $uploads_dir = wp_upload_dir();
 
-	    $return .= 'wp_uploads_dir() path:     ' . $uploads_dir['path'] . "\n";
-	    $return .= 'wp_uploads_dir() url:      ' . $uploads_dir['url'] . "\n";
-	    $return .= 'wp_uploads_dir() basedir:  ' . $uploads_dir['basedir'] . "\n";
-	    $return .= 'wp_uploads_dir() baseurl:  ' . $uploads_dir['baseurl'] . "\n";
+	    $return .= 'wp_uploads_dir() path:     ' . self::redactPath(isset($uploads_dir['path']) ? $uploads_dir['path'] : 'Not set', $includeSensitiveData) . "\n";
+	    $return .= 'wp_uploads_dir() url:      ' . self::redactUrl(isset($uploads_dir['url']) ? $uploads_dir['url'] : 'Not set', $includeSensitiveData) . "\n";
+	    $return .= 'wp_uploads_dir() basedir:  ' . self::redactPath(isset($uploads_dir['basedir']) ? $uploads_dir['basedir'] : 'Not set', $includeSensitiveData) . "\n";
+	    $return .= 'wp_uploads_dir() baseurl:  ' . self::redactUrl(isset($uploads_dir['baseurl']) ? $uploads_dir['baseurl'] : 'Not set', $includeSensitiveData) . "\n";
 
 	    // Get plugins that have an update.
 	    $updates = get_plugin_updates();
@@ -307,7 +379,7 @@ class Tools
 			    if ( ! array_key_exists( $plugin_base, $active_plugins ) ) {
 				    continue;
 			    }
-			    $update  = array_key_exists($plugin_path, $updates) ? ' (new version available - ' . $updates[ $plugin_path ]->update->new_version . ')' : '';
+			    $update  = array_key_exists($plugin_base, $updates) ? ' (new version available - ' . $updates[ $plugin_base ]->update->new_version . ')' : '';
 			    $plugin  = get_plugin_data( $plugin_path );
 			    $return .= $plugin['Name'] . ': ' . $plugin['Version'] . $update . "\n";
 		    }
@@ -317,14 +389,16 @@ class Tools
 	    $return .= "\n" . '# Webserver Configuration' . "\n";
 	    $return .= 'PHP Version:              ' . PHP_VERSION . "\n";
 	    $return .= 'MySQL Version:            ' . $wpdb->db_version() . "\n";
-	    $return .= 'Webserver Info:           ' . $_SERVER['SERVER_SOFTWARE'] . "\n";
+	    $return .= 'Webserver Info:           ' . (isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : 'Not available') . "\n";
+	    $return .= 'PHP SAPI:                 ' . PHP_SAPI . "\n";
+	    $return .= 'HTTPS:                    ' . (is_ssl() ? 'Yes' : 'No') . "\n";
 
 	    // PHP important configuration taken from php.ini
 	    $return .= "\n" . '# PHP Configuration' . "\n";
 	    $return .= 'Memory Limit:             ' . ini_get( 'memory_limit' ) . "\n";
 	    $return .= 'Upload Max Size:          ' . ini_get( 'upload_max_filesize' ) . "\n";
 	    $return .= 'Post Max Size:            ' . ini_get( 'post_max_size' ) . "\n";
-	    $return .= 'Upload Max Filesize:      ' . ini_get( 'upload_max_filesize' ) . "\n";
+	    $return .= 'Effective Upload Limit:   ' . size_format(wp_max_upload_size()) . "\n";
 	    $return .= 'Time Limit:               ' . ini_get( 'max_execution_time' ) . "\n";
 	    $return .= 'Max Input Vars:           ' . ini_get( 'max_input_vars' ) . "\n";
 	    $return .= 'Display Errors:           ' . ( ini_get( 'display_errors' ) ? 'On (php.ini value: ' . ini_get( 'display_errors' ) . ')' : 'N/A' ) . "\n";
@@ -334,7 +408,7 @@ class Tools
 	    $return .= 'cURL:                     ' . ( function_exists( 'curl_init' ) ? 'Supported' : 'Not Supported' ) . "\n";
 	    $return .= 'fsockopen:                ' . ( function_exists( 'fsockopen' ) ? 'Supported' : 'Not Supported' ) . "\n";
 	    $return .= 'SOAP Client:              ' . ( class_exists( 'SoapClient' ) ? 'Installed' : 'Not Installed' ) . "\n";
-	    $return .= 'Suhosin:                  ' . ( extension_loaded( 'suhosin' ) ? 'Installed' : 'Not Installed' ) . "\n";
+	    $return .= 'OPcache:                  ' . ( extension_loaded('Zend OPcache') ? 'Installed' : 'Not Installed' ) . "\n";
 
 	    // Session stuff.
 	    $return .= "\n" . '# Session Configuration' . "\n";
@@ -385,10 +459,10 @@ class Tools
 	    $return .= 'Manage in the Front-end:             '. (($settings['frontend_show'] == 1) ? 'Yes' : 'No') . "\n";
 
 	    if ($settings['frontend_show'] == 1 && $settings['frontend_show_exceptions']) {
-		    $return .= 'Do not show front-end assets when the URI contains (textarea value):' . "\n" . $settings['frontend_show_exceptions'] . "\n\n";
+		    $return .= 'Do not show front-end assets when the request URI contains: ' . ($includeSensitiveData ? "\n" . $settings['frontend_show_exceptions'] : '[value omitted]') . "\n\n";
 	    }
 
-	    $return .= 'Input Fields Style:                  '. ucfirst($settings['input_style'])."\n";
+	    $return .= 'Input Fields Style:                  '. ucfirst(Settings::getInputStyle($settings))."\n";
 	    $return .= 'Hide WP Files (from managing):       '. (($settings['hide_core_files'] == 1) ? 'Yes' : 'No') . "\n";
 	    $return .= 'Enable "Test Mode"?                  '. (($settings['test_mode'] == 1) ? 'Yes' : 'No') . "\n\n";
 
@@ -399,7 +473,7 @@ class Tools
 	    $return .= 'Combine loaded JS?                   '. (($settings['combine_loaded_js'] == 1) ? 'Yes' : 'No') . "\n";
 
 	    $storageCssJsDir = WP_CONTENT_DIR . OptimizeCommon::getRelPathPluginCacheDir();
-	    $return .= 'CSS/JS Storage Directory:            '. $storageCssJsDir . ' ('.(is_writable($storageCssJsDir) ? 'writable' : 'NON WRITABLE').')' ."\n\n";
+	    $return .= 'CSS/JS Storage Directory:            '. self::redactPath($storageCssJsDir, $includeSensitiveData) . ' ('.(is_writable($storageCssJsDir) ? 'writable' : 'NON WRITABLE').')' ."\n\n";
 
 	    $return .= 'Disable Emojis (site-wide)?                       '. (($settings['disable_emojis'] == 1) ? 'Yes' : 'No') . "\n";
         $return .= 'Disable oEmbed (Embeds) (site-wide)?              '. (($settings['disable_oembed'] == 1) ? 'Yes' : 'No') . "\n";
@@ -442,23 +516,21 @@ class Tools
 
 	    $wpacuPluginId = WPACU_PLUGIN_ID;
 
-	    $wpacuOptionNamesExceptions = array(
-		    "'".$wpacuPluginId.'_pro_license_key'."'",
+	    $optionNamePattern = $wpdb->esc_like($wpacuPluginId . '_') . '%';
+	    $licenseOptionName = $wpacuPluginId . '_pro_license_key';
+	    $sqlQueryGetOptions = $wpdb->prepare(
+	        "SELECT option_name, option_value FROM `{$wpdb->options}` WHERE option_name LIKE %s AND option_name <> %s ORDER BY option_name ASC",
+	        $optionNamePattern,
+	        $licenseOptionName
 	    );
-
-	    $wpacuSqlPartOptionExceptions = implode(',', $wpacuOptionNamesExceptions);
-
-	    $sqlQueryGetOptions = <<<SQL
-SELECT option_name, option_value FROM `{$wpdb->prefix}options`
-WHERE option_name LIKE '{$wpacuPluginId}_%' AND option_name NOT IN ({$wpacuSqlPartOptionExceptions})
-SQL;
 	    $wpacuOptions = $wpdb->get_results($sqlQueryGetOptions, ARRAY_A);
 
 	    $return .= "\n" . 'Table: options'."\n";
 
 	    if (! empty($wpacuOptions)) {
 		    foreach ($wpacuOptions as $wpacuOption) {
-			    $return .= '-- Option Name: ' . $wpacuOption['option_name'] . ' / Option Value: ' . self::stripKeysWithNoValues($wpacuOption['option_value']) . "\n";
+		        $optionValue = self::redactSensitiveOptionValue($wpacuOption['option_name'], $wpacuOption['option_value']);
+			    $return .= '-- Option Name: ' . $wpacuOption['option_name'] . ' / Option Value: ' . $optionValue . "\n";
 		    }
         } else {
 		    $return .= 'No records'."\n";
@@ -467,12 +539,22 @@ SQL;
 	    // `usermeta` and `termmeta` might have traces from the Pro version (if ever used)
 	    foreach (array('postmeta', 'usermeta', 'termmeta') as $tableBaseName) {
 		    // Get all Asset CleanUp (Pro) meta keys from all WordPress meta tables where it can be possibly used
-		    $wpacuGetMetaKeysQuery = <<<SQL
-SELECT * FROM `{$wpdb->prefix}{$tableBaseName}` WHERE meta_key LIKE '_{$wpacuPluginId}_%'
-SQL;
-		    $wpacuMetaResults = $wpdb->get_results($wpacuGetMetaKeysQuery, ARRAY_A);
+		    $tableName = $wpdb->prefix . $tableBaseName;
+		    $metaKeyPattern = $wpdb->esc_like('_' . $wpacuPluginId . '_') . '%';
+		    $wpacuMetaCount = (int) $wpdb->get_var($wpdb->prepare(
+		        "SELECT COUNT(*) FROM `{$tableName}` WHERE meta_key LIKE %s",
+		        $metaKeyPattern
+		    ));
+		    $wpacuMetaResults = array();
 
-		    $return .= "\n" . 'Table: '.$tableBaseName."\n";
+		    if ($wpacuMetaCount > 0) {
+		        $wpacuMetaResults = $wpdb->get_results($wpdb->prepare(
+		            "SELECT * FROM `{$tableName}` WHERE meta_key LIKE %s ORDER BY meta_id ASC",
+		            $metaKeyPattern
+		        ), ARRAY_A);
+		    }
+
+		    $return .= "\n" . 'Table: '.$tableBaseName.' / Matching records: '.$wpacuMetaCount."\n";
 
 		    if (! empty($wpacuMetaResults)) {
 			    foreach ($wpacuMetaResults as $metaResult) {
@@ -493,7 +575,10 @@ SQL;
 			            continue;
                     }
 
-				    $return .= '-- ' . $rowIdVal . ' / Meta Key: ' . $metaResult['meta_key'] . ' / Meta Value: ' . $metaValue . "\n";
+			    if (preg_match('/(?:license|secret|token|password|api[_-]?key)/i', $metaResult['meta_key'])) {
+			        $metaValue = '[redacted]';
+			    }
+			    $return .= '-- ' . $rowIdVal . ' / Meta Key: ' . $metaResult['meta_key'] . ' / Meta Value: ' . $metaValue . "\n";
 			    }
 		    } else {
 			    $return .= 'No records'."\n";
@@ -504,6 +589,57 @@ SQL;
 
 	    return $return;
     }
+
+	private static function redactUrl($url, $includeSensitiveData)
+	{
+		if ($includeSensitiveData || $url === 'Not set') {
+			return $url;
+		}
+
+		$parts = wp_parse_url($url);
+		$path = isset($parts['path']) ? $parts['path'] : '/';
+
+		return '[redacted-host]' . $path;
+	}
+
+	private static function redactPath($path, $includeSensitiveData)
+	{
+		if ($includeSensitiveData || $path === 'Not set') {
+			return $path;
+		}
+
+		return '[redacted-path]/' . basename(untrailingslashit($path));
+	}
+
+	private static function redactSensitiveOptionValue($optionName, $optionValue)
+	{
+		if (preg_match('/(?:license|secret|token|password|api[_-]?key)/i', $optionName)) {
+			return '[redacted]';
+		}
+
+		$decodedValue = json_decode($optionValue, true);
+
+		if (! is_array($decodedValue)) {
+			return $optionValue;
+		}
+
+		$decodedValue = self::redactSensitiveArrayValues($decodedValue);
+
+		return wp_json_encode($decodedValue);
+	}
+
+	private static function redactSensitiveArrayValues($values)
+	{
+		foreach ($values as $key => $value) {
+			if (preg_match('/(?:license|secret|token|password|api[_-]?key)/i', (string) $key)) {
+				$values[$key] = '[redacted]';
+			} elseif (is_array($value)) {
+				$values[$key] = self::redactSensitiveArrayValues($value);
+			}
+		}
+
+		return $values;
+	}
 
 	/**
 	 * @param $maybeJsonValue
@@ -530,25 +666,60 @@ SQL;
     }
 
 	/**
+	 * Download the configured PHP error log after capability and nonce checks.
+	 *
+	 * @return void
+	 */
+	private function downloadErrorLog()
+	{
+		if (! Menu::userCanAccessPlugin()) {
+			wp_die(esc_html__('You are not allowed to download the PHP error log.', 'wp-asset-clean-up'), '', array('response' => 403));
+		}
+
+		if (! Misc::getVar('post', 'wpacu_get_error_log_nonce')) {
+			return;
+		}
+
+		\check_admin_referer('wpacu_get_error_log', 'wpacu_get_error_log_nonce');
+
+		$configuredLogFile = isset($this->errorLogsData['log_file']) && is_string($this->errorLogsData['log_file'])
+			? $this->errorLogsData['log_file']
+			: (string) @ini_get('error_log');
+
+		self::downloadFile($configuredLogFile);
+	}
+
+	/**
 	 * e.g. error_log file for debugging purposes
 	 *
-	 * @param $localPathToFile
+	 * @param string $localPathToFile
+	 *
+	 * @return void
 	 */
 	public static function downloadFile($localPathToFile)
-    {
-	    if (! Menu::userCanAccessPlugin()) {
-		    exit();
-	    }
+	{
+		if (! Menu::userCanAccessPlugin()) {
+			wp_die(esc_html__('You are not allowed to download this file.', 'wp-asset-clean-up'), '', array('response' => 403));
+		}
 
-	    $date = date('j-M-Y');
-	    $host = parse_url(site_url(), PHP_URL_HOST);
+		$localPathToFile = is_string($localPathToFile) ? trim($localPathToFile) : '';
+		$realFilePath = $localPathToFile !== '' ? realpath($localPathToFile) : false;
 
-	    header('Content-type: text/plain');
-	    header('Content-Disposition: attachment; filename="'.$host.'-website-errors-'.$date.'.log"');
+		if ($realFilePath === false || ! is_file($realFilePath) || ! is_readable($realFilePath)) {
+			wp_die(esc_html__('The PHP error log is not available or cannot be read.', 'wp-asset-clean-up'), '', array('response' => 404));
+		}
 
-	    echo file_get_contents($localPathToFile);
-	    exit();
-    }
+		$date = gmdate('j-M-Y');
+		$host = sanitize_file_name((string) wp_parse_url(site_url(), PHP_URL_HOST));
+
+		nocache_headers();
+		header('Content-Type: text/plain; charset=UTF-8');
+		header('X-Content-Type-Options: nosniff');
+		header('Content-Disposition: attachment; filename="'.$host.'-website-errors-'.$date.'.log"');
+
+		readfile($realFilePath);
+		exit();
+	}
 
 	/**
 	 *
@@ -565,13 +736,16 @@ SQL;
 
 	    \check_admin_referer('wpacu_get_system_info', 'wpacu_get_system_info_nonce');
 
-	    $date = date('j-M-Y');
-	    $host = parse_url(site_url(), PHP_URL_HOST);
+	    $includeSensitiveData = Misc::getVar('post', 'wpacu_include_sensitive_system_info') === '1';
+	    $date = gmdate('j-M-Y');
+	    $host = sanitize_file_name((string) wp_parse_url(site_url(), PHP_URL_HOST));
 
-	    header('Content-type: text/plain');
+	    nocache_headers();
+	    header('Content-Type: text/plain; charset=UTF-8');
+	    header('X-Content-Type-Options: nosniff');
 	    header('Content-Disposition: attachment; filename="'.str_replace(' ', '-', strtolower(WPACU_PLUGIN_TITLE)).'-system-info-'.$host.'-'.$date.'.txt"');
 
-	    echo $this->getSystemInfo();
+	    echo $this->getSystemInfo($includeSensitiveData);
 	    exit();
     }
 
@@ -581,173 +755,490 @@ SQL;
 	public function doReset()
 	{
 		// Several security checks before proceeding with the chosen action
-		if ( ! Misc::getVar('post', 'wpacu_tools_reset_nonce') ) {
-			return;
+		if ( ! Menu::userCanAccessPlugin() ) {
+			wp_die(esc_html__('You are not allowed to reset Asset CleanUp data.', 'wp-asset-clean-up'), '', array('response' => 403));
 		}
 
 		\check_admin_referer('wpacu_tools_reset', 'wpacu_tools_reset_nonce');
 
-		$wpacuResetValue = Misc::getVar('post', 'wpacu-reset', false);
+		$wpacuResetValueRaw = Misc::getVar('post', 'wpacu-reset', false);
+		$wpacuResetValue = is_string($wpacuResetValueRaw) ? sanitize_key(wp_unslash($wpacuResetValueRaw)) : '';
+		$allowedResetValues = array('reset_settings', 'reset_critical_css', 'reset_plugins_manager_front', 'reset_plugins_manager_dash', 'reset_everything_except_settings', 'reset_everything', 'remove_all_data_for_uninstall');
 
-		if ( ! $wpacuResetValue ) {
-			exit('Error: Field not found, the action is not valid!');
+		if ( ! in_array($wpacuResetValue, $allowedResetValues, true) ) {
+			wp_die(esc_html__('The selected reset action is not valid.', 'wp-asset-clean-up'), '', array('response' => 400));
 		}
 
 		// Has to be confirmed
 		$wpacuConfirmedValue = Misc::getVar('post', 'wpacu-action-confirmed', false);
 
 		if ( $wpacuConfirmedValue !== 'yes' ) {
-			exit('Error: Action needs to be confirmed.');
-		}
-
-		if ( ! Menu::userCanAccessPlugin() ) {
-			exit();
+			wp_die(esc_html__('The reset action needs to be confirmed.', 'wp-asset-clean-up'), '', array('response' => 400));
 		}
 
 		global $wpdb;
 
+		$this->resetResult = array(
+			'deleted_options'      => 0,
+			'deleted_meta_keys'    => 0,
+			'deleted_transients'   => 0,
+			'deleted_cache_files'  => 0,
+			'failed_cache_files'   => 0,
+			'errors'               => array(),
+		);
+
 		$this->resetChoice = $wpacuResetValue;
 
 		$wpacuPluginId = WPACU_PLUGIN_ID;
+		$preservedCommonUnloads = array();
+
+		if ($wpacuResetValue === 'reset_everything_except_settings') {
+			$globalUnloadBeforeReset = Main::instance()->getGlobalUnload();
+			$globalUnloadStyles = isset($globalUnloadBeforeReset['styles']) && is_array($globalUnloadBeforeReset['styles'])
+				? $globalUnloadBeforeReset['styles']
+				: array();
+			$globalUnloadScripts = isset($globalUnloadBeforeReset['scripts']) && is_array($globalUnloadBeforeReset['scripts'])
+				? $globalUnloadBeforeReset['scripts']
+				: array();
+
+			$preservedCommonUnloads = array(
+				'wp_block_library' => in_array('wp-block-library', $globalUnloadStyles, true),
+				'dashicons'        => in_array('dashicons', $globalUnloadStyles, true),
+				'jquery_migrate'   => in_array('jquery-migrate', $globalUnloadScripts, true),
+				'comment_reply'    => in_array('comment-reply', $globalUnloadScripts, true),
+			);
+		}
 
 		if ($wpacuResetValue === 'reset_settings') {
-			delete_option($wpacuPluginId.'_settings');
+			if (delete_option($wpacuPluginId.'_settings')) {
+				$this->resetResult['deleted_options']++;
+			}
 
-            $wpacuSettingsAdmin = new SettingsAdmin();
-            $wpacuSettingsAdmin->updateSettingsInDbWithDefaultValues();
+	            $wpacuSettingsAdmin = new SettingsAdmin();
+	            $wpacuSettingsAdmin->updateSettingsInDbWithDefaultValues();
+
+			if (! get_option($wpacuPluginId.'_settings')) {
+				$this->resetResult['errors'][] = __('The default settings could not be recreated.', 'wp-asset-clean-up');
+			}
 		}
 
         if ($wpacuResetValue === 'reset_critical_css') {
-		    $wpacuGetAllCriticalCssOptions = <<<SQL
-SELECT option_name FROM `{$wpdb->prefix}options` WHERE option_name LIKE '{$wpacuPluginId}_critical_css_%'
-SQL;
+		    $criticalCssOptionPattern = $wpdb->esc_like($wpacuPluginId . '_critical_css_') . '%';
+		    $wpacuGetAllCriticalCssOptions = $wpdb->prepare(
+		        "SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s",
+		        $criticalCssOptionPattern
+		    );
 			$wpacuAnyCriticalCssOptions = $wpdb->get_col($wpacuGetAllCriticalCssOptions);
 
 			if (! empty($wpacuAnyCriticalCssOptions)) {
 			    foreach ($wpacuAnyCriticalCssOptions as $wpacuCriticalCssOption) {
-			        delete_option($wpacuCriticalCssOption);
+			        if (delete_option($wpacuCriticalCssOption)) {
+			            $this->resetResult['deleted_options']++;
+			        }
+                }
+            }
+
+            $criticalCssMetaKey = CriticalCss::getMetaKey();
+
+            foreach (array('post', 'term', 'user') as $metaType) {
+                if (delete_metadata($metaType, 0, $criticalCssMetaKey, '', true)) {
+                    $this->resetResult['deleted_meta_keys']++;
+                }
+            }
+
+            if (! empty($wpdb->get_col($wpacuGetAllCriticalCssOptions))) {
+                $this->resetResult['errors'][] = __('Some Critical CSS options could not be removed.', 'wp-asset-clean-up');
+            }
+
+            foreach (array($wpdb->postmeta, $wpdb->termmeta, $wpdb->usermeta) as $metaTableName) {
+                $remainingCriticalCssMeta = (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM `{$metaTableName}` WHERE meta_key = %s",
+                    $criticalCssMetaKey
+                ));
+                if ($remainingCriticalCssMeta > 0) {
+                    $this->resetResult['errors'][] = __('Some Critical CSS metadata could not be removed.', 'wp-asset-clean-up');
+                    break;
                 }
             }
         }
 
-        if (in_array($wpacuResetValue, array('reset_everything', 'reset_everything_except_settings'))) {
+		if (in_array($wpacuResetValue, array('reset_plugins_manager_front', 'reset_plugins_manager_dash'), true)) {
+			$locationKey = $wpacuResetValue === 'reset_plugins_manager_front' ? 'plugins' : 'plugins_dash';
+			$globalData = wpacuGetGlobalData();
+			$storedRules = isset($globalData[$locationKey]) && is_array($globalData[$locationKey])
+				? $globalData[$locationKey]
+				: array();
+
+			unset($globalData[$locationKey]);
+			Misc::addUpdateOption($wpacuPluginId . '_global_data', wp_json_encode($globalData));
+			$this->resetResult['deleted_plugin_rules'] = count($storedRules);
+
+			$updatedGlobalData = wpacuGetGlobalData();
+			if ( ! empty($updatedGlobalData[$locationKey])) {
+				$this->resetResult['errors'][] = __('Some Plugins Manager rules could not be removed.', 'wp-asset-clean-up');
+			}
+		}
+
+		if (in_array($wpacuResetValue, array('reset_everything', 'reset_everything_except_settings', 'remove_all_data_for_uninstall'), true)) {
+			$preserveNetworkSharedUserMeta = self::isPluginActiveElsewhereInNetwork();
+			$metaTables = array(
+				'postmeta' => $wpdb->postmeta,
+				'usermeta' => $wpdb->usermeta,
+				'termmeta' => $wpdb->termmeta,
+			);
+
 			// `usermeta` and `termmeta` might have traces from the Pro version (if ever used)
 			foreach (array('postmeta', 'usermeta', 'termmeta') as $tableBaseName) {
+				// User meta is shared by the whole network and WPACU's keys do not identify a blog.
+				if ($tableBaseName === 'usermeta' && $preserveNetworkSharedUserMeta) {
+					continue;
+				}
+
 			    // Get all Asset CleanUp (Pro) meta keys from all WordPress meta tables where it can be possibly used
-				$wpacuGetMetaKeysQuery = <<<SQL
-SELECT meta_key FROM `{$wpdb->prefix}{$tableBaseName}` WHERE meta_key LIKE '_{$wpacuPluginId}_%'
-SQL;
+				$tableName = $metaTables[$tableBaseName];
+				$metaKeyPattern = $wpdb->esc_like('_' . $wpacuPluginId . '_') . '%';
+				$wpacuGetMetaKeysQuery = $wpdb->prepare(
+					"SELECT DISTINCT meta_key FROM `{$tableName}` WHERE meta_key LIKE %s",
+					$metaKeyPattern
+				);
 				$wpacuMetaKeys = $wpdb->get_col($wpacuGetMetaKeysQuery);
 
-				if ($tableBaseName === 'postmeta') { // e.g. Posts, Pages, Custom Post Types)
-				    foreach ($wpacuMetaKeys as $postMetaKey) {
-					    delete_post_meta_by_key($postMetaKey);
-				    }
-                }
+				$metaTypeByTable = array('postmeta' => 'post', 'usermeta' => 'user', 'termmeta' => 'term');
+				$metaType = $metaTypeByTable[$tableBaseName];
 
-                if ($tableBaseName === 'usermeta') { // User Meta: Pro version (if used)
-					foreach ($wpacuMetaKeys as $userMetaKey) {
-						delete_metadata('user', 0, $userMetaKey, '', true);
+				foreach ($wpacuMetaKeys as $wpacuMetaKey) {
+					if (delete_metadata($metaType, 0, $wpacuMetaKey, '', true)) {
+						$this->resetResult['deleted_meta_keys']++;
 					}
-                }
+				}
 
-                if ($tableBaseName === 'termmeta') { // e.g. Taxonomy: Pro version (if used)
-					foreach ($wpacuMetaKeys as $termMetaKey) {
-						delete_metadata('term', 0, $termMetaKey, '', true);
-					}
+                if (! empty($wpdb->get_col($wpacuGetMetaKeysQuery))) {
+                    $this->resetResult['errors'][] = sprintf(
+                        __('Some Asset CleanUp metadata could not be removed from the %s table.', 'wp-asset-clean-up'),
+                        $tableBaseName
+                    );
                 }
 			}
 
-			$wpacuOptionNamesExceptions = array(
-				"'".$wpacuPluginId.'_pro_license_key'."'",
-				"'".$wpacuPluginId.'_pro_license_status'."'"
-            );
-
-			// Add "Settings" to the NOT IN list to avoid clearing it
-			if ($wpacuResetValue === 'reset_everything_except_settings') {
-			    $wpacuOptionNamesExceptions[] = "'".$wpacuPluginId.'_settings'."'";
-            }
-
-			$wpacuSqlPartOptionExceptions = implode(',', $wpacuOptionNamesExceptions);
-
-			// Fetch all Asset CleanUp (Pro) options except the license key related ones
-			$sqlQueryGetOptions = <<<SQL
-SELECT option_name FROM `{$wpdb->prefix}options`
-WHERE option_name LIKE '{$wpacuPluginId}_%' AND option_name NOT IN ({$wpacuSqlPartOptionExceptions})
-SQL;
+			$removeLicenseData = $wpacuResetValue === 'remove_all_data_for_uninstall'
+				|| ($wpacuResetValue === 'reset_everything' && Misc::getVar('post', 'wpacu-remove-license-data') !== '');
+			$optionNamePattern = $wpdb->esc_like($wpacuPluginId . '_') . '%';
+			$sqlQueryGetOptions = $wpdb->prepare(
+				"SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s",
+				$optionNamePattern
+			);
 			$wpacuOptionNames = $wpdb->get_col($sqlQueryGetOptions);
 
 			foreach ($wpacuOptionNames as $wpacuOptionName) {
-			    delete_option($wpacuOptionName);
+				$isSettingsOption = $wpacuOptionName === $wpacuPluginId . '_settings';
+				$isLicenseOption = strpos($wpacuOptionName, $wpacuPluginId . '_pro_license_') === 0;
+
+				if ($wpacuResetValue === 'reset_everything_except_settings' && $isSettingsOption) {
+					continue;
+				}
+
+				if ($isLicenseOption && ! $removeLicenseData) {
+					continue;
+				}
+
+			    if (delete_option($wpacuOptionName)) {
+			    	$this->resetResult['deleted_options']++;
+
+			    	if ($isLicenseOption) {
+			    		$this->licenseDataRemoved = true;
+			    	}
+			    }
+            }
+
+            $remainingOptionNames = $wpdb->get_col($sqlQueryGetOptions);
+
+            foreach ($remainingOptionNames as $remainingOptionName) {
+                $isPreservedSettings = $wpacuResetValue === 'reset_everything_except_settings' && $remainingOptionName === $wpacuPluginId . '_settings';
+                $isPreservedLicense = ! $removeLicenseData && strpos($remainingOptionName, $wpacuPluginId . '_pro_license_') === 0;
+
+                if (! $isPreservedSettings && ! $isPreservedLicense) {
+                    $this->resetResult['errors'][] = __('Some Asset CleanUp options could not be removed.', 'wp-asset-clean-up');
+                    break;
+                }
             }
 
 			// Remove transients
-			$sqlQueryGetTransients = <<<SQL
-SELECT option_name FROM `{$wpdb->prefix}options`
-WHERE option_name LIKE '_transient_{$wpacuPluginId}_%' OR option_name LIKE '_transient_timeout_{$wpacuPluginId}_%'
-OR option_name LIKE '_transient_wpacu_%' OR option_name LIKE '_transient_timeout_wpacu_%'
-SQL;
+			$transientPatterns = array(
+				$wpdb->esc_like('_transient_' . $wpacuPluginId . '_') . '%',
+				$wpdb->esc_like('_transient_timeout_' . $wpacuPluginId . '_') . '%',
+				$wpdb->esc_like('_transient_wpacu_') . '%',
+				$wpdb->esc_like('_transient_timeout_wpacu_') . '%',
+			);
+
+			$sqlQueryGetTransients = $wpdb->prepare(
+				"SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+				$transientPatterns[0],
+				$transientPatterns[1],
+				$transientPatterns[2],
+				$transientPatterns[3]
+			);
+
 			$wpacuTransientNames = $wpdb->get_col($sqlQueryGetTransients);
 
-			foreach ($wpacuTransientNames as $wpacuTransientName) {
-				$wpacuTransientName = str_replace(array('_transient_timeout_', '_transient_'), '', $wpacuTransientName);
-				delete_transient($wpacuTransientName);
-			}
+			$wpacuTransientNames = array_unique(array_map(static function($optionName) {
+				return str_replace(array('_transient_timeout_', '_transient_'), '', $optionName);
+			}, $wpacuTransientNames));
 
-			// Remove the license data?
-			if (Misc::getVar('post', 'wpacu-remove-license-data') !== '') {
-				delete_option($wpacuPluginId . '_pro_license_key');
-				delete_option($wpacuPluginId . '_pro_license_status');
-				$this->licenseDataRemoved = true;
+			foreach ($wpacuTransientNames as $wpacuTransientName) {
+				delete_transient($wpacuTransientName);
+				wp_cache_delete($wpacuTransientName, 'transient');
+				$this->resetResult['deleted_transients']++;
 			}
 
 			// Remove all cached CSS/JS files?
-			if (Misc::getVar('post', 'wpacu-remove-cache-assets') !== '') {
-				$pathToCacheDirCss = WP_CONTENT_DIR . OptimizeCss::getRelPathCssCacheDir();
-				$pathToCacheDirJs  = WP_CONTENT_DIR . OptimizeJs::getRelPathJsCacheDir();
+			if ($wpacuResetValue === 'remove_all_data_for_uninstall') {
+				$cacheResult = $this->removePluginCacheDirectory();
+				$this->resetResult['deleted_cache_files'] = $cacheResult['deleted'];
+				$this->resetResult['failed_cache_files'] = $cacheResult['failed'];
+				$this->cachedAssetsRemoved = $cacheResult['failed'] === 0;
 
-				$allCssFiles = glob( $pathToCacheDirCss . '**/*.css' );
-				$allJsFiles  = glob( $pathToCacheDirJs . '**/*.js' );
-				$allCachedAssets = array_merge($allCssFiles, $allJsFiles);
+				if ($cacheResult['failed'] > 0) {
+					$this->resetResult['errors'][] = sprintf(
+						_n('%d cached file or directory could not be removed.', '%d cached files or directories could not be removed.', $cacheResult['failed'], 'wp-asset-clean-up'),
+						$cacheResult['failed']
+					);
+				}
+			} elseif ($wpacuResetValue === 'reset_everything' && Misc::getVar('post', 'wpacu-remove-cache-assets') !== '') {
+				$cacheResult = $this->removeCachedAssetFiles();
+				$this->resetResult['deleted_cache_files'] = $cacheResult['deleted'];
+				$this->resetResult['failed_cache_files'] = $cacheResult['failed'];
+				$this->cachedAssetsRemoved = $cacheResult['deleted'] > 0 && $cacheResult['failed'] === 0;
 
-				if (! empty($allCachedAssets)) {
-				    foreach ($allCachedAssets as $cachedAssetFile) {
-				        @unlink($cachedAssetFile);
-                    }
-                }
-
-				$this->cachedAssetsRemoved = true;
+				if ($cacheResult['failed'] > 0) {
+					$this->resetResult['errors'][] = sprintf(
+						_n('%d cached file could not be removed.', '%d cached files could not be removed.', $cacheResult['failed'], 'wp-asset-clean-up'),
+						$cacheResult['failed']
+					);
+				}
             }
 
 			// Remove Asset CleanUp (Pro)'s cache transients
-            $this->clearAllCacheTransients();
+            $this->resetResult['deleted_transients'] += $this->clearAllCacheTransients();
 
             if ( $wpacuResetValue === 'reset_everything' && ! get_option(WPACU_PLUGIN_ID . '_settings') ) {
                 $wpacuSettingsAdmin = new SettingsAdmin();
                 $wpacuSettingsAdmin->updateSettingsInDbWithDefaultValues();
+
+                if (! get_option(WPACU_PLUGIN_ID . '_settings')) {
+                    $this->resetResult['errors'][] = __('The default settings could not be recreated.', 'wp-asset-clean-up');
+                }
             }
 		}
 
-		// Also make 'jQuery Migrate' and 'Comment Reply' core files to load again
-		// As they were enabled (not unloaded) in the default settings
-        $wpacuUpdate = new Update();
-        $wpacuUpdate->removeEverywhereUnloads(
-            array(),
-            array('jquery-migrate' => 'remove', 'comment-reply' => 'remove')
-        );
+		// Four Settings toggles are materialised in the global unload option.
+		// Rebuild only those rules after deleting the rest of the plugin data.
+		if ($wpacuResetValue === 'reset_everything_except_settings' && ! empty($preservedCommonUnloads)) {
+			$wpacuSettingsAdmin = new SettingsAdmin();
+			$wpacuSettingsAdmin->updateSiteWideRuleForCommonAssets($preservedCommonUnloads);
+		}
+
+		// These unloads are settings stored outside the main settings option.
+		// Restore them only when the user explicitly resets Settings.
+		if ($wpacuResetValue === 'reset_settings') {
+			$wpacuUpdate = new Update();
+			$wpacuUpdate->removeEverywhereUnloads(
+				array('dashicons' => 'remove', 'wp-block-library' => 'remove'),
+				array('jquery-migrate' => 'remove', 'comment-reply' => 'remove')
+			);
+		}
+
+		if (in_array($wpacuResetValue, array('reset_settings', 'reset_critical_css', 'reset_plugins_manager_front', 'reset_plugins_manager_dash'), true)) {
+			$this->resetResult['deleted_transients'] += $this->clearAllCacheTransients();
+		}
+
+		if ($wpacuResetValue === 'remove_all_data_for_uninstall') {
+			$cleanupErrors = apply_filters('wpacu_internal_remove_all_data_for_uninstall_errors', array());
+			if (is_array($cleanupErrors)) {
+				$this->resetResult['errors'] = array_merge($this->resetResult['errors'], $cleanupErrors);
+			}
+		}
+
+		$this->resetResult['errors'] = array_values(array_unique($this->resetResult['errors']));
+
+		if ($wpacuResetValue === 'remove_all_data_for_uninstall') {
+			wp_redirect(add_query_arg(array(
+				'wpacu_uninstall_cleanup_done' => empty($this->resetResult['errors']) ? 'success' : 'partial',
+				'wpacu_time'                   => time(),
+			), admin_url('plugins.php')));
+			exit;
+		}
 
         set_transient(WPACU_PLUGIN_ID . '_reset_done',
-	        wp_json_encode(array(
-	                'reset_choice'          => $this->resetChoice,
-	                'license_data_removed'  => $this->licenseDataRemoved,
-	                'cached_assets_removed' => $this->cachedAssetsRemoved
-	            )
-            ),
+            wp_json_encode(array(
+                'reset_choice'          => $this->resetChoice,
+                'license_data_removed'  => $this->licenseDataRemoved,
+                'cached_assets_removed' => $this->cachedAssetsRemoved,
+                'result'                => $this->resetResult
+            )),
             30
         );
 
         wp_redirect(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_reset_done=1&wpacu_time='.time()));
         exit;
+	}
+
+	/**
+	 * Recursively remove generated CSS/JS cache files and report the real result.
+	 *
+	 * @return array
+	 */
+	private function removeCachedAssetFiles()
+	{
+		$result = array('deleted' => 0, 'failed' => 0);
+		$relativeDirectories = array(
+			OptimizeCss::getRelPathCssCacheDir(),
+			OptimizeJs::getRelPathJsCacheDir(),
+		);
+
+		$contentDirectory = realpath(WP_CONTENT_DIR);
+		$targetDirectories = array();
+
+		foreach ($relativeDirectories as $relativeDirectory) {
+			if ($relativeDirectory === '') {
+				$result['failed']++;
+				continue;
+			}
+
+			$targetDirectoryCandidate = WP_CONTENT_DIR . $relativeDirectory;
+
+			if (! is_dir($targetDirectoryCandidate)) {
+				continue;
+			}
+
+			$targetDirectory = realpath($targetDirectoryCandidate);
+			if ($targetDirectory === false || $contentDirectory === false || strpos($targetDirectory, trailingslashit($contentDirectory)) !== 0) {
+				$result['failed']++;
+				continue;
+			}
+
+			$targetDirectories[] = $targetDirectory;
+		}
+
+		foreach (array_unique($targetDirectories) as $targetDirectory) {
+			if (! is_dir($targetDirectory)) {
+				continue;
+			}
+
+			try {
+				$directoryIterator = new \RecursiveDirectoryIterator($targetDirectory, \RecursiveDirectoryIterator::SKIP_DOTS);
+				$fileIterator = new \RecursiveIteratorIterator($directoryIterator, \RecursiveIteratorIterator::LEAVES_ONLY, \RecursiveIteratorIterator::CATCH_GET_CHILD);
+
+				foreach ($fileIterator as $fileInfo) {
+					if (! $fileInfo->isFile() || ! in_array(strtolower($fileInfo->getExtension()), array('css', 'js'), true)) {
+						continue;
+					}
+
+					$filePath = $fileInfo->getPathname();
+					if (@unlink($filePath) && ! is_file($filePath)) {
+						$result['deleted']++;
+					} else {
+						$result['failed']++;
+					}
+				}
+			} catch (\UnexpectedValueException $e) {
+				$result['failed']++;
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Remove the complete Asset CleanUp cache directory for an uninstall cleanup.
+	 *
+	 * @return array{deleted:int, failed:int}
+	 */
+	private function removePluginCacheDirectory()
+	{
+		$result = array('deleted' => 0, 'failed' => 0);
+		$contentDirectory = realpath(WP_CONTENT_DIR);
+		$cacheDirectoryCandidate = WP_CONTENT_DIR . OptimizeCommon::getRelPathPluginCacheDir();
+
+		if (! is_dir($cacheDirectoryCandidate)) {
+			return $result;
+		}
+
+		$cacheDirectory = realpath($cacheDirectoryCandidate);
+		if ($cacheDirectory === false || $contentDirectory === false
+			|| strpos($cacheDirectory, trailingslashit($contentDirectory)) !== 0) {
+			$result['failed']++;
+			return $result;
+		}
+
+		try {
+			$directoryIterator = new \RecursiveDirectoryIterator($cacheDirectory, \RecursiveDirectoryIterator::SKIP_DOTS);
+			$fileIterator = new \RecursiveIteratorIterator($directoryIterator, \RecursiveIteratorIterator::CHILD_FIRST, \RecursiveIteratorIterator::CATCH_GET_CHILD);
+
+			foreach ($fileIterator as $fileInfo) {
+				$filePath = $fileInfo->getPathname();
+
+				if ($fileInfo->isLink() || $fileInfo->isFile()) {
+					if (@unlink($filePath) && ! file_exists($filePath)) {
+						$result['deleted']++;
+					} else {
+						$result['failed']++;
+					}
+					continue;
+				}
+
+				if ($fileInfo->isDir() && ! @rmdir($filePath) && is_dir($filePath)) {
+					$result['failed']++;
+				}
+			}
+		} catch (\UnexpectedValueException $e) {
+			$result['failed']++;
+		}
+
+		if (! @rmdir($cacheDirectory) && is_dir($cacheDirectory)) {
+			$result['failed']++;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Whether this plugin is still active for other sites in the current network.
+	 * Network-shared data must be preserved while another site can still use it.
+	 *
+	 * @return bool
+	 */
+	public static function isPluginActiveElsewhereInNetwork($ignoreNetworkActivation = false)
+	{
+		if (! is_multisite()) {
+			return false;
+		}
+
+		if (! function_exists('is_plugin_active_for_network')) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		if (! $ignoreNetworkActivation && is_plugin_active_for_network(WPACU_PLUGIN_BASE)) {
+			return true;
+		}
+
+		$currentBlogId = get_current_blog_id();
+		$siteIds = get_sites(array('fields' => 'ids', 'number' => 0));
+
+		foreach ($siteIds as $siteId) {
+			if ((int) $siteId === (int) $currentBlogId) {
+				continue;
+			}
+
+			switch_to_blog($siteId);
+			$isActive = is_plugin_active(WPACU_PLUGIN_BASE);
+			restore_current_blog();
+
+			if ($isActive) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -759,27 +1250,28 @@ SQL;
 
 	    // Remove Asset CleanUp (Pro)'s cache transients
 	    $transientLikes = array(
-		    '_transient_wpacu_css_',
-		    '_transient_wpacu_js_'
+		    'wpacu_css_',
+		    'wpacu_js_'
 	    );
 
-	    $transientLikesSql = '';
+	    $sqlQuery = $wpdb->prepare(
+	        "SELECT option_name FROM `{$wpdb->options}` WHERE option_name LIKE %s OR option_name LIKE %s",
+	        $wpdb->esc_like('_transient_' . $transientLikes[0]) . '%',
+	        $wpdb->esc_like('_transient_' . $transientLikes[1]) . '%'
+	    );
 
-	    foreach ($transientLikes as $transientLike) {
-		    $transientLikesSql .= " option_name LIKE '".$transientLike."%' OR ";
-	    }
-
-	    $transientLikesSql = rtrim($transientLikesSql, ' OR ');
-
-	    $sqlQuery = <<<SQL
-SELECT option_name FROM `{$wpdb->prefix}options` WHERE {$transientLikesSql}
-SQL;
 	    $transientsToClear = $wpdb->get_col($sqlQuery);
 
-	    foreach ($transientsToClear as $transientToClear) {
+	    $deletedCount = 0;
+
+	    foreach (array_unique($transientsToClear) as $transientToClear) {
 	        $transientNameToClear = str_replace('_transient_', '', $transientToClear);
 		    delete_transient($transientNameToClear);
+		    wp_cache_delete($transientNameToClear, 'transient');
+		    $deletedCount++;
 	    }
+
+	    return $deletedCount;
     }
 
 	/**
@@ -788,33 +1280,69 @@ SQL;
 	public function resetDone()
 	{
 		$msg = '';
+		$errors = isset($this->resetResult['errors']) && is_array($this->resetResult['errors']) ? $this->resetResult['errors'] : array();
 
 		if ($this->resetChoice === 'reset_settings') {
 			$msg = __('All the settings were reset to their default values.', 'wp-asset-clean-up');
 		}
 
         if ($this->resetChoice === 'reset_critical_css') {
-		    $msg = __('The critical CSS information has been removed and restored to the way it was in the beginning.', 'wp-asset-clean-up-pro');
+		    $msg = __('The critical CSS information has been removed and restored to the way it was in the beginning.', 'wp-asset-clean-up');
         }
+
+		if ($this->resetChoice === 'reset_plugins_manager_front') {
+			$msg = __('All front-end rules from Plugins Manager were removed.', 'wp-asset-clean-up');
+		}
+
+		if ($this->resetChoice === 'reset_plugins_manager_dash') {
+			$msg = __('All /wp-admin/ rules from Plugins Manager were removed.', 'wp-asset-clean-up');
+		}
 
         if ($this->resetChoice === 'reset_everything_except_settings') {
 			$msg = __('Everything except the "Settings" was reset (including page &amp; bulk unloads, load exceptions).', 'wp-asset-clean-up');
         }
 
         if ($this->resetChoice === 'reset_everything') {
-			$msg = __('Everything was reset (including settings, individual &amp; bulk unloads, load exceptions) to the same point it was when you first activated the plugin.', 'wp-asset-clean-up');
+            $msg = __('Everything was reset (including settings, individual &amp; bulk unloads, load exceptions) to the same point it was when you first activated the plugin.', 'wp-asset-clean-up');
 
-			if ($this->licenseDataRemoved) {
-				$msg .= ' <span id="wpacu-license-data-removed-msg">'.__('The license information was also removed.', 'wp-asset-clean-up').'</span>';
-			}
+            if ($this->licenseDataRemoved) {
+                $msg .= ' <span id="wpacu-license-data-removed-msg">'.__('The license information was also removed.', 'wp-asset-clean-up').'</span>';
+            }
 
-			if ($this->cachedAssetsRemoved) {
-				$msg .= ' <span id="wpacu-cached-assets-removed-msg">'.__('The cached CSS/JS files were also removed.', 'wp-asset-clean-up').'</span>';
+            if ($this->cachedAssetsRemoved) {
+                $msg .= ' <span id="wpacu-cached-assets-removed-msg">'.__('The cached CSS/JS files were also removed.', 'wp-asset-clean-up').'</span>';
+            }
+		}
+
+		$resultSummary = array();
+		$resultLabels = array(
+			'deleted_plugin_rules' => __('Plugins Manager rule sets removed: %d', 'wp-asset-clean-up'),
+			'deleted_options'     => __('Options removed: %d', 'wp-asset-clean-up'),
+			'deleted_meta_keys'   => __('Metadata keys removed: %d', 'wp-asset-clean-up'),
+			'deleted_transients'  => __('Transients cleared: %d', 'wp-asset-clean-up'),
+			'deleted_cache_files' => __('Cached files removed: %d', 'wp-asset-clean-up'),
+		);
+
+		foreach ($resultLabels as $resultKey => $resultLabel) {
+			if (isset($this->resetResult[$resultKey])) {
+				$resultSummary[] = sprintf($resultLabel, (int) $this->resetResult[$resultKey]);
 			}
 		}
+
+		if (! empty($resultSummary)) {
+			$msg .= '<br /><small>' . esc_html(implode(' · ', $resultSummary)) . '</small>';
+		}
+
+		if (! empty($errors)) {
+			$msg .= '<ul class="wpacu-reset-result-errors">';
+			foreach ($errors as $error) {
+				$msg .= '<li>' . esc_html($error) . '</li>';
+			}
+			$msg .= '</ul>';
+		}
 		?>
-		<div class="updated notice wpacu-notice wpacu-reset-notice is-dismissible">
-			<p><span class="dashicons dashicons-yes"></span> <?php echo wp_kses($msg, array('span' => array('id' => array()))); ?></p>
+		<div class="<?php echo empty($errors) ? 'updated' : 'notice-warning'; ?> notice wpacu-notice wpacu-reset-notice is-dismissible">
+			<p><span class="dashicons <?php echo empty($errors) ? 'dashicons-yes' : 'dashicons-warning'; ?>"></span> <?php echo wp_kses($msg, array('span' => array('id' => array()), 'br' => array(), 'small' => array(), 'ul' => array('class' => array()), 'li' => array())); ?></p>
 		</div>
 		<?php
 	}
@@ -849,11 +1377,11 @@ SQL;
 	            $importedMessage .= '<li>'.esc_html__('Site-wide unloads', 'wp-asset-clean-up').'</li>';
             }
 
-            if ($importedKey === 'bulk_unloads') {
+            if (in_array($importedKey, array('bulk_unload', 'bulk_unloads'), true)) {
 	            $importedMessage .= '<li>'.esc_html__('Bulk Unloads (e.g. for all pages of `post` post type)', 'wp-asset-clean-up').'</li>';
             }
 
-            if ($importedKey === 'post_type_exceptions') {
+            if (in_array($importedKey, array('post_type_load_exceptions', 'post_type_exceptions'), true)) {
 	            $importedMessage .= '<li>'.esc_html__('Load exceptions for all pages belonging to specific post types', 'wp-asset-clean-up').'</li>';
             }
 
@@ -864,6 +1392,22 @@ SQL;
             if ($importedKey === 'critical_css_options') {
                 $importedMessage .= '<li>'.esc_html__('Critical CSS', 'wp-asset-clean-up').'</li>';
             }
+
+            if ($importedKey === 'plugins_manager_frontend') {
+                $importedMessage .= '<li>'.esc_html__('Plugins Manager — Front-end rules', 'wp-asset-clean-up').'</li>';
+            }
+
+            if ($importedKey === 'plugins_manager_dashboard') {
+                $importedMessage .= '<li>'.esc_html__('Plugins Manager — /wp-admin/ rules', 'wp-asset-clean-up').'</li>';
+            }
+
+            $importedMessage = apply_filters(
+                'wpacu_internal_tools_import_done_imported_message',
+                $importedMessage,
+                $importedKey,
+                $this->data['import_done_list'],
+                $this
+            );
         }
 
 	    $importedMessage .= '</ul>';
@@ -876,4 +1420,22 @@ SQL;
         <?php
 	    $this->data['import_done_list'] = array(); // reset it to avoid showing it twice
     }
+
+	/**
+	 * Show a clear error when the selected import file cannot be processed.
+	 *
+	 * @return void
+	 */
+	public function importError()
+	{
+		if (empty($this->data['import_error_message']) || ! is_string($this->data['import_error_message'])) {
+			return;
+		}
+		?>
+		<div class="notice notice-error wpacu-notice wpacu-imported-notice is-dismissible">
+			<p><span class="dashicons dashicons-warning" aria-hidden="true"></span> <?php echo esc_html($this->data['import_error_message']); ?></p>
+		</div>
+		<?php
+		$this->data['import_error_message'] = '';
+	}
 }

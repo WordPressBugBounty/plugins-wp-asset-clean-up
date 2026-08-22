@@ -46,12 +46,8 @@ class MetaBoxes
 			return;
 		}
 
-		if ( Main::instance()->settings['allow_manage_assets_to'] === 'chosen' && ! empty(Main::instance()->settings['allow_manage_assets_to_list']) ) {
-			$wpacuCurrentUserId = get_current_user_id();
-
-			if ( ! in_array( $wpacuCurrentUserId, Main::instance()->settings['allow_manage_assets_to_list'] ) ) {
-				return; // the current logged-in admin is not in the list of "Allow managing assets to:"
-			}
+		if ( ! AssetsManager::currentUserCanViewAssetsList() ) {
+			return;
 		}
 
 		if ($type === 'manage_page_assets') {
@@ -150,9 +146,12 @@ class MetaBoxes
 			$isListFetchable = false;
 		}
 
-		if (self::isMediaWithPermalinkDeactivated($post)) {
+        $mediaPermalinkDeactivationInfo = self::getMediaPermalinkDeactivationInfo($post);
+
+		if ($mediaPermalinkDeactivationInfo !== false) {
 			$isListFetchable = false;
-			$data['status'] = 4; // "Redirect attachment URLs to the attachment itself?" is enabled in "Yoast SEO" -> "Media"
+			$data['status'] = 4;
+            $data['media_permalink_deactivation_info'] = $mediaPermalinkDeactivationInfo;
 		}
 
 		if ($isListFetchable) {
@@ -293,33 +292,96 @@ class MetaBoxes
 		return $obj;
 	}
 
-	/**
-	 * @param string $post
-	 *
-	 * @return bool
+    /**
+     * Determine why attachment pages are unavailable as regular singular pages.
      *
-     * @noinspection BadExceptionsProcessingInspection
+     * @param object|null $post
+     *
+     * @return array|false
      */
-	public static function isMediaWithPermalinkDeactivated($post = '')
-	{
-		if ($post === '') {
-			$postTypeToCheck = 'attachment';
-		} else {
-            if ( ! isset($post->ID) ) {
+    public static function getMediaPermalinkDeactivationInfo($post = null)
+    {
+        if ($post === null) {
+            $postTypeToCheck = 'attachment';
+        } else {
+            if (! isset($post->ID)) {
                 return false;
             }
 
-			$postTypeToCheck = get_post_type($post->ID);
-		}
+            $postTypeToCheck = get_post_type($post->ID);
+        }
 
-		if ('attachment' === $postTypeToCheck && method_exists('WPSEO_Options', 'get')) {
-			try {
-				if (\WPSEO_Options::get( 'disable-attachment' ) === true) {
-					return true;
-				}
-			} catch (\Exception $e) {}
-		}
+        if ($postTypeToCheck !== 'attachment') {
+            return false;
+        }
 
-		return false;
-	}
+        /*
+         * WordPress 6.4+ stores this option for both upgraded and new sites.
+         * On older WordPress versions the option normally does not exist, which means
+         * attachment pages retain their classic behaviour.
+         */
+        $attachmentPagesEnabled = get_option('wp_attachment_pages_enabled', null);
+
+        if ($attachmentPagesEnabled !== null && ! (bool) $attachmentPagesEnabled) {
+            return array(
+                'source' => 'wordpress',
+                'label'  => 'WordPress',
+                'reason' => sprintf(
+                    /* translators: 1: Opening link tag, 2: Closing link tag. */
+                    __(
+                        '%1$sAttachment pages are disabled in WordPress%2$s and their URLs redirect to the corresponding media files.',
+                        'wp-asset-clean-up'
+                    ),
+                    '<a href="' . esc_url('https://make.wordpress.org/core/2023/10/16/changes-to-attachment-pages/') . '" target="_blank" rel="noopener noreferrer">',
+                    '</a>'
+                ),
+            );
+        }
+
+        $wpseoOptionsClass = 'WPSEO_Options';
+
+        if (class_exists($wpseoOptionsClass) && method_exists($wpseoOptionsClass, 'get')) {
+            try {
+                if ($wpseoOptionsClass::get('disable-attachment') === true) {
+                    return array(
+                        'source' => 'yoast-seo',
+                        'label'  => 'Yoast SEO',
+                        'reason' => __('Media pages are disabled in Yoast SEO and attachment URLs redirect to the media files.', 'wp-asset-clean-up')
+                    );
+                }
+            } catch (\Exception $e) {}
+        }
+
+        $rankMathHelperClass = '\RankMath\Helper';
+
+        if (class_exists($rankMathHelperClass) && method_exists($rankMathHelperClass, 'get_settings')) {
+            try {
+                $rankMathRedirectAttachments = $rankMathHelperClass::get_settings('general.attachment_redirect_urls');
+
+                if (in_array($rankMathRedirectAttachments, array(true, 1, '1', 'on'), true)) {
+                    return array(
+                        'source' => 'rank-math',
+                        'label'  => 'Rank Math SEO',
+                        'reason' => __('Redirect Attachments is enabled in Rank Math SEO, so attachment URLs do not load as regular media pages.', 'wp-asset-clean-up')
+                    );
+                }
+            } catch (\Exception $e) {}
+        }
+
+        $deactivationInfo = apply_filters('wpacu_attachment_pages_deactivation_info', false, $post);
+
+        return is_array($deactivationInfo) && ! empty($deactivationInfo['reason'])
+            ? $deactivationInfo
+            : false;
+    }
+
+    /**
+     * @param object|null $post
+     *
+     * @return bool
+     */
+    public static function isMediaWithPermalinkDeactivated($post = null)
+    {
+        return self::getMediaPermalinkDeactivationInfo($post) !== false;
+    }
 }

@@ -3,88 +3,160 @@
  * No direct access to this file
  */
 
-use WpAssetCleanUp\Admin\MiscAdmin;
+use WpAssetCleanUp\Admin\AssetsManagerAdmin;
+use WpAssetCleanUp\Admin\AjaxSearchPagesAutocomplete;
 
 if (! isset($data)) {
-	exit;
+    exit;
 }
-?>
-<div style="margin: 0 0 15px;">
-	<?php
-	$loadSearchFormForPages = true;
 
-    $searchPlaceholderText = sprintf(__('You can type a keyword or the ID to search the %s for which you want to manage its CSS/JS (e.g. unloading)', 'wp-asset-clean-up'), $data['post_type']);
+$loadSearchFormForPages = true; // default
+$showAllResultsOnFocus  = false;
+$showAllResultsIfCountIsUpTo = 0;
 
-	// Anything that is not within the array, is a custom post type
-	if (isset($data['for'])) {
-        if ($data['for'] === 'custom_post_types') {
-            $postTypes = get_post_types( array( 'public' => true ) );
+if (isset($data['for']) && $data['for'] === 'custom_post_types') {
+    $postTypesList = AssetsManagerAdmin::getCustomPostTypesWithPosts();
 
-            if ( ! empty($postTypes) ) {
-                $postTypesList = MiscAdmin::filterCustomPostTypesList($postTypes);
-            ?>
-                After you choose the custom post type, you can then search within all the posts that are within your choice:
-                <select id="wpacu-custom-post-type-choice">
-                    <?php foreach ($postTypesList as $listPostType => $listPostTypeLabel) { ?>
-                        <option <?php if ($data['post_type'] === $listPostType) { echo 'selected="selected"'; } ?> value="<?php echo esc_attr($listPostType); ?>"><?php echo esc_html($listPostTypeLabel); ?></option>
-                    <?php } ?>
-                </select>
-            <?php } else { ?>
-                <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
-                    <span class="dashicons dashicons-warning" style="color: #004567;"></span> You do not have any custom post types available. Thus, this area is not usable. Once you will use plugins that have custom post types (e.g. WooCommerce with its "product" post type), or you will add them within your (child) theme, they will show up here, so you can manage the pages belonging to specific post types.
-                </div>
-            <?php } ?>
-
-            <div style="margin: 0 0 15px;"></div>
-		<?php
-        } elseif ($data['for'] === 'posts') {
-           $posts = get_posts(array('post_type' => 'post', 'post_status' => 'publish,private'));
-	        if (empty($posts)) {
-	           $loadSearchFormForPages = false; // no posts added
-               ?>
-               <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
-                   <span class="dashicons dashicons-warning" style="color: #004567;"></span> There aren't any posts added in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('edit.php'); ?>"><span class="dashicons dashicons-admin-post"></span> "Posts" --&gt; "All Posts"</a>.
-               </div>
-               <?php
-           }
-        } elseif ($data['for'] === 'pages') {
-	        $pages = get_pages(array('post_type' => 'page', 'post_status' => array('publish', 'private')));
-	        if (empty($pages)) {
-		        $loadSearchFormForPages = false; // no pages added
-		        ?>
-                <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
-                    <span class="dashicons dashicons-warning" style="color: #004567;"></span> There aren't any pages added in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('edit.php?post_type=page'); ?>"><span class="dashicons dashicons-admin-page"></span> "Pages" --&gt; "All Pages"</a>.
-                </div>
-		        <?php
-	        }
-        }
-	}
-
-    if (isset($postTypes) && empty($postTypes)) {
-	    $loadSearchFormForPages = false; // no post types added
-    }
-
-    if ($loadSearchFormForPages) {
-    ?>
-        <form id="wpacu-search-form-assets-manager">
-            Load assets manager for:
-            <input type="text"
-                   class="search-field"
-                   value=""
-                   placeholder="<?php echo esc_attr($searchPlaceholderText); ?>"
-                   style="max-width: 800px; width: 100%; padding-right: 15px;" />
-            * <small>Once the post is selected, the CSS &amp; JS manager will load to manage the assets for the chosen post</small>
-            <div style="display: none; padding: 10px; color: #cc0000;" id="wpacu-search-form-assets-manager-no-results"><span class="dashicons dashicons-warning"></span> <?php _e('There are no results based on your search', 'wp-asset-clean-up'); ?>. <?php echo sprintf(__('Remember that you can also use the %s ID in the input', 'wp-asset-clean-up'), $data['post_type']); ?>.</div>
-        </form>
-
-        <div style="display: none;" id="wpacu-post-chosen-loading-assets">
-            <img style="margin: 2px 0 4px;"
-                 src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/loader-horizontal.svg?x=<?php echo time(); ?>"
-                 align="top"
-                 width="120"
-                 alt="" />
+    if (empty($postTypesList)) {
+        $loadSearchFormForPages = false;
+        ?>
+        <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
+            <span class="dashicons dashicons-warning" style="color: #004567;"></span>
+            <?php esc_html_e('There are no public custom post types with published or private entries available.', 'wp-asset-clean-up'); ?>
         </div>
-    <?php
+        <?php
+    } else {
+        if (empty($data['post_type']) || ! isset($postTypesList[$data['post_type']])) {
+            $data['post_type'] = AssetsManagerAdmin::getDefaultCustomPostTypeWithPosts();
+        }
+
+        $selectedPostTypeData = $postTypesList[$data['post_type']];
+        $showAllResultsIfCountIsUpTo = AjaxSearchPagesAutocomplete::$showAllResultsIfCountIsUpToArray['custom_post_types'];
+        $showAllResultsOnFocus = ((int)$selectedPostTypeData['count'] <= $showAllResultsIfCountIsUpTo);
+        ?>
+        <form id="wpacu-custom-post-type-form" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="margin: 0 0 15px;">
+            <input type="hidden" name="page" value="<?php echo esc_attr(WPACU_PLUGIN_ID); ?>_assets_manager" />
+            <input type="hidden" name="wpacu_for" value="custom_post_types" />
+            <?php esc_html_e('Choose the custom post type first, then search within its entries:', 'wp-asset-clean-up'); ?>
+            <select id="wpacu-custom-post-type-choice" name="wpacu_post_type" onchange="this.form.submit();">
+                <?php foreach ($postTypesList as $postTypeKey => $postTypeData) { ?>
+                    <?php
+                    $postsCountText = sprintf(
+                        _n('%s post', '%s posts', $postTypeData['count'], 'wp-asset-clean-up'),
+                        number_format_i18n($postTypeData['count'])
+                    );
+                    ?>
+                    <option <?php selected($data['post_type'], $postTypeKey); ?> value="<?php echo esc_attr($postTypeKey); ?>">
+                        <?php echo esc_html($postTypeData['label']); ?> (<?php echo esc_html($postTypeKey); ?>, <?php echo esc_html($postsCountText); ?>)
+                    </option>
+                <?php } ?>
+            </select>
+        </form>
+        <?php
+    }
+} elseif (isset($data['for']) && $data['for'] === 'posts') {
+    $wpCountPosts = wp_count_posts('post');
+    $totalPosts   = (int)$wpCountPosts->publish + (int)$wpCountPosts->private;
+
+    if ($totalPosts > 0) {
+        $showAllResultsIfCountIsUpTo = AjaxSearchPagesAutocomplete::$showAllResultsIfCountIsUpToArray['posts'];
+        $showAllResultsOnFocus = ($totalPosts <= $showAllResultsIfCountIsUpTo);
+    } else {
+        $loadSearchFormForPages = false;
+        ?>
+        <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
+            <span class="dashicons dashicons-warning" style="color: #004567;"></span>
+            There aren't any posts added in <a style="text-decoration: none;" target="_blank" href="<?php echo esc_url(admin_url('edit.php')); ?>"><span class="dashicons dashicons-admin-post"></span> "Posts" --&gt; "All Posts"</a>.
+        </div>
+        <?php
+    }
+} elseif (isset($data['for']) && $data['for'] === 'pages') {
+    $pages = get_pages(array('post_type' => 'page', 'post_status' => array('publish', 'private')));
+
+    if (empty($pages)) {
+        $loadSearchFormForPages = false;
+        ?>
+        <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
+            <span class="dashicons dashicons-warning" style="color: #004567;"></span>
+            There aren't any pages added in <a style="text-decoration: none;" target="_blank" href="<?php echo esc_url(admin_url('edit.php?post_type=page')); ?>"><span class="dashicons dashicons-admin-page"></span> "Pages" --&gt; "All Pages"</a>.
+        </div>
+        <?php
+    } else {
+        $showAllResultsIfCountIsUpTo = AjaxSearchPagesAutocomplete::$showAllResultsIfCountIsUpToArray['pages'];
+        $showAllResultsOnFocus = (count($pages) <= $showAllResultsIfCountIsUpTo);
+    }
+} elseif (isset($data['for']) && $data['for'] === 'media_attachment') {
+    $attachmentsCount = wp_count_posts('attachment', 'readable');
+
+    $totalAttachments = 0;
+
+    foreach ((array) $attachmentsCount as $status => $count) {
+        if ($status === 'trash' || $status === 'auto-draft') {
+            continue;
+        }
+
+        $totalAttachments += (int) $count;
+    }
+
+    if ($totalAttachments > 0) {
+        $showAllResultsIfCountIsUpTo = AjaxSearchPagesAutocomplete::$showAllResultsIfCountIsUpToArray['media'];
+
+        $showAllResultsOnFocus = ($totalAttachments <= $showAllResultsIfCountIsUpTo);
+    } else {
+        $loadSearchFormForPages = false;
+        ?>
+        <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
+            <span class="dashicons dashicons-warning" style="color: #004567;"></span>
+            <?php esc_html_e(
+                'There are no media files available. The search bar will be available after at least one media file is added.',
+                'wp-asset-clean-up'
+            ); ?>
+        </div>
+        <?php
+    }
+}
+
+if ($loadSearchFormForPages) {
+    $postTypeObject = $data['post_type'] ? get_post_type_object($data['post_type']) : null;
+    $postTypeLabel  = ($postTypeObject && isset($postTypeObject->labels->singular_name))
+        ? $postTypeObject->labels->singular_name
+        : $data['post_type'];
+
+    $searchPlaceholderText = sprintf(
+        __('You can type a keyword or the ID to search the %s for which you want to manage its CSS/JS (e.g. unloading)', 'wp-asset-clean-up'),
+        $postTypeLabel
+    );
+
+    if ($data['post_type'] === 'product') {
+        $searchPlaceholderText = sprintf(
+            __('You can type a keyword or the ID to search the %s for which you want to manage its CSS/JS (e.g. unloading)', 'wp-asset-clean-up'),
+            'WooCommerce '.$postTypeLabel
+        );
     }
     ?>
-</div>
+    <form id="wpacu-search-form-assets-manager">
+        <?php esc_html_e('Load assets manager for:', 'wp-asset-clean-up'); ?>
+        <input type="text"
+               class="search-field"
+               value=""
+               data-wpacu-show-all-on-focus="<?php echo $showAllResultsOnFocus ? '1' : '0'; ?>"
+               data-wpacu-show-all-limit="<?php echo esc_attr($showAllResultsIfCountIsUpTo); ?>"
+               placeholder="<?php echo esc_attr($searchPlaceholderText); ?>"
+               style="max-width: 800px; width: 100%; padding-right: 15px;" />
+        * <small><?php esc_html_e('Once the entry is selected, the CSS & JS manager will load to manage its assets.', 'wp-asset-clean-up'); ?></small>
+        <div style="display: none; padding: 10px; color: #cc0000;" id="wpacu-search-form-assets-manager-no-results">
+            <span class="dashicons dashicons-warning"></span>
+            <?php esc_html_e('There are no results based on your search.', 'wp-asset-clean-up'); ?>
+            <?php echo esc_html(sprintf(__('Remember that you can also use the %s ID in the input.', 'wp-asset-clean-up'), $postTypeLabel)); ?>
+        </div>
+    </form>
+
+    <div style="display: none;" id="wpacu-post-chosen-loading-assets">
+        <img style="margin: 2px 0 4px;"
+             src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/loader-horizontal.svg?x=<?php echo time(); ?>"
+             align="top"
+             width="120"
+             alt="" />
+    </div>
+    <?php
+}

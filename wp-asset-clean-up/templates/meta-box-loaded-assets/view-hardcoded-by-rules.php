@@ -39,7 +39,7 @@ foreach ( $hardcodedTags as $targetKey => $listAssets) {
 
         // default (will be updated in the inclusions)
         $templateRowOutput = '';
-        $returnData        = array();
+        $returnData        = array('row' => array()); // default
 
         include __DIR__ . '/_asset-single-row-hardcoded-prepare-data.php';
 

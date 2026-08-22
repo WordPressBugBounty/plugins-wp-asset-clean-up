@@ -13,6 +13,7 @@ use WpAssetCleanUp\CleanUp;
 use WpAssetCleanUp\Main;
 use WpAssetCleanUp\MetaBoxes;
 use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class OptimizeCss
@@ -65,13 +66,11 @@ class OptimizeCss
 				});
 
 				add_filter('style_loader_tag', static function($styleTag) use ($allPatterns) {
-					foreach ($allPatterns as $patternToCheck) {
-						preg_match_all( '#<link[^>]*stylesheet[^>]*('.$patternToCheck.').*(>)#Usmi', $styleTag, $matchesSourcesFromTags, PREG_SET_ORDER );
-
-						if ( ! empty( $matchesSourcesFromTags ) ) {
-							return str_replace( '<link ', '<link wpacu-to-be-inlined=\'1\' ', $styleTag );
-						}
-					}
+                    foreach ($allPatterns as $patternToCheck) {
+                        if (Regex::matchesRule($patternToCheck, $styleTag)) {
+                            return str_replace( '<link ', '<link wpacu-to-be-inlined=\'1\' ', $styleTag );
+                        }
+                    }
 
 					return $styleTag;
 				});
@@ -79,28 +78,19 @@ class OptimizeCss
 		}
 	}
 
-	/**
-	 * @return array
-	 */
-	public static function getAllInlineChosenPatterns()
-	{
-		$inlineCssFilesPatterns = trim(Main::instance()->settings['inline_css_files_list']);
+    /**
+     * @return array
+     */
+    public static function getAllInlineChosenPatterns()
+    {
+        $inlineCssFilesPatterns = trim(Main::instance()->settings['inline_css_files_list']);
 
-		$allPatterns = array();
+        if ($inlineCssFilesPatterns === '') {
+            return array();
+        }
 
-		if (strpos($inlineCssFilesPatterns, "\n") !== false) {
-			// Multiple values (one per line)
-			foreach (explode("\n", $inlineCssFilesPatterns) as $inlinePattern) {
-				$allPatterns[] = trim($inlinePattern);
-			}
-		} else {
-			// Only one value?
-			$allPatterns[] = trim($inlineCssFilesPatterns);
-		}
-
-		// Strip any empty values
-		return array_filter($allPatterns);
-	}
+        return Regex::splitRules($inlineCssFilesPatterns);
+    }
 
     /**
      * @return array
@@ -220,6 +210,102 @@ class OptimizeCss
 		// [End] Collect for caching
 	}
 
+    /**
+     * Determine whether a same-site stylesheet source is handled by the dynamic CSS cache.
+     *
+     * The special Simple Custom CSS integration does not fetch its URL, but it still needs
+     * to follow the same exception rules and avoid reusing an existing optimized result.
+     *
+     * @param string $src
+     * @param object $value
+     *
+     * @return string|false
+     */
+    private static function getDynamicLoadedCssSourceType($src, $value)
+    {
+        $src = trim((string)$src);
+
+        if ($src === '' || ! is_object($value)) {
+            return false;
+        }
+
+        if (isset($value->handle) && $value->handle === 'sccss_style'
+            && in_array('simple-custom-css/simple-custom-css.php', Misc::getActivePlugins(), true)) {
+            return 'simple-custom-css';
+        }
+
+        $siteUrl = rtrim(site_url(), '/');
+        $hasDynamicEndpointSyntax = strpos($src, '/?') !== false
+            || strpos($src, $siteUrl . '?') !== false
+            || strpos($src, '.php?') !== false
+            || Misc::endsWith($src, '.php');
+
+        return $hasDynamicEndpointSyntax && strpos($src, $siteUrl) !== false ? 'dynamic' : false;
+    }
+
+    /**
+     * Check whether a dynamic CSS endpoint must remain on its original URL.
+     *
+     * Rules can be plain URL fragments or RegEx patterns. Both the absolute source and
+     * its path/query representation are checked, together with URL-decoded variants, so
+     * a rule such as "/css-generator.php?user_id=" also matches a full same-site URL.
+     *
+     * @param string $src
+     *
+     * @return bool
+     */
+    public static function skipDynamicLoadedCssCache($src)
+    {
+        $settings = Main::instance()->settings;
+        $exceptions = isset($settings['cache_dynamic_loaded_css_exceptions'])
+            ? trim((string)$settings['cache_dynamic_loaded_css_exceptions'])
+            : '';
+
+        if ($exceptions === '') {
+            return false;
+        }
+
+        $src = trim(html_entity_decode((string)$src, ENT_QUOTES, 'UTF-8'));
+
+        if ($src === '') {
+            return false;
+        }
+
+        $subjects = array($src);
+        $urlParts = wp_parse_url($src);
+
+        if (is_array($urlParts) && ! empty($urlParts['path'])) {
+            $relativeSrc = $urlParts['path'];
+
+            if (isset($urlParts['query']) && $urlParts['query'] !== '') {
+                $relativeSrc .= '?' . $urlParts['query'];
+            }
+
+            $subjects[] = $relativeSrc;
+        }
+
+        $decodedSubjects = array();
+
+        foreach ($subjects as $subject) {
+            $decodedSubject = rawurldecode($subject);
+
+            if ($decodedSubject !== $subject) {
+                $decodedSubjects[] = $decodedSubject;
+            }
+        }
+
+        $subjects = array_values(array_unique(array_merge($subjects, $decodedSubjects)));
+        $rules = Regex::splitRules($exceptions);
+
+        foreach ($subjects as $subject) {
+            if (Regex::matchesAnyRule($rules, $subject) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 	/**
 	 * @param $value
 	 * @param array $fileAlreadyChecked
@@ -228,9 +314,7 @@ class OptimizeCss
 	 */
 	public static function maybeOptimizeIt($value, $fileAlreadyChecked = array())
 	{
-		if ($optimizeValues = ObjectCache::wpacu_cache_get('wpacu_maybe_optimize_it_css_'.$value->handle)) {
-			return $optimizeValues;
-		}
+        $instance = Main::instance();
 
 		global $wp_version;
 
@@ -240,11 +324,38 @@ class OptimizeCss
 			return array();
 		}
 
+        $srcForDynamicCacheCheck = $src;
+
+        // Check if it starts without "/" or a protocol; e.g. "wp-content/theme/style.css"
+        if (strncmp($srcForDynamicCacheCheck, '/', 1) !== 0 &&
+            strncmp($srcForDynamicCacheCheck, '//', 2) !== 0 &&
+            strncasecmp($srcForDynamicCacheCheck, 'http://', 7) !== 0 &&
+            strncasecmp($srcForDynamicCacheCheck, 'https://', 8) !== 0
+        ) {
+            $srcForDynamicCacheCheck = '/' . $srcForDynamicCacheCheck;
+        }
+
+        $srcForDynamicCacheCheck = Misc::getHrefFromSource($srcForDynamicCacheCheck);
+        $dynamicLoadedCssSourceType = self::getDynamicLoadedCssSourceType($srcForDynamicCacheCheck, $value);
+        $cacheDynamicLoadedCssEnabled = ! empty($instance->settings['cache_dynamic_loaded_css']);
+
+        // Dynamic endpoints should never reuse an old request/persistent cache result after
+        // this feature is disabled or after an endpoint is added to the exception list.
+        if ($dynamicLoadedCssSourceType !== false &&
+            ( ! $cacheDynamicLoadedCssEnabled || self::skipDynamicLoadedCssCache($srcForDynamicCacheCheck) )
+        ) {
+            return array();
+        }
+
+		if ($optimizeValues = ObjectCache::wpacu_cache_get('wpacu_maybe_optimize_it_css_'.$value->handle)) {
+			return $optimizeValues;
+		}
+
 		$doFileMinify = true;
 
 		$isMinifyCssFilesEnabled = (isset($fileAlreadyChecked['is_minify_css_enabled']) && $fileAlreadyChecked['is_minify_css_enabled'])
 			? $fileAlreadyChecked['is_minify_css_enabled']
-			: in_array(Main::instance()->settings['minify_loaded_css_for'], array('href', 'all', '')) && MinifyCss::isMinifyCssEnabled();
+			: in_array($instance->settings['minify_loaded_css_for'], array('href', 'all', '')) && MinifyCss::isMinifyCssEnabled();
 
 		if ( ! $isMinifyCssFilesEnabled || MinifyCss::skipMinify($src, $value->handle) ) {
 			$doFileMinify = false;
@@ -301,7 +412,7 @@ class OptimizeCss
 					// Read the file from its caching (that makes the processing faster)
 					// It will fallback to the original CSS file
 					if ( isset( $savedValuesArray['source_uri'] ) && is_file( $localPathToCssOptimized ) ) {
-						if ( Main::instance()->settings['fetch_cached_files_details_from'] === 'db_disk' ) {
+						if ( $instance->settings['fetch_cached_files_details_from'] === 'db_disk' ) {
 							$GLOBALS['wpacu_from_location_inc'] ++;
 						}
 
@@ -319,31 +430,16 @@ class OptimizeCss
 			}
 	    }
 
-		// Check if it starts without "/" or a protocol; e.g. "wp-content/theme/style.css"
-		if (strncmp($src, '/', 1) !== 0 &&
-            strncmp($src, '//', 2) !== 0 &&
-            strncasecmp($src, 'http://', 7) !== 0 &&
-            strncasecmp($src, 'https://', 8) !== 0
-		) {
-			$src = '/'.$src; // append the forward slash to be processed as relative later on
-		}
+        $src = $srcForDynamicCacheCheck;
 
-        $src = Misc::getHrefFromSource($src);
-
-		if ($value->handle === 'sccss_style' &&
-		    Main::instance()->settings['cache_dynamic_loaded_css'] &&
-		    in_array('simple-custom-css/simple-custom-css.php', Misc::getActivePlugins())
-		) {
+		if ($cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'simple-custom-css') {
 			$pathToAssetDir = '';
 			$sourceBeforeOptimization = $value->src;
 
 			if (! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('simple-custom-css', $value))) {
 				return array();
 			}
-		} elseif (Main::instance()->settings['cache_dynamic_loaded_css'] &&
-		          ((strpos($src, '/?') !== false) || (strpos($src, rtrim(site_url(),'/').'?') !== false) || (strpos($src, '.php?') !== false) || Misc::endsWith($src, '.php')) &&
-		          (strpos($src, rtrim(site_url(), '/')) !== false)
-		) {
+		} elseif ($cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'dynamic') {
 			$pathToAssetDir = '';
 			$sourceBeforeOptimization = str_replace('&#038;', '&', $value->src);
 
@@ -455,7 +551,7 @@ class OptimizeCss
 		}
 
 		$newLocalPath    = WP_CONTENT_DIR . $newFilePathUri; // Ful Local path
-		$newLocalPathUrl = WP_CONTENT_URL . $newFilePathUri; // Full URL path
+        $newLocalPathUrl = content_url($newFilePathUri);    // Full URL path
 
 		if ($cssContent && $cssContent !== '/**/' && apply_filters('wpacu_print_info_comments_in_cached_assets', true)) {
 			$cssContent = '/*!' . $sourceBeforeOptimization . '*/' . $cssContent;
@@ -513,11 +609,26 @@ class OptimizeCss
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
 		if ( ! Main::instance()->preventAssetsSettings() ) {
+			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_change_css_position'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+			if ( ! wpacuIsDefinedConstant('WPACU_NO_POSITIONS_CHANGED_FOR_ASSETS') ) {
+                $htmlSource = apply_filters('wpacu_internal_change_css_position', $htmlSource);
+
+                // Backwards compatibility for any custom callbacks still using the old Pro hook
+                $htmlSource = apply_filters('wpacu_change_css_position', $htmlSource);
+            }
+			/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
 			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_preload_css'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
             if ( ! wpacuIsDefinedConstant('WPACU_NO_ASSETS_PRELOADED') ) {
                 $htmlSource = Preloads::instance()->doChanges($htmlSource);
             }
 			/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
+            /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_media_query_load_css'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+            if ( ! isset($_GET['wpacu_no_media_query_load_for_css']) && ! wpacuIsDefinedConstant('WPACU_NO_MEDIA_QUERIES_LOAD_RULES_SET_FOR_ASSETS') ) {
+                $htmlSource = apply_filters('wpacu_internal_media_query_load_css', $htmlSource);
+            }
+            /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 		}
 
 		if (self::isInlineCssEnabled()) {
@@ -563,6 +674,11 @@ class OptimizeCss
 		}
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
+		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_defer_footer_css'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+		$htmlSource = apply_filters('wpacu_internal_defer_footer_styles', $htmlSource);
+		$htmlSource = apply_filters('wpacu_pro_defer_footer_styles',      $htmlSource); // Backwards compatibility for any custom callbacks still using the old Pro hook
+		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
         /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_local_fonts_display_style_inline'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
         if (Main::instance()->settings['local_fonts_display'] !== '') {
             $htmlSource = apply_filters('wpacu_local_fonts_display_style_inline', $htmlSource, Main::instance()->settings['local_fonts_display']);
@@ -575,12 +691,8 @@ class OptimizeCss
                 $htmlSource = str_replace(Preloads::DEL_STYLES_PRELOADS, '', $htmlSource);
             }
 
-            if (strpos($htmlSource, 'data-wpacu-link-rel-href-before') !== false) {
-                $htmlSource = preg_replace('#(\s+|)data-wpacu-link-rel-href-before="' . '(.*)' . '"(\s+|)#Usm', ' ', $htmlSource);
-            }
-
-            if (strpos($htmlSource, 'data-wpacu-style-handle') !== false) {
-                $htmlSource = preg_replace('#<link(.*)data-wpacu-style-handle=\'(.*)\'#Umi', '<link \\1', $htmlSource);
+            if (strpos($htmlSource, 'data-wpacu-link-rel-href-before') !== false || strpos($htmlSource, 'data-wpacu-style-handle') !== false) {
+                $htmlSource = self::cleanUpTemporaryLinkAttributes($htmlSource);
             }
 
             // Clear possible empty SCRIPT tags (e.g. left from associated 'before' and 'after' tags after their content was stripped)
@@ -608,6 +720,26 @@ class OptimizeCss
 
 		return $htmlSource;
 	}
+
+    /**
+     * @param $htmlSource
+     *
+     * @return array|mixed|string|string[]|null
+     */
+    public static function cleanUpTemporaryLinkAttributes($htmlSource)
+    {
+    	if (stripos($htmlSource, '<link') === false || stripos($htmlSource, 'data-wpacu-') === false) {
+    		return $htmlSource;
+    	}
+
+    	return preg_replace_callback('#<link\b[^>]*>#i', static function($matches) {
+    		return preg_replace(
+    			'#\s+data-wpacu-(?:link-rel-href-before|style-handle)=(?:"[^"]*"|\'[^\']*\'|[^\s>]+)#i',
+    			'',
+    			$matches[0]
+    		);
+    	}, $htmlSource);
+    }
 
 	/**
 	 * @return string
@@ -926,6 +1058,8 @@ class OptimizeCss
 	 */
 	public static function updateOriginalToOptimizedTag($linkSourceTag, $sourceUrlList, $optimizeUrl)
 	{
+        $newLinkSourceTag = '';
+
 		if (is_array($sourceUrlList) && ! empty($sourceUrlList)) {
 			foreach ($sourceUrlList as $sourceUrl) {
 				$newLinkSourceTag = str_replace($sourceUrl, $optimizeUrl, $linkSourceTag);
@@ -938,13 +1072,13 @@ class OptimizeCss
 			$newLinkSourceTag = str_replace( $sourceUrlList, $optimizeUrl, $linkSourceTag );
 		}
 
-        if ( ! isset ($newLinkSourceTag) ) {
-            return $linkSourceTag; // something's wrong with the params that were passed; return tghe original tag
+        if ($newLinkSourceTag === '') {
+            return $linkSourceTag; // something's not right
         }
 
 		// Needed in case it's added to the Combine CSS exceptions list
 		if (self::proceedWithCssCombine()) {
-			$sourceUrlRel = is_array($sourceUrlList) ? OptimizeCommon::getSourceRelPath($sourceUrlList[0]) : OptimizeCommon::getSourceRelPath($sourceUrlList);
+			$sourceUrlRel     = is_array($sourceUrlList) ? OptimizeCommon::getSourceRelPath($sourceUrlList[0]) : OptimizeCommon::getSourceRelPath($sourceUrlList);
 			$newLinkSourceTag = str_ireplace('<link ', '<link data-wpacu-link-rel-href-before="'.$sourceUrlRel.'" ', $newLinkSourceTag);
 		}
 
@@ -1013,6 +1147,8 @@ class OptimizeCss
             'data-wpacu-to-be-preloaded-basic='
         );
 
+        $skipTagsContaining = apply_filters('wpacu_internal_optimize_css_skip_inline_tags_containing', $skipTagsContaining);
+
 		$allPatterns = self::getAllInlineChosenPatterns();
 
 		// Skip any LINK tags within conditional comments (e.g. Internet Explorer ones)
@@ -1058,12 +1194,12 @@ class OptimizeCss
 					$chosenInlineCssMatches = true;
 				} elseif ( ! empty( $allPatterns ) ) {
 					// Fallback, in case "wpacu-to-be-inlined" was not already added to the tag
-					foreach ($allPatterns as $patternToCheck) {
-						if (preg_match('#'.$patternToCheck.'#si', $matchedTag) || strpos($matchedTag, $patternToCheck) !== false) {
-							$chosenInlineCssMatches = true;
-							break;
-						}
-					}
+                    foreach ($allPatterns as $patternToCheck) {
+                        if (Regex::matchesRule($patternToCheck, $matchedTag)) {
+                            $chosenInlineCssMatches = true;
+                            break;
+                        }
+                    }
 				}
 
 				// Is auto inline disabled and the chosen CSS does not match? Continue to the next LINK tag
@@ -1190,6 +1326,8 @@ class OptimizeCss
             $useCacheForInlineStyle = false;
         }
 
+        $pathToInlineCssOptimizedItem = '';
+
 		if ($useCacheForInlineStyle) {
 			// Anything in the cache? Take it from there and don't spend resources with the minification
 			// (which in some environments uses the CPU, depending on the complexity of the JavaScript code) and any other alteration
@@ -1232,7 +1370,7 @@ class OptimizeCss
 		}
 		/* [END] Change CSS Content */
 
-		if ($useCacheForInlineStyle && isset($pathToInlineCssOptimizedItem)) {
+		if ($useCacheForInlineStyle && $pathToInlineCssOptimizedItem) {
 			// Store the optimized content to the cached CSS file which would be read quicker
 			FileSystem::filePutContents( $pathToInlineCssOptimizedItem, $cssContent );
 		}
@@ -1573,6 +1711,8 @@ class OptimizeCss
 				$noScripts .= '<noscript><link rel="stylesheet" href="'.$hrefAttrValue.'" media="'.$mediaAttrValue.'" /></noscript>'."\n";
 			}
 		}
+
+		$noScripts = apply_filters('wpacu_internal_add_noscript_css_link_tags', $noScripts);
 
 		return str_replace(self::MOVE_NOSCRIPT_TO_BODY_FOR_CERTAIN_LINK_TAGS, $noScripts, $htmlSource);
 	}

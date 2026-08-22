@@ -40,24 +40,39 @@ class OwnAssets
 	            'rel_path' => '/assets/style.min.css'
             ),
 
+            'local_fonts_preload_scanner' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-local-fonts-preload-scanner',
+                'rel_path' => '/assets/local-fonts-preload-scanner.min.css'
+            ),
+
+            'critical_css_admin' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-critical-css-admin',
+                'rel_path' => '/assets/critical-css-admin.min.css'
+            ),
+
+            'critical_css_admin_classic' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-critical-css-admin-classic',
+                'rel_path' => '/assets/critical-css-admin-classic.min.css'
+            ),
+
             'chosen' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-chosen-style',
-                'rel_path' => '/assets/chosen/chosen.min.css'
+                'rel_path' => '/assets/vendor/chosen/chosen.min.css'
             ),
 
             'tooltipster' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-tooltipster-style',
-                'rel_path' => '/assets/tooltipster/tooltipster.bundle.min.css'
+                'rel_path' => '/assets/vendor/tooltipster/tooltipster.bundle.min.css'
             ),
 
             'sweetalert2' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-sweetalert2-style',
-                'rel_path' => '/assets/sweetalert2/dist/sweetalert2.min.css'
+                'rel_path' => '/assets/vendor/sweetalert2/dist/sweetalert2.min.css'
             ),
 
             'autocomplete_search_jquery_ui_custom' => array(
                 'handle' => WPACU_PLUGIN_ID.'-autocomplete-jquery-ui-custom',
-                'rel_path' => '/assets/auto-complete/smoothness/jquery-ui-custom.min.css'
+                'rel_path' => '/assets/vendor/auto-complete/smoothness/jquery-ui-custom.min.css'
             )
         );
 
@@ -67,6 +82,11 @@ class OwnAssets
                 'rel_path' => '/assets/script.min.js'
             ),
 
+            'local_fonts_preload_scanner' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-local-fonts-preload-scanner',
+                'rel_path' => '/assets/local-fonts-preload-scanner.min.js'
+            ),
+
             'script_cache_manager' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-script-cache-manager',
                 'rel_path' => '/assets/script-cache-manager.min.js'
@@ -74,22 +94,22 @@ class OwnAssets
 
             'chosen' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-chosen-script',
-                'rel_path' => '/assets/chosen/chosen.jquery.min.js'
+                'rel_path' => '/assets/vendor/chosen/chosen.jquery.min.js'
             ),
 
             'tooltipster' => array(
 	            'handle'   => WPACU_PLUGIN_ID . '-tooltipster-script',
-	            'rel_path' => '/assets/tooltipster/tooltipster.bundle.min.js'
+	            'rel_path' => '/assets/vendor/tooltipster/tooltipster.bundle.min.js'
             ),
 
             'sweetalert2' => array(
 	            'handle'   => WPACU_PLUGIN_ID . '-sweetalert2-js',
-	            'rel_path' => '/assets/sweetalert2/dist/sweetalert2.min.js'
+	            'rel_path' => '/assets/vendor/sweetalert2/dist/sweetalert2.min.js'
             ),
 
             'autocomplete_search' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-autocomplete-search',
-                'rel_path' => '/assets/auto-complete/assets-manager-search-pages.min.js'
+                'rel_path' => '/assets/script-assets-manager-search-pages.min.js'
             )
         );
 
@@ -97,20 +117,27 @@ class OwnAssets
         // Read more: https://wordpress.org/support/article/debugging-in-wordpress/#script_debug
 	    if ( (defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ) {
 		    self::$ownAssets['styles']['style_core']['rel_path']   = '/assets/style.css';
+            self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'] = '/assets/local-fonts-preload-scanner.css';
+		    self::$ownAssets['styles']['critical_css_admin']['rel_path'] = '/assets/critical-css-admin.css';
+		    self::$ownAssets['styles']['critical_css_admin_classic']['rel_path'] = '/assets/critical-css-admin-classic.css';
 		    self::$ownAssets['scripts']['script_core']['rel_path'] = '/assets/script.js';
+            self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path'] = '/assets/local-fonts-preload-scanner.js';
 
             self::$ownAssets['scripts']['script_cache_manager']['rel_path'] = '/assets/script-cache-manager.js';
 
-		    self::$ownAssets['styles']['chosen']['rel_path']       = '/assets/chosen/chosen.css';
-		    self::$ownAssets['scripts']['chosen']['rel_path']      = '/assets/chosen/chosen.jquery.js';
+		    self::$ownAssets['styles']['chosen']['rel_path']       = '/assets/vendor/chosen/chosen.css';
+		    self::$ownAssets['scripts']['chosen']['rel_path']      = '/assets/vendor/chosen/chosen.jquery.js';
 
-		    self::$ownAssets['styles']['sweetalert2']['rel_path']  = '/assets/sweetalert2/dist/sweetalert2.css';
-		    self::$ownAssets['scripts']['sweetalert2']['rel_path'] = '/assets/sweetalert2/dist/sweetalert2.js';
+		    self::$ownAssets['styles']['tooltipster']['rel_path']  = '/assets/vendor/tooltipster/tooltipster.bundle.css';
+		    self::$ownAssets['scripts']['tooltipster']['rel_path'] = '/assets/vendor/tooltipster/tooltipster.bundle.js';
+
+		    self::$ownAssets['styles']['sweetalert2']['rel_path']  = '/assets/vendor/sweetalert2/dist/sweetalert2.css';
+		    self::$ownAssets['scripts']['sweetalert2']['rel_path'] = '/assets/vendor/sweetalert2/dist/sweetalert2.js';
 
 		    self::$ownAssets['styles']
-             ['autocomplete_search_jquery_ui_custom']['rel_path']  = '/assets/auto-complete/smoothness/jquery-ui-custom.css';
+             ['autocomplete_search_jquery_ui_custom']['rel_path']  = '/assets/vendor/auto-complete/smoothness/jquery-ui-custom.css';
 		    self::$ownAssets['scripts']
-             ['autocomplete_search']['rel_path']                   = '/assets/auto-complete/assets-manager-search-pages.js';
+             ['autocomplete_search']['rel_path']                   = '/assets/script-assets-manager-search-pages.js';
 	    }
     }
 
@@ -129,14 +156,25 @@ class OwnAssets
             return;
         }
 
+        $chosenScriptInlineExtraBranches = apply_filters(
+            'wpacu_internal_own_assets_chosen_script_inline_extra_branches',
+            ''
+        );
+
         $chosenScriptInline = <<<JS
 jQuery(document).ready(function($) {
+    if (typeof window.wpacuInitChosen !== 'function') {
+        return;
+    }
+
     $('.wpacu_chosen_select').each(function() {
-        if ($(this).hasClass('wpacu_access_via_specific_users_dd_search')) {
+        var \$select = $(this);
+
+        if (\$select.hasClass('wpacu_access_via_specific_users_dd_search')) {
             /*
             * [Access via specific users search DD]
             */
-            $('.wpacu_chosen_select.wpacu_access_via_specific_users_dd_search').chosen({
+            window.wpacuInitChosen(\$select, {
                 'width'                                       : '100%',
                 'no_results_text'                             : '&nbsp;',
                 'reset_search_field_on_update'                : false,
@@ -145,55 +183,22 @@ jQuery(document).ready(function($) {
             /*
             * [/Access via specific users search DD]
             */
-        } else if ($(this).hasClass('wpacu_access_via_specific_users_dd')) {
+        } else if (\$select.hasClass('wpacu_access_via_specific_users_dd')) {
             /*
             * [Access via specific users DD]
             */
-            $('.wpacu_chosen_select.wpacu_access_via_specific_users_dd').chosen({
-                'width' : '100%',
+            window.wpacuInitChosen(\$select, {
+                'width' : '100%'
             });
             /*
             * [/Access via specific users DD]
             */
-        }
-        /* [wpacu_pro] */
-        else if ($(this).hasClass('wpacu_plugin_manage_via_post_type_dd')) {
-            /*
-            * [Post Types DD]
-            */
-            $('.wpacu_chosen_select.wpacu_plugin_manage_via_post_type_dd').chosen({'width':'100%'});
-            /*
-            * [/Post Types DD]
-            */
-        } else if ($(this).hasClass('wpacu_plugin_manage_via_archive_dd')) {
-            /*
-            * [Archive Types DD]
-            */
-            $('.wpacu_chosen_select.wpacu_plugin_manage_via_archive_dd').chosen({'width':'100%'});
-            /*
-            * [/Archive Types DD]
-            */
-        } else if ($(this).hasClass('wpacu_plugin_manage_logged_in_via_role_dd')) {
-            /*
-            * [User Roles DD]
-            */
-            $('.wpacu_chosen_select.wpacu_plugin_manage_logged_in_via_role_dd').chosen({'width':'100%'});
-            /*
-            * [/User Roles DD]
-            */
-        } else if ($(this).hasClass('wpacu-input-element')) {
-            $('select.wpacu-input-element.wpacu_chosen_select').chosen();
-        } else {
-        /* [/wpacu_pro] */
-            
+        } {$chosenScriptInlineExtraBranches} else {
             /*
             * Default (only having the class "wpacu_chosen_select")
              */
-            $('select[class="wpacu_chosen_select"]').chosen();
-            
-        /* [wpacu_pro] */
+            window.wpacuInitChosen(\$select);
         }
-        /* [/wpacu_pro] */
     });
 });
 JS;
@@ -237,31 +242,63 @@ JS;
         return array_merge($allPluginStyleHandles, $allPluginScriptHandles);
     }
 
+
+    /**
+     * Apply a new internal filter and then the previous public filter only if somebody still uses it.
+     * This keeps backwards compatibility while allowing all internal hooks to use the wpacu_internal_ prefix.
+     *
+     * @return mixed
+     */
+    public static function applyInternalFilterWithFallback()
+    {
+        $args = func_get_args();
+
+        if (count($args) < 3) {
+            return isset($args[2]) ? $args[2] : null;
+        }
+
+        $internalHookName = array_shift($args);
+        $fallbackHookName = array_shift($args);
+
+        $internalArgs = array_merge(array($internalHookName), $args);
+        $filteredValue = call_user_func_array('apply_filters', $internalArgs);
+
+        if (has_filter($fallbackHookName)) {
+            $args[0] = $filteredValue;
+            $fallbackArgs = array_merge(array($fallbackHookName), $args);
+            $filteredValue = call_user_func_array('apply_filters', $fallbackArgs);
+        }
+
+        return $filteredValue;
+    }
+
 	/**
 	 *
 	 */
 	public function init()
     {
-        add_action('admin_enqueue_scripts', array($this, 'stylesAndScriptsForAdmin'));
-        add_action('wp_enqueue_scripts',    array($this, 'stylesAndScriptsForPublic'));
+        add_filter('wpacu_internal_object_data', array($this, 'objectData'));
+
+        add_action('admin_enqueue_scripts',      array($this, 'stylesAndScriptsForAdmin'));
+        add_action('wp_enqueue_scripts',         array($this, 'stylesAndScriptsForPublic'));
 
         // Query strings for debugging purpuses: 'wpacu_unload_own_style_assets', 'wpacu_unload_own_script_assets'
         // e.g. wpacu_unload_own_style_assets=handle | wpacu_unload_own_script_assets=handle1,handle2
         if (isset($_GET['wpacu_unload_own_style_assets']) || isset($_GET['wpacu_unload_own_script_assets'])) {
-            add_action('admin_enqueue_scripts', array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
-            add_action('wp_enqueue_scripts',    array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
+            add_action('admin_enqueue_scripts',  array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
+            add_action('wp_enqueue_scripts',     array($this, 'unloadOwnAssetsForDebuggingPurposes'), 20);
         }
 
 	    // Code only for the Dashboard
-	    add_action('admin_head',   array($this, 'inlineAdminHeadCode'));
-	    add_action('admin_footer', array($this, 'inlineAdminFooterCode'));
+	    add_action('admin_head',       array($this, 'inlineAdminHeadCode'));
+	    add_action('admin_footer',     array($this, 'inlineAdminFooterCode'));
 
 	    // Code for both the Dashboard and the Front-end view
-	    add_action('admin_head',   array($this, 'inlineCodeHead'));
-	    add_action('wp_head',      array($this, 'inlineCodeHead'));
+	    add_action('admin_head',       array($this, 'inlineCodeHead'));
+	    add_action('wp_head',          array($this, 'inlineCodeHead'));
 
-        add_action('admin_footer',   array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
-        add_action('wp_footer',      array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
+        add_action('admin_footer',     array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
+        add_action('wp_footer',        array($this, 'inlineCommonCodeFooter'), PHP_INT_MAX);
 
 	    // Rename ?ver= to ?wpacuversion to prevent other plugins from stripping "ver"
 	    // This is valid in the front-end and the Dashboard
@@ -273,17 +310,36 @@ JS;
     }
 
     /**
-     * @return bool
+     * @param $wpacuObjectData
+     *
+     * @return mixed
      */
-    public static function isPluginClearCacheLinkAccessible()
+    public function objectData($wpacuObjectData)
     {
-        $isAdminWithClearCacheLink =   is_admin() && (Menu::isPluginPage() || (is_admin_bar_showing() && ! Main::instance()->settings['hide_from_admin_bar']));
-        $isFrontWithClearCacheLink = ! is_admin() && is_admin_bar_showing() && ! Main::instance()->settings['hide_from_admin_bar'];
+        if (isset($wpacuObjectData['page']) && $wpacuObjectData['page'] === WPACU_PLUGIN_ID . '_assets_manager') {
+            // page_request_for => page_type
+            $pageTypeMap = array(
+                'posts'             => 'post',
+                'pages'             => 'page',
+                'custom_post_types' => 'custom_post_type',
+                '404_not_found'     => '404',
+                'custom_taxonomies' => 'taxonomy',
+                'media_attachment'  => 'media'
+            );
 
-        return $isAdminWithClearCacheLink || $isFrontWithClearCacheLink;
+            if ($wpacuObjectData['page_request_for'] === 'custom_post_types' && isset($_GET['wpacu_post_type_view']) && $_GET['wpacu_post_type_view'] === 'archives') {
+                $wpacuObjectData['page_type'] = 'custom_post_type_archive';
+            } else {
+                $wpacuObjectData['page_type'] = isset($pageTypeMap[$wpacuObjectData['page_request_for']])
+                        ? $pageTypeMap[$wpacuObjectData['page_request_for']]
+                        : $wpacuObjectData['page_request_for'];
+            }
+        }
+
+        return $wpacuObjectData;
     }
 
-	/**
+    /**
 	 * @return void
 	 */
 	public function inlineCodeHead()
@@ -300,7 +356,7 @@ JS;
      */
     public function inlineCommonCodeFooter()
     {
-        if (self::isPluginClearCacheLinkAccessible()) {
+        if (Main::isPluginClearCacheLinkAccessible()) {
             global $wp_styles, $wp_scripts;
 
             if ( ! in_array(self::$ownAssets['styles']['style_core']['handle'], array_keys($wp_styles->registered)) ||
@@ -367,7 +423,521 @@ JS;
                 <?php
             }
             ?>
+
+            .wpacu-manage-redirected-fetch-url .dashicons {
+                width: 18px;
+                height: 18px;
+                margin-right: 4px;
+                font-size: 18px;
+                line-height: 22px !important;
+                vertical-align: text-bottom !important;
+            }
         </style>
+
+        <script>
+        (function (window, document) {
+            'use strict';
+
+            var controllers = [];
+            var animationFrameId = null;
+            var globalListenersActive = false;
+
+            function getViewportHeight() {
+                return window.innerHeight || document.documentElement.clientHeight;
+            }
+
+            function getNumericOption(value, fallback) {
+                var resolvedValue = (typeof value === 'function') ? value() : value;
+                var numericValue = Number(resolvedValue);
+
+                return Number.isFinite(numericValue) ? numericValue : fallback;
+            }
+
+            function resolveElement(value) {
+                if (!value) {
+                    return null;
+                }
+
+                if (typeof value === 'string') {
+                    return document.querySelector(value);
+                }
+
+                return value.nodeType === 1 ? value : null;
+            }
+
+            function resolveElements(values) {
+                var resolvedElements = [];
+                var valuesList = Array.isArray(values) ? values : [values];
+
+                valuesList.forEach(function (value) {
+                    if (typeof value === 'string') {
+                        document.querySelectorAll(value).forEach(function (element) {
+                            if (resolvedElements.indexOf(element) === -1) {
+                                resolvedElements.push(element);
+                            }
+                        });
+
+                        return;
+                    }
+
+                    var element = resolveElement(value);
+
+                    if (element && resolvedElements.indexOf(element) === -1) {
+                        resolvedElements.push(element);
+                    }
+                });
+
+                return resolvedElements;
+            }
+
+            function isRendered(element) {
+                if (!element || !element.isConnected) {
+                    return false;
+                }
+
+                var styles = window.getComputedStyle(element);
+
+                return styles.display !== 'none' &&
+                    styles.visibility !== 'hidden' &&
+                    element.getClientRects().length > 0;
+            }
+
+            function getDefaultFixedTopElements() {
+                return resolveElements([
+                    '#wpadminbar',
+                    '[data-wpacu-fixed-top-offset]'
+                ]);
+            }
+
+            function getDefaultFixedBottomElements() {
+                return resolveElements('[data-wpacu-fixed-bottom-offset]');
+            }
+
+            function getViewportBounds(options) {
+                var visualViewport = window.visualViewport;
+                var viewportTop = visualViewport ? visualViewport.offsetTop : 0;
+                var viewportBottom = viewportTop + (visualViewport ? visualViewport.height : getViewportHeight());
+
+                viewportTop += getNumericOption(options.viewportOffsetTop, 0);
+                viewportBottom -= getNumericOption(options.viewportOffsetBottom, 0);
+
+                var fixedTopElements = options.fixedTopElements === false
+                    ? []
+                    : getDefaultFixedTopElements().concat(resolveElements(options.fixedTopElements || []));
+
+                fixedTopElements.forEach(function (element) {
+                    if (!isRendered(element)) {
+                        return;
+                    }
+
+                    var styles = window.getComputedStyle(element);
+
+                    if (styles.position !== 'fixed' && styles.position !== 'sticky') {
+                        return;
+                    }
+
+                    var rect = element.getBoundingClientRect();
+
+                    if (rect.bottom > viewportTop && rect.top <= viewportTop + 2) {
+                        viewportTop = Math.max(viewportTop, rect.bottom);
+                    }
+                });
+
+                var fixedBottomElements = options.fixedBottomElements === false
+                    ? []
+                    : getDefaultFixedBottomElements().concat(resolveElements(options.fixedBottomElements || []));
+
+                fixedBottomElements.forEach(function (element) {
+                    if (!isRendered(element)) {
+                        return;
+                    }
+
+                    var styles = window.getComputedStyle(element);
+
+                    if (styles.position !== 'fixed' && styles.position !== 'sticky') {
+                        return;
+                    }
+
+                    var rect = element.getBoundingClientRect();
+
+                    if (rect.top < viewportBottom && rect.bottom >= viewportBottom - 2) {
+                        viewportBottom = Math.min(viewportBottom, rect.top);
+                    }
+                });
+
+                return {
+                    top: viewportTop,
+                    bottom: viewportBottom
+                };
+            }
+
+            function isClippingElement(element) {
+                var styles = window.getComputedStyle(element);
+                var overflowY = styles.overflowY;
+
+                return overflowY === 'auto' ||
+                    overflowY === 'scroll' ||
+                    overflowY === 'hidden' ||
+                    overflowY === 'clip';
+            }
+
+            function findClippingAncestors(areaElement) {
+                var clippingAncestors = [];
+                var currentElement = areaElement.parentElement;
+
+                while (currentElement && currentElement !== document.documentElement) {
+                    if (isClippingElement(currentElement)) {
+                        clippingAncestors.push(currentElement);
+                    }
+
+                    currentElement = currentElement.parentElement;
+                }
+
+                return clippingAncestors;
+            }
+
+            function getElementInnerBounds(element) {
+                var rect = element.getBoundingClientRect();
+                var innerTop = rect.top + element.clientTop;
+
+                return {
+                    top: innerTop,
+                    bottom: innerTop + element.clientHeight
+                };
+            }
+
+            function clamp(value, minimum, maximum) {
+                return Math.max(minimum, Math.min(value, maximum));
+            }
+
+            function scheduleAllUpdates() {
+                if (animationFrameId !== null) {
+                    return;
+                }
+
+                animationFrameId = window.requestAnimationFrame(function () {
+                    animationFrameId = null;
+
+                    controllers.slice().forEach(function (controller) {
+                        controller.update();
+                    });
+                });
+            }
+
+            function startGlobalListeners() {
+                if (globalListenersActive) {
+                    return;
+                }
+
+                globalListenersActive = true;
+
+                /* Capture is intentional: native scroll events do not bubble. */
+                document.addEventListener('scroll', scheduleAllUpdates, true);
+                window.addEventListener('resize', scheduleAllUpdates, { passive: true });
+
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', scheduleAllUpdates, { passive: true });
+                    window.visualViewport.addEventListener('scroll', scheduleAllUpdates, { passive: true });
+                }
+            }
+
+            function stopGlobalListenersIfUnused() {
+                if (!globalListenersActive || controllers.length > 0) {
+                    return;
+                }
+
+                globalListenersActive = false;
+
+                document.removeEventListener('scroll', scheduleAllUpdates, true);
+                window.removeEventListener('resize', scheduleAllUpdates);
+
+                if (window.visualViewport) {
+                    window.visualViewport.removeEventListener('resize', scheduleAllUpdates);
+                    window.visualViewport.removeEventListener('scroll', scheduleAllUpdates);
+                }
+
+                if (animationFrameId !== null) {
+                    window.cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+            }
+
+            /**
+             * Keeps a WPACU loader centred inside the currently visible part of an area.
+             *
+             * @param {HTMLElement} areaElement Loading area with position: relative.
+             * @param {Object} [options]
+             * @returns {Function} Cleanup function. It also exposes update() and refresh().
+             */
+            function wpacuCenterSpinnerInView(areaElement, options) {
+                options = options || {};
+
+                if (!areaElement || areaElement.nodeType !== 1) {
+                    return function () {};
+                }
+
+                var loaderElement = areaElement.querySelector(
+                    options.loaderSelector || '.wpacu-area-spinner-loader'
+                );
+
+                if (!loaderElement) {
+                    return function () {};
+                }
+
+                var clippingElements = [];
+                var resizeObserver = null;
+                var destroyed = false;
+
+                var controller = {
+                    refresh: function () {
+                        var explicitClippingElements = resolveElements(
+                            options.scrollContainers || options.scrollContainer || []
+                        );
+
+                        var detectedClippingElements = options.detectClippingAncestors === false
+                            ? []
+                            : findClippingAncestors(areaElement);
+
+                        clippingElements = explicitClippingElements.concat(detectedClippingElements)
+                            .filter(function (element, index, allElements) {
+                                return element !== areaElement && allElements.indexOf(element) === index;
+                            });
+
+                        if (resizeObserver) {
+                            resizeObserver.disconnect();
+                            resizeObserver.observe(areaElement);
+                            resizeObserver.observe(loaderElement);
+
+                            clippingElements.forEach(function (element) {
+                                resizeObserver.observe(element);
+                            });
+                        }
+
+                        scheduleAllUpdates();
+                    },
+
+                    update: function () {
+                        if (destroyed || !areaElement.isConnected || !loaderElement.isConnected) {
+                            return;
+                        }
+
+                        var areaBounds = getElementInnerBounds(areaElement);
+                        var areaHeight = areaElement.clientHeight;
+
+                        if (areaHeight <= 0) {
+                            return;
+                        }
+
+                        var visibleBounds = getViewportBounds(options);
+                        var visibleTop = Math.max(areaBounds.top, visibleBounds.top);
+                        var visibleBottom = Math.min(areaBounds.bottom, visibleBounds.bottom);
+
+                        clippingElements.forEach(function (clippingElement) {
+                            if (!isRendered(clippingElement)) {
+                                return;
+                            }
+
+                            var clippingBounds = getElementInnerBounds(clippingElement);
+                            visibleTop = Math.max(visibleTop, clippingBounds.top);
+                            visibleBottom = Math.min(visibleBottom, clippingBounds.bottom);
+                        });
+
+                        var isVisible = visibleBottom > visibleTop;
+                        areaElement.setAttribute('data-wpacu-spinner-area-visible', isVisible ? '1' : '0');
+
+                        if (!isVisible) {
+                            return;
+                        }
+
+                        var loaderHeight = loaderElement.getBoundingClientRect().height || loaderElement.offsetHeight;
+                        var edgePadding = Math.max(0, getNumericOption(options.edgePadding, 6));
+                        var desiredCenter = ((visibleTop + visibleBottom) / 2) - areaBounds.top;
+                        var minimumCenter = (loaderHeight / 2) + edgePadding;
+                        var maximumCenter = areaHeight - (loaderHeight / 2) - edgePadding;
+                        var finalCenter;
+
+                        if (maximumCenter < minimumCenter) {
+                            finalCenter = areaHeight / 2;
+                        } else {
+                            finalCenter = clamp(desiredCenter, minimumCenter, maximumCenter);
+                        }
+
+                        areaElement.style.setProperty(
+                            '--wpacu-spinner-visible-center-y',
+                            finalCenter.toFixed(2) + 'px'
+                        );
+                    },
+
+                    destroy: function () {
+                        if (destroyed) {
+                            return;
+                        }
+
+                        destroyed = true;
+
+                        var controllerIndex = controllers.indexOf(controller);
+
+                        if (controllerIndex !== -1) {
+                            controllers.splice(controllerIndex, 1);
+                        }
+
+                        if (resizeObserver) {
+                            resizeObserver.disconnect();
+                        }
+
+                        areaElement.style.removeProperty('--wpacu-spinner-visible-center-y');
+                        areaElement.removeAttribute('data-wpacu-spinner-area-visible');
+
+                        stopGlobalListenersIfUnused();
+                    }
+                };
+
+                if (typeof window.ResizeObserver === 'function') {
+                    resizeObserver = new window.ResizeObserver(scheduleAllUpdates);
+                }
+
+                controllers.push(controller);
+                startGlobalListeners();
+                controller.refresh();
+                controller.update();
+
+                var cleanup = function () {
+                    controller.destroy();
+                };
+
+                cleanup.update = controller.update;
+                cleanup.refresh = controller.refresh;
+                cleanup.destroy = controller.destroy;
+
+                return cleanup;
+            }
+
+            window.wpacuCenterSpinnerInView = wpacuCenterSpinnerInView;
+        }(window, document));
+
+        /**
+         * Add and control a WPACU loading spinner.
+         *
+         * @param {string|Element} target Element or CSS selector.
+         * @param {Object} options Spinner options.
+         *
+         * @return {Function} Function that stops and removes the spinner.
+         */
+        function wpacuShowAreaSpinner(target, options)
+        {
+            var defaults = {
+                position: 'top', // 'top' or 'center'
+                //top: '-32px',
+                edgePadding: 8,
+                removeSpinnerOnStop: true
+            };
+
+            options = Object.assign({}, defaults, options || {});
+
+            var areaElement = typeof target === 'string'
+                ? document.querySelector(target)
+                : target;
+
+            if (!areaElement) {
+                console.warn(
+                    'WPACU spinner target element was not found:',
+                    target
+                );
+
+                return function () {};
+            }
+
+            if (
+                options.position !== 'top' &&
+                options.position !== 'center'
+            ) {
+                console.warn(
+                    'Invalid WPACU spinner position:',
+                    options.position
+                );
+
+                options.position = 'top';
+            }
+
+            /*
+             * Prevent duplicate spinner elements.
+             */
+            var spinnerElement = areaElement.querySelector(
+                ':scope > .wpacu-area-spinner-loader'
+            );
+
+            if (!spinnerElement) {
+                spinnerElement = document.createElement('span');
+
+                spinnerElement.className = 'wpacu-area-spinner-loader';
+                spinnerElement.setAttribute('aria-hidden', 'true');
+
+                areaElement.appendChild(spinnerElement);
+            }
+
+            areaElement.classList.add(
+                'wpacu-area-spinner-not-ready'
+            );
+
+            areaElement.setAttribute('aria-busy', 'true');
+
+            var stopCentering = null;
+            var hasStopped = false;
+
+            if (options.position === 'center') {
+                areaElement.classList.add(
+                    'wpacu-spinner-position-visible-center'
+                );
+
+                /*
+                 * Remove a previous inline top value that might have been
+                 * applied when the loader was positioned at the top.
+                 */
+                spinnerElement.style.removeProperty('top');
+
+                stopCentering = wpacuCenterSpinnerInView(
+                    areaElement,
+                    {
+                        edgePadding: options.edgePadding
+                    }
+                );
+            } else {
+                areaElement.classList.remove(
+                    'wpacu-spinner-position-visible-center'
+                );
+
+                spinnerElement.style.top = options.top;
+            }
+
+            return function wpacuStopAreaSpinner() {
+                if (hasStopped) {
+                    return;
+                }
+
+                hasStopped = true;
+
+                if (typeof stopCentering === 'function') {
+                    stopCentering();
+                }
+
+                areaElement.classList.remove(
+                    'wpacu-area-spinner-not-ready',
+                    'wpacu-spinner-position-visible-center'
+                );
+
+                areaElement.removeAttribute('aria-busy');
+
+                spinnerElement.style.removeProperty('top');
+
+                if (
+                    options.removeSpinnerOnStop &&
+                    spinnerElement.parentNode === areaElement
+                ) {
+                    spinnerElement.remove();
+                }
+            };
+        }
+        </script>
         <?php
     }
 
@@ -391,6 +961,8 @@ JS;
             </script>
 			<?php
 		}
+
+        do_action('wpacu_internal_own_assets_inline_admin_footer_code');
 	}
 
 
@@ -454,7 +1026,7 @@ JS;
 		}
 
 		// Only for the administrator with the right permission
-		if (! Menu::userCanAccessPlugin()) {
+		if ( ! Menu::userCanAccessPlugin() ) {
 			return;
 		}
 
@@ -469,6 +1041,8 @@ JS;
 
         $this->enqueuePublicStyles();
         $this->enqueuePublicScripts();
+
+        do_action('wpacu_internal_own_assets_after_enqueue_public_assets', $this);
     }
 
 	/**
@@ -476,12 +1050,25 @@ JS;
 	 */
 	private function _enqueueAdminStyles()
     {
+        if ( ! self::shouldLoadCoreAssets()) {
+            return;
+        }
+
         wp_enqueue_style(
             self::$ownAssets['styles']['style_core']['handle'],
             plugins_url(self::$ownAssets['styles']['style_core']['rel_path'], WPACU_PLUGIN_FILE),
             array(),
             self::assetVer(self::$ownAssets['styles']['style_core']['rel_path'])
         );
+
+        if (Misc::getVar('get', 'page') === WPACU_PLUGIN_ID . '_settings') {
+            wp_enqueue_style(
+                self::$ownAssets['styles']['local_fonts_preload_scanner']['handle'],
+                plugins_url(self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'], WPACU_PLUGIN_FILE),
+                array(self::$ownAssets['styles']['style_core']['handle']),
+                self::assetVer(self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'])
+            );
+        }
     }
 
 	/**
@@ -498,39 +1085,15 @@ JS;
             self::assetVer(self::$ownAssets['scripts']['script_cache_manager']['rel_path'])
         );
 
-        $page            = Misc::getVar('get', 'page');
-        $pageRequestFor  = Misc::getVar('get', 'wpacu_for');
-
-        if ( ! $pageRequestFor ) {
-            $postIdRequested = isset( $_GET['wpacu_post_id'] ) && $_GET['wpacu_post_id'] ? (int)$_GET['wpacu_post_id'] : 0;
-
-            // e.g. /wp-admin/admin.php?page=wpassetcleanup_assets_manager&wpacu_post_id=17193 (no "wpacu_for" was mentioned)
-            if ($postIdRequested) {
-                $pageRequestFor = AssetsManagerAdmin::detectPostTypeTypeFromRequestedPostId($postIdRequested);
-            } else {
-                $pageRequestFor = 'homepage';
-            }
-        }
-
-        $currentPostId = AssetsManager::getCurrentPostIdForCssJsManager($page, $pageRequestFor);
-
-        $dataForObject = array(
-            'post_id'          => $currentPostId,
-            'page'             => $page,
-            'page_request_for' => $pageRequestFor
-        );
-
-        $wpacuObjectData = self::generateObjectData($dataForObject);
-
         wp_localize_script(
             self::$ownAssets['scripts']['script_cache_manager']['handle'],
             'wpacu_object',
-            apply_filters('wpacu_object_data', $wpacuObjectData)
+            self::applyInternalFilterWithFallback('wpacu_internal_object_data', 'wpacu_object_data', self::generateObjectData())
         );
 
         wp_enqueue_script(self::$ownAssets['scripts']['script_cache_manager']['handle']);
 
-        if ( ! self::loadScriptCoreJs() ) {
+        if ( ! self::shouldLoadCoreAssets() ) {
             // Only load everything below in specific pages (e.g. own plugin page, edit post page with CSS/JS manager shown, .etc)
             return;
         }
@@ -538,28 +1101,40 @@ JS;
         wp_register_script(
 	        self::$ownAssets['scripts']['script_core']['handle'],
             plugins_url(self::$ownAssets['scripts']['script_core']['rel_path'], WPACU_PLUGIN_FILE),
-            array('jquery', self::$ownAssets['scripts']['script_cache_manager']['handle'], 'jquery-ui-autocomplete'),
+            array('jquery', self::$ownAssets['scripts']['script_cache_manager']['handle']),
             self::assetVer(self::$ownAssets['scripts']['script_core']['rel_path'])
         );
 
 		wp_enqueue_script(self::$ownAssets['scripts']['script_core']['handle']);
 
+        if (Misc::getVar('get', 'page') === WPACU_PLUGIN_ID . '_settings') {
+            wp_enqueue_script(
+                self::$ownAssets['scripts']['local_fonts_preload_scanner']['handle'],
+                plugins_url(self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path'], WPACU_PLUGIN_FILE),
+                array('jquery', self::$ownAssets['scripts']['script_core']['handle']),
+                self::assetVer(self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path']),
+                true
+            );
+        }
+
 		// Load jQuery Chosen on "Settings", "CSS & JS Manager" -> "Manage CSS/JS" (homepage & any post type page)
 	    $isDashManageAssetsPage = false;
 
+        $page = Misc::getVar('get', 'page');
+
         if ($page === WPACU_PLUGIN_ID . '_assets_manager') {
-	        $manageCssJsSubPage      = ( isset( $_GET['wpacu_sub_page'] ) && $_GET['wpacu_sub_page'] ) ? $_GET['wpacu_sub_page'] : 'manage_css_js';
+	        $manageCssJsSubPage     = ( isset( $_GET['wpacu_sub_page'] ) && $_GET['wpacu_sub_page'] ) ? $_GET['wpacu_sub_page'] : 'manage_css_js';
 	        $isDashManageAssetsPage = ( $manageCssJsSubPage === 'manage_css_js' ) &&
-                  // if 'wpacu_for' is not used, it will be defaulted to either homepage or single post page
-                  // if it's used, it has to be in the list specified below, other jQuery Chosen would be irrelevant
-                  ( ! isset( $_GET['wpacu_for'] )
-                    || ( isset( $_GET['wpacu_for'] ) && in_array( $_GET['wpacu_for'], array(
-                              'homepage',
-                              'pages',
-                              'posts',
-                              'custom_post_types',
-                              'media_attachment'
-                          ) ) ) );
+              // if 'wpacu_for' is not used, it will be defaulted to either homepage or single post page
+              // if it's used, it has to be in the list specified below, other jQuery Chosen would be irrelevant
+              ( ! isset( $_GET['wpacu_for'] )
+                || ( isset( $_GET['wpacu_for'] ) && in_array( $_GET['wpacu_for'], array(
+                    'homepage',
+                    'pages',
+                    'posts',
+                    'custom_post_types',
+                    'media_attachment'
+              ) ) ) );
         }
 
 		// Standard edit post page
@@ -570,12 +1145,29 @@ JS;
             && Main::instance()->settings['dashboard_show'] == 1
             && Main::instance()->settings['show_assets_meta_box'];
 
-		if ( $page === WPACU_PLUGIN_ID . '_settings' || $isDashManageAssetsPage || $isEditPostAreaWithCssJsManagerEnabled
-        ) {
+        $useEnhancedInputs = Settings::useEnhancedInputs(Main::instance()->settings);
+
+        $loadjQueryChosenForCurrentPage = ($page === WPACU_PLUGIN_ID . '_settings' || $isDashManageAssetsPage || $isEditPostAreaWithCssJsManagerEnabled);
+
+        $loadjQueryChosenForCurrentPage = (bool) apply_filters(
+            'wpacu_internal_own_assets_load_jquery_chosen_admin',
+            $loadjQueryChosenForCurrentPage,
+            $page,
+            $isDashManageAssetsPage,
+            $isEditPostAreaWithCssJsManagerEnabled,
+            $useEnhancedInputs
+        );
+
+        // A page/extension can request Chosen through the filter, but the native
+        // interface remains authoritative and never loads the replacement control.
+        $loadjQueryChosen = $useEnhancedInputs && $loadjQueryChosenForCurrentPage;
+
+		if ($loadjQueryChosen) {
 		    $this->loadjQueryChosen();
         }
 
-        if ($isEditPostAreaWithCssJsManagerEnabled || in_array($page, array(WPACU_PLUGIN_ID . '_assets_manager', WPACU_PLUGIN_ID . '_plugins_manager'))) {
+        if ($isEditPostAreaWithCssJsManagerEnabled ||
+            in_array($page, array(WPACU_PLUGIN_ID . '_settings', WPACU_PLUGIN_ID . '_assets_manager', WPACU_PLUGIN_ID . '_plugins_manager'))) {
 			// [Start] SweetAlert
 			wp_enqueue_style(
 				self::$ownAssets['styles']['sweetalert2']['handle'],
@@ -591,17 +1183,7 @@ JS;
                     z-index: 1000000;
                 }
 
-                /* [wpacu_lite] */
-                body.wp-admin.post-php .swal2-popup.swal2-modal,
-                body.wp-admin.asset-cleanup_page_wpassetcleanup_assets_manager .swal2-popup.swal2-modal {
-                    padding: 1.25em 1.25em 2em 1.25em;
-                }
-
-                body.wp-admin.post-php #swal2-content,
-                body.asset-cleanup_page_wpassetcleanup_assets_manager #swal2-content {
-                    line-height: 30px;
-                }
-                /* [/wpacu_lite] */
+                <?php echo apply_filters('wpacu_internal_own_assets_sweetalert_inline_style', ''); ?>
 
 				.wpacu-swal2-overlay {
 					z-index: 10000000;
@@ -648,51 +1230,7 @@ JS;
 				1.2
 			);
 
-			// [wpacu_lite]
-			$upgradeToProLinkHardcodedAssets = apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=manage_hardcoded_assets&utm_medium=go_pro_modal');
-			$upgradeToProLinkMediaQueryLoad = apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=media_query_load&utm_medium=go_pro_modal');
-
-			$sweetAlertTwoScriptInline = <<<JS
-jQuery(document).ready(function($) { 
-    /* [Hardcoded Assets] */
-    $(document).on('click', '.wpacu-manage-hardcoded-assets-requires-pro-popup', function(e) {
-       e.preventDefault();
-       wpacuSwal.fire({
-            text: "Managing hardcoded (non-enqueued) LINK/STYLE/SCRIPT tags is a feature available for Pro users.",
-            icon: "info",
-            showCancelButton: true,
-            confirmButtonText: 'Upgrade to the Pro version',
-            cancelButtonText: 'Maybe later',
-            width: '600px'
-        }).then((result) => {
-            if (result.isConfirmed) {
-              window.location.replace("{$upgradeToProLinkHardcodedAssets}");
-            }
-        });
-    });
-    /* [/Hardcoded Assets] */
-    
-    /* [Media Query Load] */
-    $(document).on('click', '.wpacu-media-query-load-requires-pro-popup', function(e) {
-       e.preventDefault();
-       wpacuSwal.fire({
-            text: "Instructing the browser to load a file based on the screen size of the visitor's device (e.g. desktop or mobile view) is a feature available for Pro users.",
-            icon: "info",
-            showCancelButton: true,
-            confirmButtonText: 'Upgrade to the Pro version',
-            cancelButtonText: 'Maybe later',
-            width: '600px'
-        }).then((result) => {
-            if (result.isConfirmed) {
-              window.location.replace("{$upgradeToProLinkMediaQueryLoad}");
-            }
-        });
-    });
-    /* [/Media Query Load] */
-});
-JS;
-			wp_add_inline_script(WPACU_PLUGIN_ID . '-sweetalert2-js', $sweetAlertTwoScriptInline);
-			// [wpacu_lite]
+			do_action('wpacu_internal_own_assets_after_sweetalert_enqueue', $page, $isEditPostAreaWithCssJsManagerEnabled);
 			// [End] SweetAlert
         }
 
@@ -731,12 +1269,24 @@ JS;
             wp_enqueue_style( 'wp-codemirror' );
 
             $cm_settings = array();
-            $cm_settings['codeEditor'] = wp_enqueue_code_editor( array( 'type' => 'text/css' ) );
+
+            if (function_exists('wp_enqueue_code_editor')) {
+                $cm_settings['codeEditor'] = wp_enqueue_code_editor(
+                    array('type' => 'text/css')
+                );
+            }
+
             $customPagesInlineJS = ''; // only fills if the "Custom Pages" tab is used
 
             if (isset($_GET['wpacu_for']) && $_GET['wpacu_for'] === 'custom-pages') {
                 $cm_settings_custom_pages = array();
-                $cm_settings_custom_pages['codeEditor'] = wp_enqueue_code_editor( array( 'type' => 'text/x-php' ) );
+
+                if (function_exists('wp_enqueue_code_editor')) {
+                    $cm_settings_custom_pages['codeEditor'] = wp_enqueue_code_editor(
+                        array('type' => 'text/x-php')
+                    );
+                }
+
                 wp_localize_script( 'jquery', 'wpacu_cm_settings_custom_pages', $cm_settings_custom_pages );
 
                 $customPagesInlineJS = <<<JS
@@ -750,47 +1300,94 @@ JS;
             $wpacuCodeMirrorInlineScript = <<<JS
 jQuery(document).ready(function($) {
   // Editable CSS
-  var wpacuEditor = wp.codeEditor.initialize($('#wpacu-css-editor-textarea'), wpacu_cm_settings);
+  var \$wpacuCssEditorTextarea = $('#wpacu-css-editor-textarea'),
+      wpacuEditor = false;
+
+  if (\$wpacuCssEditorTextarea.length && typeof wp !== 'undefined' && wp.codeEditor && typeof wp.codeEditor.initialize === 'function') {
+      wpacuEditor = wp.codeEditor.initialize(\$wpacuCssEditorTextarea, wpacu_cm_settings);
+  }
   
   {$customPagesInlineJS}
   
+  function wpacuUpdateCriticalCssRuleUi(\$statusInput) {
+      var isEnabled = \$statusInput.prop('checked'),
+          \$optionsArea = $('#wpacu-critical-css-options-area'),
+          \$statusText = $('#wpacu-critical-css-rule-status-text');
+
+      \$optionsArea.toggleClass('wpacu-faded', ! isEnabled);
+      \$statusText
+          .toggleClass('wpacu-enabled', isEnabled)
+          .toggleClass('wpacu-disabled', ! isEnabled)
+          .text(isEnabled ? 'Enabled' : 'Disabled');
+  }
+
   $(document).on('change', '#wpacu_critical_css_status', function() {
-      var \$wpacuTargetElement     = $('#wpacu-critical-css-options-area'),
-          \$wpacuTargetTabMenuItem = $('#wpacu-critical-css-manager-tab-menu').find('.wpacu-nav-tab-active > .wpacu-circle-status'),
-          wpacuAnyCustomPageType   = $(this).attr('data-wpacu-custom-page-type');
-      
-      if ($(this).prop('checked')) {
-          \$wpacuTargetElement.removeClass('wpacu-faded');
-          
-          if (wpacuAnyCustomPageType !== '') {
-              $('.wpacu-circle-status[data-wpacu-custom-page-type="'+ wpacuAnyCustomPageType +'"]')
-                .removeClass('wpacu-off').addClass('wpacu-on');
-          }
-          
-          \$wpacuTargetTabMenuItem.removeClass('wpacu-off').addClass('wpacu-on');
-      } else {
-          \$wpacuTargetElement.addClass('wpacu-faded');
-          
-          if (wpacuAnyCustomPageType !== '') {
-              $('.wpacu-circle-status[data-wpacu-custom-page-type="'+ wpacuAnyCustomPageType +'"]')
-                .removeClass('wpacu-on').addClass('wpacu-off');
-          }
-          
-          /* In case there are any other custom post types with critical CSS enabled, then keep the green circle for the "Custom Posty Types" main tab */
-          if ($('#wpacu_custom_pages_nav_links').find('.wpacu-circle-status.wpacu-on').length === 0) {
-              \$wpacuTargetTabMenuItem.removeClass('wpacu-on').addClass('wpacu-off');
-          }
+      wpacuUpdateCriticalCssRuleUi($(this));
+  });
+
+  $(document).on('change', '#wpacu-critical-css-context-choice', function() {
+      if (this.value) {
+          window.location.href = this.value;
       }
+  });
+
+  $(document).on('click', '[data-wpacu-critical-css-show-search]', function() {
+      var \$searchPanel = $('#wpacu-critical-css-object-search-panel'),
+          \$searchInput = $('#wpacu-critical-css-object-search');
+
+      if (! \$searchPanel.length) {
+          return;
+      }
+
+      \$searchPanel.stop(true, true).slideDown(120, function() {
+          \$searchInput.trigger('focus');
+      });
+  });
+
+  $(document).on('click', '[data-wpacu-critical-css-hide-search]', function() {
+      $('#wpacu-critical-css-object-search-panel').stop(true, true).slideUp(120);
+  });
+
+  $(document).on('input', '#wpacu-critical-css-existing-rules-filter', function() {
+      var keyword = $.trim($(this).val()).toLowerCase(),
+          visibleRows = 0;
+
+      $('.wpacu-critical-css-rule-row').each(function() {
+          var \$row = $(this),
+              searchText = String(\$row.attr('data-wpacu-rule-search') || '').toLowerCase(),
+              showRow = keyword === '' || searchText.indexOf(keyword) !== -1;
+
+          \$row.toggle(showRow);
+
+          if (showRow) {
+              visibleRows++;
+          }
+      });
+
+      $('#wpacu-critical-css-existing-rules-no-match').toggle(visibleRows === 0);
+  });
+
+  $(document).on('change', '.wpacu-critical-css-output-choice input[type="radio"]', function() {
+      $('.wpacu-critical-css-output-choice label').removeClass('wpacu-active');
+      $(this).closest('label').addClass('wpacu-active');
   });
   
   $(document).on('submit', '#wpacu-critical-css-form', function() {
-      if (wpacuEditor.codemirror.getValue() === '' && $('#wpacu_critical_css_status').prop('checked')) {
+      var wpacuCriticalCssContent = '';
+
+      if (wpacuEditor && wpacuEditor.codemirror) {
+          wpacuCriticalCssContent = wpacuEditor.codemirror.getValue();
+      } else if (\$wpacuCssEditorTextarea.length) {
+          wpacuCriticalCssContent = \$wpacuCssEditorTextarea.val();
+      }
+
+      if ($.trim(wpacuCriticalCssContent) === '' && $('#wpacu_critical_css_status').prop('checked')) {
           alert('You have chosen to activate the critical CSS. You need to provide the CSS content before submitting this form.');
           return false;
       }
       
       $('#wpacu-updating-critical-css').addClass('wpacu-show').removeClass('wpacu-hide');
-      $('#wpacu-update-critical-css-button-area').find('.button').prop('disabled', true).attr('value', 'UPDATING...');
+      $('#wpacu-update-critical-css-button-area').find('.button').prop('disabled', true).attr('value', 'SAVING...');
   });
 })
 JS;
@@ -805,7 +1402,7 @@ JS;
 }
 
 #wpacu-critical-css-options-area.wpacu-faded {
-    opacity: 0.4;
+    opacity: 0.58;
 }
 
 #wpacu-css-editor-textarea {
@@ -822,6 +1419,10 @@ JS;
     padding: 5px 18px;
     height: 45px;
     font-size: 15px;
+}
+
+body[class*=" version-7-"] #wpacu-update-critical-css-button-area input {
+    height: inherit;
 }
 
 #wpacu-updating-critical-css.wpacu-hide {
@@ -849,12 +1450,28 @@ CSS;
      */
     public static function generateObjectData($data = array())
     {
+        $page            = Misc::getVar('get', 'page');
+        $pageRequestFor  = Misc::getVar('get', 'wpacu_for');
+
+        if ( ! $pageRequestFor ) {
+            $postIdRequested = isset( $_GET['wpacu_post_id'] ) && $_GET['wpacu_post_id'] ? (int)$_GET['wpacu_post_id'] : 0;
+
+            // e.g. /wp-admin/admin.php?page=wpassetcleanup_assets_manager&wpacu_post_id=17193 (no "wpacu_for" was mentioned)
+            if ($postIdRequested) {
+                $pageRequestFor = AssetsManagerAdmin::detectPostTypeTypeFromRequestedPostId($postIdRequested);
+            } else {
+                $pageRequestFor = 'homepage';
+            }
+        }
+
         if ( isset($data['post_id']) ) {
             $postId = $data['post_id'];
         } else {
             // If 'post_id' is not set, then it's a front-end view
-            $postId = Main::instance()->getCurrentPostId();
+            $postId = AssetsManager::getCurrentPostIdForCssJsManager($page, $pageRequestFor);
         }
+        
+        $postId = (int) $postId;
 
         $currentHostSameAsHostFromTargetUrl = true;
 
@@ -870,7 +1487,15 @@ CSS;
             } else {
                 // The cache is cleared most likely outside the CSS/JS manager
                 // e.g. after a theme switch
-                $pageUrl = site_url(); // get main website URL
+                $pageUrl = home_url('/'); // get the public homepage URL, which can differ from the WordPress installation URL
+
+                // In a multilingual setup, the public homepage can include a language directory
+                // (e.g. /en/). Avoid preloading the unprefixed URL as it can redirect indefinitely.
+                $localizedHomeUrl = apply_filters('wpml_home_url', $pageUrl);
+
+                if (is_string($localizedHomeUrl) && esc_url_raw($localizedHomeUrl) !== '') {
+                    $pageUrl = $localizedHomeUrl;
+                }
             }
 
             // Get the current hostname from the current URL request
@@ -889,6 +1514,16 @@ CSS;
             $pageUrl = Misc::getCurrentPageUrl();
         }
 
+        $isForHomePage = false;
+
+        if (isset($data['page_request_for']) && $data['page_request_for'] === 'homepage') {
+            // Dashboard
+            $isForHomePage = true;
+        } elseif (MainFront::isHomePage()) {
+            // Front-end view
+            $isForHomePage = true;
+        }
+
         // If the post status is 'private' only direct method can be used to fetch the assets
         // as the remote post one will return a 404 error since the page is accessed as a guest visitor
         $postStatus      = $postId > 0 ? get_post_status($postId) : false;
@@ -898,10 +1533,46 @@ CSS;
 <svg aria-hidden="true" role="img" focusable="false" class="dashicon dashicons-cloud" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M14.9 9c1.8.2 3.1 1.7 3.1 3.5 0 1.9-1.6 3.5-3.5 3.5h-10C2.6 16 1 14.4 1 12.5 1 10.7 2.3 9.3 4.1 9 4 8.9 4 8.7 4 8.5 4 7.1 5.1 6 6.5 6c.3 0 .7.1.9.2C8.1 4.9 9.4 4 11 4c2.2 0 4 1.8 4 4 0 .4-.1.7-.1 1z"></path></svg>
 HTML;
 
+        $pageUrlParts      = wp_parse_url($pageUrl);
+        $pageUrlRequestUri = is_array($pageUrlParts) && isset($pageUrlParts['path']) && $pageUrlParts['path'] !== ''
+                             ? $pageUrlParts['path']
+                             : '/';
+
+        if (is_array($pageUrlParts) && isset($pageUrlParts['query']) && $pageUrlParts['query'] !== '') {
+            $pageUrlRequestUri .= '?' . $pageUrlParts['query'];
+        }
+
+        $homepageQueryStringsToIgnore = wpacuGetQueryStringsToBeIgnoredPredefinedList();
+
+        if ( ! is_array($homepageQueryStringsToIgnore) ) {
+            $homepageQueryStringsToIgnore = array();
+        }
+
+        $extraHomepageQueryStringsToIgnore = isset(Main::instance()->settings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
+            ? trim((string)Main::instance()->settings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
+            : '';
+
+        if ($extraHomepageQueryStringsToIgnore !== '') {
+            $extraHomepageQueryStringsToIgnoreList = strpos($extraHomepageQueryStringsToIgnore, "\n") !== false
+                ? explode("\n", $extraHomepageQueryStringsToIgnore)
+                : array($extraHomepageQueryStringsToIgnore);
+
+            foreach ($extraHomepageQueryStringsToIgnoreList as $queryStringToIgnore) {
+                $queryStringToIgnore = trim($queryStringToIgnore);
+
+                if ($queryStringToIgnore !== '') {
+                    $homepageQueryStringsToIgnore[] = $queryStringToIgnore;
+                }
+            }
+        }
+
+        $homepageQueryStringsToIgnore = array_values(array_unique($homepageQueryStringsToIgnore));
+
         $wpacuObjectData = array(
             'plugin_prefix'    => WPACU_PLUGIN_ID, // the same for both Lite & Pro
             'plugin_slug'      => WPACU_PLUGIN_SLUG,
             'plugin_title'     => WPACU_PLUGIN_TITLE,
+            'input_style'      => Settings::getInputStyle(Main::instance()->settings),
 
             'reload_icon'      => $svgReloadIcon,
             'reload_msg'       => sprintf(__('Reloading %s area', 'wp-asset-clean-up'), '<strong style="margin: 0 4px;">' . WPACU_PLUGIN_TITLE . '</strong>'),
@@ -914,10 +1585,28 @@ HTML;
             'start_del_h'      => Main::START_DEL_HARDCODED,
             'end_del_h'        => Main::END_DEL_HARDCODED,
 
-            'post_id'          => $postId, // if any
             'ajax_url'         => esc_url( admin_url( 'admin-ajax.php' ) ),
-            'page_url'         => $pageUrl // post, page, custom post type, homepage etc.
+            'page_url'         => $pageUrl, // post, page, custom post type, homepage etc.
+            'home_url'         => home_url('/'),
+            'homepage_query_strings_to_ignore' => $homepageQueryStringsToIgnore,
+            'selected_context_is_homepage' => $isForHomePage
+                                                || $pageRequestFor === 'homepage'
+                                                || wpacuIsHomePageUrl($pageUrlRequestUri)
         );
+
+        if ($postId > 0) {
+            // Singular page
+            $wpacuObjectData['post_id'] = $postId;
+
+            // Could be a 'post', 'page' (the actual home page if it was set as a page) or custom post type / e.g. WooCommerce product
+            $wpacuObjectData['page_type'] = 'post';
+        } elseif ($isForHomePage) {
+            $wpacuObjectData['post_id']   = 0;
+            $wpacuObjectData['page_type'] = 'home'; // e.g. latest posts
+        }
+
+        $wpacuObjectData['page'] = $page;
+        $wpacuObjectData['page_request_for'] = $pageRequestFor;
 
         $wpacuObjectData['current_host_same_as_host_from_target_url'] = $currentHostSameAsHostFromTargetUrl;
 
@@ -926,12 +1615,17 @@ HTML;
         } else {
             // Assets' List Show Status only applies for edit post/page/custom post type/category/custom taxonomy
             // Dashboard pages such as "Homepage" from plugin's "CSS/JavaScript Load Manager" will fetch the list on loading
-            if (isset($data['page']) && $data['page'] === WPACU_PLUGIN_ID.'_assets_manager' && in_array($data['page_request_for'], array('homepage', 'pages', 'posts', 'custom_post_types', 'media_attachment'))) {
+            if ($page === WPACU_PLUGIN_ID.'_assets_manager' && in_array($pageRequestFor, self::getDashboardAssetsManagerFetchPageTypes())) {
                 $wpacuObjectData['override_assets_list_load'] = true;
             }
 
-            if ( isset($_GET['wpacu_manage_dash']) ) {
+            if ( isset($_GET['wpacu_manage_dash']) || ($page === WPACU_PLUGIN_ID.'_assets_manager' && in_array($pageRequestFor, array('category', 'tag', 'custom_taxonomies', 'search', 'author', 'date', '404_not_found'))) ) {
                 $wpacuObjectData['force_manage_dash'] = true;
+            }
+
+            if (isset($_GET['wpacu_term_id'], $_GET['wpacu_taxonomy']) && in_array($pageRequestFor, array('category', 'tag', 'custom_taxonomies'))) {
+                $wpacuObjectData['tag_id']         = (int)$_GET['wpacu_term_id'];
+                $wpacuObjectData['wpacu_taxonomy'] = sanitize_text_field($_GET['wpacu_taxonomy']);
             }
 
             if (get_transient(WPACU_PLUGIN_ID.'_clear_assets_cache')) {
@@ -987,11 +1681,37 @@ HTML;
          * [End] Trigger ONLY other plugins'/system caches
          */
 
+        $wpacuObjectData['redirected_fetch_title'] = __('The selected page redirects to a different URL.', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_message'] = __('Asset CleanUp stopped the fetch because the destination may load a different set of CSS/JS files.', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_requested_url'] = __('Requested URL:', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_final_url'] = __('Redirected to:', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_suggestion'] = __('If the redirect is expected and both URLs represent the same page (for example, a multilingual plugin added a language prefix), you can continue using the redirected URL.', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_button'] = __('Manage assets from the redirected URL', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_caution'] = __('Continue only if the redirected URL represents the page you intended to manage.', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_homepage_url'] = __('The redirected URL is the homepage. To prevent homepage assets from being managed by mistake, the bypass option is not available for this redirect.', 'wp-asset-clean-up');
+        $wpacuObjectData['redirected_fetch_external_url'] = __('The redirected URL is outside the current site and cannot be fetched from this area.', 'wp-asset-clean-up');
+
+        // "Settings" -> "Plugin Usage Preferences" -> "Plugin Access"
+        $wpacuObjectData['user_search_min_characters'] = __('Type at least 2 characters to search.', 'wp-asset-clean-up');
+        $wpacuObjectData['user_search_no_results'] = __('No matching non-administrator users were found.', 'wp-asset-clean-up');
+        $wpacuObjectData['user_search_request_failed'] = __('The user search could not be completed. Please try again.', 'wp-asset-clean-up');
+        $wpacuObjectData['user_search_results_found'] = __('Matching users found: %d.', 'wp-asset-clean-up');
+        $wpacuObjectData['user_already_added'] = __('This non-administrator user is already in the access list.', 'wp-asset-clean-up');
+        $wpacuObjectData['user_add_request_failed'] = __('The user could not be added. Please try again.', 'wp-asset-clean-up');
+
         $wpacuObjectData['server_returned_404_not_found'] = sprintf(
             __('When accessing this page the server responded with a status of %s404 (Not Found)%s. If this page is meant to return this status, you can ignore this message, otherwise you might have a problem with this page if it is meant to return a standard 200 OK status.', 'wp-asset-clean-up'),
             '<strong>',
             '</strong>'
         );
+
+        if ($pageRequestFor === '404_not_found') {
+            $wpacuObjectData['server_returned_404_not_found_in_404_tab'] = sprintf(
+                __('The server responded with a status of %s404 (Not Found)%s, which is expected for the requested page.', 'wp-asset-clean-up'),
+                '<strong>',
+                '</strong>'
+            );
+        }
 
         /*
          * Whether to clear Autoptimize Cache or not (if the plugin is enabled)
@@ -1050,6 +1770,10 @@ HTML;
             return true;
         }
 
+        if ((bool) apply_filters('wpacu_internal_own_assets_clear_cache_via_ajax', false)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1078,7 +1802,7 @@ CSS;
 		wp_register_script(
 			self::$ownAssets['scripts']['chosen']['handle'],
 			plugins_url(self::$ownAssets['scripts']['chosen']['rel_path'], WPACU_PLUGIN_FILE),
-			array('jquery'),
+			array('jquery', self::$ownAssets['scripts']['script_core']['handle']),
 			'1.8.7'
 		);
 
@@ -1120,12 +1844,12 @@ CSS;
         wp_localize_script(
             self::$ownAssets['scripts']['script_cache_manager']['handle'],
             'wpacu_object',
-            apply_filters('wpacu_object_data', self::generateObjectData())
+            self::applyInternalFilterWithFallback('wpacu_internal_object_data', 'wpacu_object_data', self::generateObjectData())
         );
 
         wp_enqueue_script(self::$ownAssets['scripts']['script_cache_manager']['handle']);
 
-        if (self::loadScriptCoreJs()) {
+        if (self::shouldLoadCoreAssets()) {
             // Core file (it also calls the cache manager)
             wp_register_script(
                 self::$ownAssets['scripts']['script_core']['handle'],
@@ -1142,7 +1866,7 @@ CSS;
     /**
      * @return bool
      */
-    public static function loadScriptCoreJs()
+    public static function shouldLoadCoreAssets()
     {
         if (is_admin()) {
             // Only related to the front-end view
@@ -1171,12 +1895,30 @@ CSS;
             if ($isEditPostTaxAreaWithCssJsManagerEnabled) {
                 return true;
             }
+
+            if ( (bool) apply_filters(
+                'wpacu_internal_own_assets_load_script_core_js_admin',
+                false,
+                $isManageInTheDashboardEnabledOnEditPostOrTaxonomy )) {
+                return true;
+            }
         } elseif (Main::instance()->isFrontendEditView) {
             // Front-end view is enabled
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * Kept for backward compatibility with code that calls the old method name.
+     *
+     * @deprecated Use shouldLoadCoreAssets() instead.
+     * @return bool
+     */
+    public static function loadScriptCoreJs()
+    {
+        return self::shouldLoadCoreAssets();
     }
 
 	/**
@@ -1245,6 +1987,13 @@ CSS;
      */
     public static function getFetchUrlDashboardView($postId)
     {
+
+        $fetchUrlDashboardView = apply_filters('wpacu_internal_own_assets_fetch_url_dashboard_view', '', $postId);
+
+        if ($fetchUrlDashboardView) {
+            return $fetchUrlDashboardView;
+        }
+
         // A post/page/custom post type, or it can also be the front page URL ("Settings" -- "Reading" -- "Your homepage displays" -- "A static page")
         if ( $postId > 0 )  {
             return Misc::getPageUrl($postId);
@@ -1275,11 +2024,35 @@ CSS;
         // 2) Edit it the plugin's CSS/JS manager area ("CSS & JS MANAGER" -- "MANAGE CSS/JS")
         $wpacuFor = Misc::getVar('get', 'wpacu_for') ?: 'homepage';
 
-        if (Misc::getVar('get', 'page') === WPACU_PLUGIN_ID . '_assets_manager' && in_array($wpacuFor, array('homepage', 'posts', 'pages', 'custom_post_types'))) {
+        if (
+            Misc::getVar('get', 'page') === WPACU_PLUGIN_ID . '_assets_manager'
+            && in_array($wpacuFor, self::getDashboardAssetsManagerFetchPageTypes(), true)
+        ) {
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    private static function getDashboardAssetsManagerFetchPageTypes()
+    {
+        return array(
+            'homepage',
+            'posts',
+            'pages',
+            'custom_post_types',
+            'media_attachment',
+            'category',
+            'tag',
+            'custom_taxonomies',
+            'search',
+            'author',
+            'date',
+            '404_not_found'
+        );
     }
 
     /**
@@ -1289,9 +2062,10 @@ CSS;
      */
     public static function wpacuObjectDataFetchErrors($wpacuObjectData)
     {
-        // [wpacu_lite]
-        $submitTicketLink = 'https://wordpress.org/support/plugin/wp-asset-clean-up';
-        // [/wpacu_lite]
+        $submitTicketLink = apply_filters(
+            'wpacu_internal_own_assets_ajax_direct_fetch_error_submit_ticket_link',
+            'https://wordpress.org/support/plugin/wp-asset-clean-up'
+        );
 
         $wpacuObjectData['ajax_direct_fetch_error'] = <<<HTML
 <div class="ajax-direct-call-error-area">
@@ -1359,12 +2133,22 @@ HTML;
             __('Please confirm to continue or "Cancel" to abort it', 'wp-asset-clean-up');
 
         $wpacuObjectData['reset_critical_css_confirm_msg'] =
-            __('Are you sure you want to remove all the critical CSS information?', 'wp-asset-clean-up-pro')."\n\n".
+            __('Are you sure you want to remove all the critical CSS information?', 'wp-asset-clean-up')."\n\n".
             __('This is an irreversible action.', 'wp-asset-clean-up')."\n\n".
-            __('Please confirm to continue or "Cancel" to abort it', 'wp-asset-clean-up-pro');
+            __('Please confirm to continue or "Cancel" to abort it', 'wp-asset-clean-up');
 
-        $wpacuObjectData['reset_everything_except_settings_confirm_msg'] =
-            __('Are you sure you want to reset everything (unloads, load exceptions etc.) except settings?', 'wp-asset-clean-up')."\n\n".
+		$wpacuObjectData['reset_plugins_manager_front_confirm_msg'] =
+			__('Are you sure you want to remove all front-end unload rules and load exceptions from Plugins Manager?', 'wp-asset-clean-up')."\n\n".
+			__('Rules configured for /wp-admin/ will be preserved. This action cannot be undone.', 'wp-asset-clean-up')."\n\n".
+			__('Please confirm to continue or "Cancel" to abort it.', 'wp-asset-clean-up');
+
+		$wpacuObjectData['reset_plugins_manager_dash_confirm_msg'] =
+			__('Are you sure you want to remove all /wp-admin/ unload rules and load exceptions from Plugins Manager?', 'wp-asset-clean-up')."\n\n".
+			__('Front-end rules will be preserved. This action cannot be undone.', 'wp-asset-clean-up')."\n\n".
+			__('Please confirm to continue or "Cancel" to abort it.', 'wp-asset-clean-up');
+
+	    $wpacuObjectData['reset_everything_except_settings_confirm_msg'] =
+	            __('Are you sure you want to remove all Asset CleanUp data except Settings and Pro license data?', 'wp-asset-clean-up')."\n\n".
             __('This is an irreversible action.', 'wp-asset-clean-up')."\n\n".
             __('Please confirm to continue or "Cancel" to abort it.', 'wp-asset-clean-up');
 
@@ -1378,6 +2162,8 @@ HTML;
             __('This process is NOT reversible.', 'wp-asset-clean-up')."\n\n".
             __('Please make sure you have a backup (e.g. an exported JSON file) before proceeding.', 'wp-asset-clean-up')."\n\n".
             __('Please confirm to continue or "Cancel" to abort it.', 'wp-asset-clean-up');
+
+        $wpacuObjectData = apply_filters('wpacu_internal_own_assets_confirm_alert_messages', $wpacuObjectData);
 
         $wpacuObjectData['jquery_unload_alert'] = 'jQuery library is a WordPress library that it is used in WordPress plugins/themes most of the time.' . "\n\n" .
                                                   'There are currently other JavaScript "children" files connected to it, that will stop working, if this library is unloaded' . "\n\n" .
@@ -1420,10 +2206,13 @@ HTML;
         $wpacuObjectData['wpacu_ajax_load_page_restricted_area_nonce'] = wp_create_nonce('wpacu_ajax_load_page_restricted_area_nonce');
         $wpacuObjectData['wpacu_ajax_clear_cache_nonce']               = wp_create_nonce('wpacu_ajax_clear_cache_nonce');
         $wpacuObjectData['wpacu_ajax_preload_url_nonce']               = wp_create_nonce('wpacu_ajax_preload_url_nonce'); // After the CSS/JS manager's form is submitted (e.g. on an edit post/page)
+        $wpacuObjectData['wpacu_add_new_no_features_load_row_nonce']    = wp_create_nonce('wpacu_add_new_no_features_load_row_nonce');
 
         if (Menu::isPluginPage() === 'settings' && SettingsAdminOnlyForAdmin::useAutoCompleteSearchForNonAdminUsersDd()) {
             $wpacuObjectData['wpacu_search_non_admin_users_for_dd_nonce'] = wp_create_nonce('wpacu_search_non_admin_users_for_dd_nonce');
         }
+
+        $wpacuObjectData = apply_filters('wpacu_internal_own_assets_security_nonces', $wpacuObjectData);
 
         return $wpacuObjectData;
     }

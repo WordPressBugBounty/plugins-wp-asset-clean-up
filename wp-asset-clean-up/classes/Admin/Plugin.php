@@ -3,10 +3,6 @@
 
 namespace WpAssetCleanUp\Admin;
 
-// [wpacu_lite]
-use WpAssetCleanUp\Menu;
-// [/wpacu_lite]
-
 use WpAssetCleanUp\FileSystem;
 use WpAssetCleanUp\Misc;
 use WpAssetCleanUp\OptimiseAssets;
@@ -42,13 +38,32 @@ class Plugin
 		// After fist time activation or in specific situations within the Dashboard
 		add_action('admin_init', array($this, 'adminInit'));
 
+		$uninstallCleanupStatus = Misc::getVar('get', 'wpacu_uninstall_cleanup_done');
+		if (in_array($uninstallCleanupStatus, array('success', 'partial'), true)) {
+			add_action('admin_notices', array($this, 'uninstallCleanupDone'));
+		}
+
 		// Show default action links: "Getting Started", "Settings"
 		add_filter('plugin_action_links_'.WPACU_PLUGIN_BASE, array($this, 'addActionLinksInPluginsPage'));
 
-        // [wpacu_lite]
-        // Admin footer text: Ask the user to review the plugin
-        add_filter('admin_footer_text', array($this, 'adminFooterText'), 1, 1);
-        // [/wpacu_lite]
+        }
+
+	/**
+	 * Show the uninstall cleanup result without storing new plugin data.
+	 *
+	 * @return void
+	 */
+	public function uninstallCleanupDone()
+	{
+		$isPartial = Misc::getVar('get', 'wpacu_uninstall_cleanup_done') === 'partial';
+		$message = $isPartial
+			? __('Asset CleanUp data was removed, but at least one filesystem item could not be deleted. Check file permissions before deleting the plugin.', 'wp-asset-clean-up')
+			: __('All Asset CleanUp data was removed. You can now deactivate and delete the plugin.', 'wp-asset-clean-up');
+		?>
+		<div class="<?php echo $isPartial ? 'notice-warning' : 'updated'; ?> notice wpacu-notice is-dismissible">
+			<p><span class="dashicons <?php echo $isPartial ? 'dashicons-warning' : 'dashicons-yes'; ?>"></span> <?php echo esc_html($message); ?></p>
+		</div>
+		<?php
 	}
 
 	/**
@@ -184,19 +199,22 @@ SQL;
 	    if ( count( $allCssFiles ) === 0 && count( $allJsFiles ) === 0 ) {
 		    $dirItems = new \RecursiveDirectoryIterator( $pathToCacheDir );
 
+            $allItemDirs = array();
+
 		    $allDirs = array($pathToCacheDir);
 
 		    // First, remove the files
 		    foreach ( new \RecursiveIteratorIterator( $dirItems, \RecursiveIteratorIterator::SELF_FIRST,
 				    \RecursiveIteratorIterator::CATCH_GET_CHILD ) as $item) {
 		        if (is_dir($item)) {
+                    $allItemDirs[] = $item;
 		            $allDirs[] = $item;
                 } else {
 		            @unlink($item);
                 }
 		    }
 
-            if ( ! empty($allDirs) ) {
+            if ( ! empty($allItemDirs) ) {
 	            usort( $allDirs, static function( $a, $b ) {
 		            return strlen( $b ) - strlen( $a );
 	            } );
@@ -314,14 +332,11 @@ HTACCESS;
 		$links['getting_started'] = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_getting_started">'.esc_html__('Getting Started', 'wp-asset-clean-up').'</a>';
 		$links['settings']        = '<a href="admin.php?page=' . WPACU_PLUGIN_ID . '_settings">'.esc_html__('Settings', 'wp-asset-clean-up').'</a>';
 
-		// [wpacu_lite]
-		$allPlugins = get_plugins();
-
-		// If the Pro version is not installed (active or not), show the upgrade link
-		if (! array_key_exists('wp-asset-clean-up-pro/wpacu.php', $allPlugins)) {
-			$links['go_pro'] = '<a target="_blank" style="font-weight: bold;" href="'.apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL).'">'.__('Go Pro', 'wp-asset-clean-up').'</a>';
-		}
-		// [/wpacu_lite]
+        /**
+         * Internal extension point for edition-specific plugin action links.
+         * Not intended as a public integration API.
+         */
+        $links = apply_filters('wpacu_internal_plugin_action_links', $links);
 
 		return $links;
 	}
@@ -381,46 +396,12 @@ HTACCESS;
             $pluginUsageData[$forKey] = MiscAdmin::getTotalUnloadedAssets();
         }
 
-        // [wpacu_pro]
-        // Total number of unloaded plugins, in both front-end and /wp-admin/
-        $forKey = 'has_minimum_number_of_plugin_rules';
-
-        if (isset($conditions['rules'][$forKey]) && $conditions['rules'][$forKey]) {
-            $pluginRulesFiltered = PluginsManagerProAdmin::getPluginRulesFiltered(true, true);
-
-            $totalFront = isset($pluginRulesFiltered['plugins'])      ? count($pluginRulesFiltered['plugins']) : 0;
-            $totalDash  = isset($pluginRulesFiltered['plugins_dash']) ? count($pluginRulesFiltered['plugins_dash']) : 0;
-
-            $totalPluginRules = ($totalFront + $totalDash);
-
-            $pluginUsageData[$forKey] = $totalPluginRules;
-        }
-        // [/wpacu_pro]
+        /**
+         * Internal extension point for edition-specific plugin usage data.
+         * Not intended as a public integration API.
+         */
+        $pluginUsageData = apply_filters('wpacu_internal_plugin_usage_data', $pluginUsageData, $conditions);
 
         return $pluginUsageData;
     }
-    // [wpacu_lite]
-    /**
-     * @param $text
-     *
-     * @return string
-     */
-    public function adminFooterText($text)
-    {
-        if (Menu::isPluginPage()) {
-            $text = sprintf(__('Thank you for using %s', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE.' v'.WPACU_PLUGIN_VERSION)
-                    . ' <span class="dashicons dashicons-smiley"></span> &nbsp;&nbsp;';
-
-            $text .= sprintf(
-                __('If you like it, please %s<strong>rate</strong> %s%s %s on WordPress.org to help me spread the word to the community.', 'wp-asset-clean-up'),
-                '<a target="_blank" href="'.self::RATE_URL.'">',
-                WPACU_PLUGIN_TITLE,
-                '</a>',
-                '<a target="_blank" href="'.self::RATE_URL.'"><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span><span class="dashicons dashicons-wpacu dashicons-star-filled"></span></a>'
-            );
-        }
-
-        return $text;
     }
-    // [/wpacu_lite]
-}

@@ -1,20 +1,6 @@
 <?php
-/*
- * No direct access to this file
- */
-if (! isset($data)) {
-	exit;
-}
-?>
-<div class="wpacu_clearfix"></div>
-
-<div class="alert">
-	<div style="width: 95%; line-height: 22px; margin: 10px 0 0; background: white; padding: 10px; border: 1px solid #ccc; display: inline-block;">
-		<h4 style="margin: 0;">How the list below gets filled?</h4>
-		This list fills once you make an exception for a CSS/JS asset (handle) to load through the option "<em>Load it for URLs with request URI matching this RegEx</em>" <strong>IF</strong> if the targeted CSS/JS file is already bulk unloaded (e.g. site-wide, on all post pages, etc.) by specifying a RegEx. If you wish to add new load exception RegEx rules for other CSS/JS files, access the "<em>CSS &amp; JavaScript Load Manager</em>" for a page that loads the targeted file.
-	</div>
-</div>
-
-<div class="wpacu_clearfix"></div>
-
-<p>This feature is available only in the<img style="opacity: 0.6;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-lock.svg" valign="top" alt="" /> <a href="<?php echo apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=plugin_bulk_changes&utm_medium=regex_unloads'); ?>"> Pro version</a>.</p>
+$wpacuBulkPreviewTitle = __('RegEx load exceptions', 'wp-asset-clean-up');
+$wpacuBulkPreviewDescription = __('Review exceptions that restore a bulk-unloaded CSS/JS asset when a request URI matches.', 'wp-asset-clean-up');
+$wpacuBulkPreviewHelp = __('New exceptions are added from the CSS & JavaScript Load Manager after an asset has a bulk unload rule.', 'wp-asset-clean-up');
+$wpacuBulkPreviewMedium = 'regex_load_exceptions';
+require WPACU_PLUGIN_DIR . '/templates/_admin-page-settings-bulk-changes/_pro-feature-preview.php';

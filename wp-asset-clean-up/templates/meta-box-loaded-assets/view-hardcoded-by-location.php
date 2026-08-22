@@ -5,7 +5,7 @@ use WpAssetCleanUp\Admin\MiscAdmin;
 use WpAssetCleanUp\Admin\Sorting;
 use WpAssetCleanUp\HardcodedAssets;
 use WpAssetCleanUp\Main;
-use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\MiscArray;
 use WpAssetCleanUp\ObjectCache;
 
 if (! isset($data)) {
@@ -70,7 +70,7 @@ foreach ( $hardcodedTags as $targetKey => $listAssets) {
     }
 }
 
-$hardcodedTagsOutputList = Misc::filterList($hardcodedTagsOutputList);
+$hardcodedTagsOutputList = MiscArray::filterList($hardcodedTagsOutputList);
 
 $hardcodedTagsOutputListKeys   = array_keys($hardcodedTagsOutputList);
 $hardcodedTagsLastMainLocation = end($hardcodedTagsOutputListKeys);

@@ -2,6 +2,9 @@
 /*
  * No direct access to this file
  */
+
+use WpAssetCleanUp\Admin\Overview;
+
 if (! isset($data)) {
 	exit;
 }
@@ -28,13 +31,35 @@ $hasAtLeastOneRecord    = $hasPostsWithOptions || $hasHomepageWithOptions;
 
 				foreach ($data['page_options_results']['homepage']['options'] as $optionKey => $optionValue) {
 					if (isset($data['page_options_to_text'][$optionKey]) && $optionValue) {
-						$optionsForCurrentPage[] = $data['page_options_to_text'][$optionKey];
+                        $infoData = array(
+                            'page_type'   => 'homepage',
+                            'page_option' => $optionKey,
+                        );
+
+                        $optionsForCurrentPage[] = Overview::renderNoWrapRuleOutput(
+                            '<span style="color: #cc0000;">'.$data['page_options_to_text'][$optionKey].'</span>',
+                            $infoData,
+                            $optionKey,
+                            $optionValue
+                        );
 					}
 				}
 				?>
                 <tr>
                     <td><span class="dashicons dashicons-admin-home"></span> Homepage (e.g. latest posts)<br /><small><a target="_blank" href="<?php echo get_site_url(); ?>"><?php echo get_site_url(); ?></a></small></td>
-                    <td><?php echo implode (', ', $optionsForCurrentPage); ?></td>
+                    <td>
+                    <?php
+                    if (Overview::isViewMode()) {
+                        $optionsForCurrentPage = array_map(static function ($value) {
+                            return $value;
+                        }, $optionsForCurrentPage);
+
+                        echo implode(', &nbsp;', $optionsForCurrentPage);
+                    } else {
+                        echo implode (' &nbsp;', $optionsForCurrentPage);
+                    }
+                    ?>
+                    </td>
                 </tr>
 				<?php
 			}
@@ -69,19 +94,38 @@ $hasAtLeastOneRecord    = $hasPostsWithOptions || $hasHomepageWithOptions;
 							<?php
 							$optionsForCurrentPage = array();
 
-							foreach ($results['options'] as $optionKey => $optionValue) {
+                            foreach ($results['options'] as $optionKey => $optionValue) {
 								if ($optionKey === '_page_uri') {
 									// Hidden and irrelevant
 									continue;
 								}
 
 								if (isset($data['page_options_to_text'][$optionKey]) && $optionValue) {
-									$optionsForCurrentPage[] = $data['page_options_to_text'][$optionKey];
+                                    $infoData = array(
+                                        'page_type'   => 'post',
+                                        'post_id'     => $results['post_id'],
+                                        'page_option' => $optionKey,
+                                    );
+
+									$optionsForCurrentPage[] = Overview::renderNoWrapRuleOutput(
+                                        '<span style="color: #cc0000;">'.$data['page_options_to_text'][$optionKey].'</span>',
+                                        $infoData,
+                                        $optionKey,
+                                        $optionValue
+                                    );
 								}
 							}
 
-							echo implode (', ', $optionsForCurrentPage);
-							?>
+                            if (Overview::isViewMode()) {
+                                $optionsForCurrentPage = array_map(static function ($value) {
+                                    return $value;
+                                }, $optionsForCurrentPage);
+
+                                echo implode(', &nbsp;', $optionsForCurrentPage);
+                            } else {
+                                echo implode (' &nbsp;', $optionsForCurrentPage);
+                            }
+                            ?>
                         </td>
                     </tr>
 					<?php

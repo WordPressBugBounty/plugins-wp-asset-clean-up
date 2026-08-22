@@ -18,13 +18,20 @@ use WpAssetCleanUp\ObjectCache;
 class SettingsAdminOnlyForAdmin
 {
     /**
-     * If the total number of users is above this number, the auto-complete is activated
+     * If the total number of users is above this number, the AJAX search interface is activated
      * For instance, there could be tens of thousands of users on specific websites
      * It's not effective to put all in one drop-down (too many resources would be used)
      *
      * @var int
      */
     public static $activateSearchDdInPluginAccessIfTotalNonAdminUsersExceeds = 200;
+
+    /**
+     * Keep the AJAX response small on websites with a large users table.
+     *
+     * @var int
+     */
+    public static $nonAdminUsersSearchResultsLimit = 30;
 
 
     /**
@@ -66,7 +73,7 @@ SQL;
         $wpdb->query($clearQuery);
 
         if (isset($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to'], $_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list']) &&
-            $_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to'] === 'chosen' &&
+            in_array($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to'], array('chosen', 'selected'), true) &&
             ! empty($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list'])) {
             $allowManageAssetsTo = $_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list'];
 
@@ -91,7 +98,10 @@ SQL;
                 $userRole = sanitize_text_field($userRole);
 
                 $wpRole = get_role($userRole);
-                $wpRole->add_cap(Menu::$pluginAccessCap);
+
+                if ($wpRole) {
+                    $wpRole->add_cap(Menu::$pluginAccessCap);
+                }
             }
         }
         // [END] plugin access via user roles
@@ -175,46 +185,164 @@ SQL;
     }
 
     /**
+     * Return every user who can access Asset CleanUp and is therefore eligible
+     * to be included in the CSS/JS Manager visibility list.
+     *
+     * Administrators are included through the default access role. Other users
+     * can receive access directly or through a role in the Access Control tab.
+     *
+     * @return \WP_User[]
+     */
+    public static function getAllUsersWithPluginAccess()
+    {
+        $eligibleUsers = array();
+        $usersWithPluginCapability = get_users(array(
+            'capability' => Menu::$pluginAccessCap,
+            'orderby'    => 'user_nicename',
+            'order'      => 'ASC',
+            'number'     => -1
+        ));
+
+        foreach (array_merge(self::getAllAdminUsers(), $usersWithPluginCapability) as $user) {
+            if ( ! $user instanceof \WP_User ) {
+                continue;
+            }
+
+            $eligibleUsers[(int)$user->ID] = $user;
+        }
+
+        uasort($eligibleUsers, static function ($firstUser, $secondUser) {
+            return strcasecmp($firstUser->user_nicename, $secondUser->user_nicename);
+        });
+
+        return array_values($eligibleUsers);
+    }
+
+    /**
+     * @return array<string,string> Role slug => display name.
+     */
+    public static function getAllRolesWithPluginAccess()
+    {
+        $eligibleRoles = array();
+
+        foreach (wp_roles()->roles as $roleSlug => $roleData) {
+            $role = get_role($roleSlug);
+
+            if ($roleSlug !== Menu::$defaultAccessRole && ( ! $role || ! $role->has_cap(Menu::$pluginAccessCap) )) {
+                continue;
+            }
+
+            $eligibleRoles[$roleSlug] = translate_user_role($roleData['name']);
+        }
+
+        asort($eligibleRoles, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $eligibleRoles;
+    }
+
+    /**
      * @return void
      */
     public function ajaxSearchNonAdminUsersForDd()
     {
         check_ajax_referer('wpacu_search_non_admin_users_for_dd_nonce', 'wpacu_security');
 
-        if ( ! ( isset($_POST['action'], $_POST['wpacu_query']) &&
-                $_POST['action'] && trim($_POST['wpacu_query']) &&
-                $_POST['action'] === WPACU_PLUGIN_ID . '_search_non_admin_users_for_dd' ) ||
+        $action = isset($_POST['action']) ? sanitize_key(wp_unslash($_POST['action'])) : '';
+
+        if ( ! isset($_POST['wpacu_query']) ||
+             $action !== WPACU_PLUGIN_ID . '_search_non_admin_users_for_dd' ||
              ! current_user_can(Menu::$defaultAccessRole) ) {
-            exit();
+            wp_send_json_error(array('message' => __('You are not allowed to search for users.', 'wp-asset-clean-up')), 403);
+        }
+
+        $queryTerm = trim(sanitize_text_field(wp_unslash($_POST['wpacu_query'])));
+
+        if (strlen($queryTerm) < 2) {
+            wp_send_json_success(array('results' => array()));
+        }
+
+        if (strlen($queryTerm) > 100) {
+            $queryTerm = substr($queryTerm, 0, 100);
+        }
+
+        $excludedUserIds = array();
+
+        if (isset($_POST['wpacu_exclude_user_ids']) && is_array($_POST['wpacu_exclude_user_ids'])) {
+            $excludedUserIds = array_slice(
+                array_values(array_unique(array_filter(array_map('absint', wp_unslash($_POST['wpacu_exclude_user_ids']))))),
+                0,
+                500
+            );
         }
 
         global $wpdb;
 
-        $queryTerm = $wpdb->esc_like(trim($_POST['wpacu_query']));
+        $queryLike = '%' . $wpdb->esc_like($queryTerm) . '%';
+        $candidateLimit = self::$nonAdminUsersSearchResultsLimit * 5;
+        $excludedUsersSql = '';
+        $prepareValues = array(
+            $queryLike,
+            $queryLike,
+            $queryLike,
+            $queryLike,
+            $queryLike
+        );
 
-        $sqlSearchQuery = <<<SQL
-SELECT DISTINCT u.ID as user_id FROM `{$wpdb->users}` u
-LEFT JOIN `{$wpdb->usermeta}` um ON (u.ID = um.user_id)
-WHERE u.ID          LIKE  '%{$queryTerm}%'
-   OR u.user_login  LIKE  '%{$queryTerm}%'
-   OR u.user_email  LIKE  '%{$queryTerm}%'
-   OR (um.meta_key='first_name' AND um.meta_value LIKE '%{$queryTerm}%')
-   OR (um.meta_key='last_name' AND um.meta_value LIKE '%{$queryTerm}%')
-SQL;
-        $rows = $wpdb->get_results($sqlSearchQuery, ARRAY_A);
-
-        foreach ($rows as $row) {
-            $user = new \WP_User($row['user_id']);
-
-            if ($user->has_cap(Menu::$defaultAccessRole)) {
-                continue;
-            }
-            ?>
-            <option value="<?php echo $user->ID; ?>"><?php echo esc_html(self::userOutputRelatedToPluginAccessDd($user)); ?></option>
-            <?php
+        if ( ! empty($excludedUserIds) ) {
+            $excludedUsersSql = ' AND u.ID NOT IN (' . implode(', ', array_fill(0, count($excludedUserIds), '%d')) . ')';
+            $prepareValues = array_merge($prepareValues, $excludedUserIds);
         }
 
-        exit();
+        $prepareValues[] = $candidateLimit;
+
+        $sqlSearchQuery = $wpdb->prepare(
+            "SELECT DISTINCT u.ID AS user_id, u.display_name, u.user_login
+             FROM `{$wpdb->users}` u
+             LEFT JOIN `{$wpdb->usermeta}` um_names
+                    ON (u.ID = um_names.user_id AND um_names.meta_key IN ('first_name', 'last_name'))
+             WHERE (
+                    CAST(u.ID AS CHAR) LIKE %s
+                 OR u.user_login LIKE %s
+                 OR u.user_email LIKE %s
+                 OR u.display_name LIKE %s
+                 OR um_names.meta_value LIKE %s
+             ){$excludedUsersSql}
+             ORDER BY u.display_name ASC, u.user_login ASC
+             LIMIT %d",
+            $prepareValues
+        );
+
+        $rows = $wpdb->get_results($sqlSearchQuery, ARRAY_A);
+        $results = array();
+
+        foreach ($rows as $row) {
+            $userId = (int)$row['user_id'];
+
+            if (in_array($userId, $excludedUserIds, true)) {
+                continue;
+            }
+
+            $user = get_user_by('id', $userId);
+
+            if ( ! $user instanceof \WP_User || $user->has_cap(Menu::$defaultAccessRole) ) {
+                continue;
+            }
+
+            $results[] = array(
+                'id'   => (int)$user->ID,
+                'text' => html_entity_decode(
+                    wp_strip_all_tags(self::userOutputRelatedToPluginAccessDd($user)),
+                    ENT_QUOTES,
+                    get_bloginfo('charset') ?: 'UTF-8'
+                )
+            );
+
+            if (count($results) >= self::$nonAdminUsersSearchResultsLimit) {
+                break;
+            }
+        }
+
+        wp_send_json_success(array('results' => $results));
     }
 
     /**
@@ -222,89 +350,197 @@ SQL;
      */
     public function ajaxAddNonAdminUsersToChosenList()
     {
-        if ( ! ( isset($_POST['action'], $_POST['wpacu_user_id']) &&
-                 $_POST['action'] && $_POST['wpacu_user_id'] &&
-                 $_POST['action'] === WPACU_PLUGIN_ID . '_add_non_admin_users_to_chosen_list' ) ||
-             ! Menu::userCanAccessPlugin() ) {
-            exit();
+        check_ajax_referer('wpacu_search_non_admin_users_for_dd_nonce', 'wpacu_security');
+
+        $action = isset($_POST['action']) ? sanitize_key(wp_unslash($_POST['action'])) : '';
+
+        if ( ! isset($_POST['wpacu_user_id']) ||
+             $action !== WPACU_PLUGIN_ID . '_add_non_admin_users_to_chosen_list' ||
+             ! current_user_can(Menu::$defaultAccessRole) ) {
+            wp_send_json_error(array('message' => __('You are not allowed to add users to the plugin access list.', 'wp-asset-clean-up')), 403);
         }
 
-        $userId = (int)$_POST['wpacu_user_id'];
+        $userId = absint(wp_unslash($_POST['wpacu_user_id']));
 
-        $user = new \WP_User($userId);
+        $user = get_user_by('id', $userId);
 
-        if ($user->has_cap(Menu::$defaultAccessRole)) {
-            // Something's not right (wrong ID perhaps)
-            // Only non
-            exit();
+        if ( ! $user instanceof \WP_User || $user->has_cap(Menu::$defaultAccessRole) ) {
+            wp_send_json_error(array('message' => __('The selected non-administrator user is not valid.', 'wp-asset-clean-up')), 400);
         }
 
+        ob_start();
         self::addedChosenNonAdminUserForPluginAccessOutput($user);
+        $output = ob_get_clean();
 
-        exit();
+        wp_send_json_success(array(
+            'user_id' => (int)$user->ID,
+            'html'    => $output
+        ));
     }
 
     /**
-     * @param $data
+     * Print one selected non-administrator account in the Access Control user list.
+     *
+     * The same markup is used for the initial page output and for users added through
+     * the AJAX search interface, so the list remains visually and functionally consistent.
+     *
+     * @param \WP_User $user
      *
      * @return void
      */
     public static function addedChosenNonAdminUserForPluginAccessOutput($user)
     {
+        if ( ! $user instanceof \WP_User ) {
+            return;
+        }
+
+        $displayName = self::getUserDisplayNameForPluginAccess($user);
+        $roleNames   = self::getUserRoleNamesForPluginAccess($user);
+        $revokeLabel = sprintf(
+            __('Revoke plugin access for %s', 'wp-asset-clean-up'),
+            $displayName
+        );
         ?>
-        <div class="wpacu_non_admin_chosen_user_id_area"
-             data-wpacu-non-admin-chosen-user-id="<?php echo $user->ID; ?>">
+        <article class="wpacu-access-user-card wpacu_non_admin_chosen_user_id_area"
+                 data-wpacu-non-admin-chosen-user-id="<?php echo esc_attr($user->ID); ?>"
+                 role="listitem">
 
             <input type="hidden"
-                   name="<?php echo WPACU_PLUGIN_ID . '_settings'; ?>[access_via_specific_non_admin_users][]"
-                   value="<?php echo $user->ID; ?>" />
+                   name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[access_via_specific_non_admin_users][]"
+                   value="<?php echo esc_attr($user->ID); ?>" />
 
-            <?php echo esc_html(self::userOutputRelatedToPluginAccessDd($user)); ?>
+            <span class="wpacu-access-user-card__avatar" aria-hidden="true">
+                <span class="dashicons dashicons-admin-users"></span>
+            </span>
 
-            <a class="wpacu_remove_non_admin_access"
-               data-clear-wpacu-non-admin-chosen-user-id="<?php echo $user->ID; ?>"
-               title="<?php esc_attr_e('Revoke plugin access for this user'); ?>"
-               href="#"><span class="dashicons dashicons-no-alt"></span></a>
-        </div>
+            <div class="wpacu-access-user-card__identity">
+                <strong class="wpacu-access-user-card__name" title="<?php echo esc_attr($displayName); ?>">
+                    <?php echo esc_html($displayName); ?>
+                </strong>
+
+                <div class="wpacu-access-user-card__meta">
+                    <?php if ( ! empty($user->user_login) ) { ?>
+                        <span class="wpacu-access-user-card__username" title="<?php echo esc_attr($user->user_login); ?>">
+                            @<?php echo esc_html($user->user_login); ?>
+                        </span>
+                    <?php } ?>
+
+                    <?php if ( ! empty($user->user_login) && ! empty($user->user_email) ) { ?>
+                        <span class="wpacu-access-user-card__separator" aria-hidden="true">&bull;</span>
+                    <?php } ?>
+
+                    <?php if ( ! empty($user->user_email) ) { ?>
+                        <span class="wpacu-access-user-card__email" title="<?php echo esc_attr($user->user_email); ?>">
+                            <?php echo esc_html($user->user_email); ?>
+                        </span>
+                    <?php } ?>
+                </div>
+
+                <div class="wpacu-access-user-card__roles"
+                     aria-label="<?php echo esc_attr(_n('User role', 'User roles', max(1, count($roleNames)), 'wp-asset-clean-up')); ?>">
+                    <?php if (empty($roleNames)) { ?>
+                        <span class="wpacu-access-user-role wpacu-access-user-role--muted">
+                            <?php esc_html_e('No role assigned', 'wp-asset-clean-up'); ?>
+                        </span>
+                    <?php } else {
+                        foreach ($roleNames as $roleName) { ?>
+                            <span class="wpacu-access-user-role"><?php echo esc_html($roleName); ?></span>
+                        <?php }
+                    } ?>
+                </div>
+            </div>
+
+            <button type="button"
+                    class="wpacu-access-user-card__remove wpacu_remove_non_admin_access"
+                    data-clear-wpacu-non-admin-chosen-user-id="<?php echo esc_attr($user->ID); ?>"
+                    title="<?php echo esc_attr($revokeLabel); ?>"
+                    aria-label="<?php echo esc_attr($revokeLabel); ?>">
+                <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+                <span class="screen-reader-text"><?php echo esc_html($revokeLabel); ?></span>
+            </button>
+        </article>
         <?php
     }
 
     /**
-     * @param object $user
+     * Build the compact user label used in the standard multi-select and AJAX results.
+     *
+     * @param \WP_User $user
      *
      * @return string
      */
     public static function userOutputRelatedToPluginAccessDd($user)
     {
-        $roleText = __('Role', 'wp-asset-clean-up');
-
-        if (count($user->roles) > 1) {
-            $roleText = __('Roles', 'wp-asset-clean-up');
-        }
-
-        $fullName = '';
-
-        if ($user->first_name || $user->last_name) {
-            $fullName = trim($user->first_name.' '.$user->last_name);
+        if ( ! $user instanceof \WP_User ) {
+            return '';
         }
 
         $optionTextArray = array();
+        $displayName     = self::getUserDisplayNameForPluginAccess($user);
+        $roleNames       = self::getUserRoleNamesForPluginAccess($user);
 
-        if ($fullName) {
-            $optionTextArray[] = esc_html($fullName);
+        if ($displayName !== '') {
+            $optionTextArray[] = $displayName;
         }
 
-        if ($user->user_login !== $user->user_email) {
-            $optionTextArray[] = __('User', 'wp-asset-clean-up') . ': ' . esc_html($user->user_login);
+        if ( ! empty($user->user_login) ) {
+            $optionTextArray[] = '@' . $user->user_login;
         }
 
-        $optionTextArray[] = __('Email', 'wp-asset-clean-up') . ': '.esc_html($user->user_email);
-
-        if ( ! empty($user->roles) ) {
-            $optionTextArray[] = $roleText . ': ' . implode(', ', $user->roles);
+        if ( ! empty($user->user_email) ) {
+            $optionTextArray[] = $user->user_email;
         }
 
-        return implode(' / ', $optionTextArray);
+        if ( ! empty($roleNames) ) {
+            $roleText = count($roleNames) > 1
+                ? __('Roles', 'wp-asset-clean-up')
+                : __('Role', 'wp-asset-clean-up');
+
+            $optionTextArray[] = $roleText . ': ' . implode(', ', $roleNames);
+        }
+
+        return implode(' · ', array_values(array_unique($optionTextArray)));
+    }
+
+    /**
+     * @param \WP_User $user
+     *
+     * @return string
+     */
+    private static function getUserDisplayNameForPluginAccess($user)
+    {
+        $fullName = trim($user->first_name . ' ' . $user->last_name);
+
+        if ($fullName !== '') {
+            return $fullName;
+        }
+
+        if ( ! empty($user->display_name) ) {
+            return $user->display_name;
+        }
+
+        return (string) $user->user_login;
+    }
+
+    /**
+     * @param \WP_User $user
+     *
+     * @return array
+     */
+    private static function getUserRoleNamesForPluginAccess($user)
+    {
+        $roleNames = array();
+        $wpRoles   = wp_roles();
+
+        foreach ((array) $user->roles as $roleSlug) {
+            if (isset($wpRoles->roles[$roleSlug]['name'])) {
+                $roleNames[] = translate_user_role($wpRoles->roles[$roleSlug]['name']);
+            } else {
+                $roleNames[] = $roleSlug;
+            }
+        }
+
+        return array_values(array_unique($roleNames));
     }
 
     /**
@@ -432,7 +668,7 @@ SQL;
      */
     public static function filterAnySpecifiedAdminsForAccessToAssetsManager($data = array())
     {
-        if ( isset($data['allow_manage_assets_to']) && $data['allow_manage_assets_to'] === 'any_admin' ) {
+        if ( isset($data['allow_manage_assets_to']) && in_array($data['allow_manage_assets_to'], array('any_admin', 'selected', 'selected_roles'), true) ) {
             return $data;
         }
 

@@ -107,17 +107,33 @@ class MiscAdmin
      */
     public static function getCachedActiveFreePluginsIcons()
     {
-        $activePluginsIconsJson = get_transient(WPACU_PLUGIN_ID . '_active_plugins_icons' );
+        $cacheData = self::getActiveFreePluginsIconsCacheData();
 
-        if ( $activePluginsIconsJson ) {
-            $activePluginsIcons = @json_decode( $activePluginsIconsJson, ARRAY_A );
+        return $cacheData['icons'];
+    }
 
-            if ( ! empty( $activePluginsIcons ) && is_array( $activePluginsIcons ) ) {
-                return $activePluginsIcons;
+    /**
+     * @return bool
+     */
+    public static function shouldFetchActiveFreePluginsIcons()
+    {
+        $cacheData = self::getActiveFreePluginsIconsCacheData();
+        $retryFailedAfter = 21600; // six hours
+
+        foreach (self::getActiveFreePluginSlugs() as $pluginSlug) {
+            if (isset($cacheData['icons'][$pluginSlug]) && $cacheData['icons'][$pluginSlug] !== '') {
+                continue;
             }
+
+            if (isset($cacheData['failed_at'][$pluginSlug])
+                && ((int)$cacheData['failed_at'][$pluginSlug] + $retryFailedAfter) > time()) {
+                continue;
+            }
+
+            return true;
         }
 
-        return array(); // default
+        return false;
     }
 
     /**
@@ -125,13 +141,163 @@ class MiscAdmin
      */
     public static function fetchActiveFreePluginsIconsFromWordPressOrg()
     {
-        $allActivePlugins = Misc::getActivePlugins();
+        $pluginSlugs = self::getActiveFreePluginSlugs();
 
-        if (empty($allActivePlugins)) {
+        if (empty($pluginSlugs)) {
             return array();
         }
 
-        foreach ($allActivePlugins as $activePlugin) {
+        $lockTransient = WPACU_PLUGIN_ID . '_active_plugins_icons_fetch_lock';
+
+        if (get_transient($lockTransient)) {
+            return self::getCachedActiveFreePluginsIcons();
+        }
+
+        set_transient($lockTransient, time(), 300);
+
+        $cacheData = self::getActiveFreePluginsIconsCacheData();
+        $activePluginsIcons = $cacheData['icons'];
+        $failedAt = $cacheData['failed_at'];
+        $retryFailedAfter = 21600; // six hours
+        $maxPluginsPerRequest = 5;
+        $pluginsChecked = 0;
+
+        foreach ($pluginSlugs as $pluginSlug) {
+            if (isset($activePluginsIcons[$pluginSlug]) && $activePluginsIcons[$pluginSlug] !== '') {
+                continue;
+            }
+
+            if (isset($failedAt[$pluginSlug])
+                && ((int)$failedAt[$pluginSlug] + $retryFailedAfter) > time()) {
+                continue;
+            }
+
+            if ($pluginsChecked >= $maxPluginsPerRequest) {
+                break;
+            }
+
+            $pluginsChecked++;
+
+            /*
+             * Use the JSON (v1.2) endpoint over HTTPS via a GET request
+             *
+             * Note: The former implementation used the v1.0 endpoint over plain HTTP with a serialized
+             * payload & response (unserialize() on an unencrypted response is a PHP Object Injection
+             * vector via a man-in-the-middle attack); json_decode() is safe by design
+             */
+            $requestFields = array(
+                'tags'          => 0,
+                'icons'         => 1, // that's what will get fetched
+                'sections'      => 0,
+                'description'   => 0,
+                'tested'        => 0,
+                'requires'      => 0,
+                'rating'        => 0,
+                'downloaded'    => 0,
+                'downloadlink'  => 0,
+                'last_updated'  => 0,
+                'homepage'      => 0,
+                'compatibility' => 0,
+                'ratings'       => 0,
+                'added'         => 0,
+                'donate_link'   => 0
+            );
+
+            $requestUrl = add_query_arg(
+                array(
+                    'action'  => 'plugin_information',
+                    'request' => array(
+                        'slug'   => $pluginSlug,
+                        'fields' => $requestFields
+                    )
+                ),
+                'https://api.wordpress.org/plugins/info/1.2/'
+            );
+
+            $body = wp_remote_get($requestUrl, array('timeout' => 8));
+
+            if (is_wp_error($body) || wp_remote_retrieve_response_code($body) !== 200) {
+                $failedAt[$pluginSlug] = time();
+                continue;
+            }
+
+            $responseBody = wp_remote_retrieve_body($body);
+
+            if (! $responseBody) {
+                $failedAt[$pluginSlug] = time();
+                continue;
+            }
+
+            $pluginInfo = @json_decode($responseBody);
+
+            if (! (is_object($pluginInfo) && isset($pluginInfo->name, $pluginInfo->icons))) {
+                $failedAt[$pluginSlug] = time();
+                continue;
+            }
+
+            // If the plugin was not found, the v1.2 endpoint returns a JSON object with an "error" key
+            if (isset($pluginInfo->error)) {
+                $failedAt[$pluginSlug] = time();
+                continue;
+            }
+
+            $pluginInfoIcons = (array)$pluginInfo->icons; // "icons" is a JSON object (e.g. "1x", "2x", "svg" keys), cast it to an array
+
+            if (empty($pluginInfoIcons)) {
+                $failedAt[$pluginSlug] = time();
+                continue;
+            }
+
+            $pluginIcon = '';
+
+            foreach (array('svg', '2x', '1x', 'default') as $iconSize) {
+                if (isset($pluginInfoIcons[$iconSize]) && $pluginInfoIcons[$iconSize] !== '') {
+                    $pluginIcon = $pluginInfoIcons[$iconSize];
+                    break;
+                }
+            }
+
+            if ($pluginIcon === '') {
+                $pluginIcon = array_shift($pluginInfoIcons);
+            }
+
+            if ($pluginIcon !== '') {
+                $activePluginsIcons[$pluginSlug] = $pluginIcon;
+                unset($failedAt[$pluginSlug]);
+            } else {
+                $failedAt[$pluginSlug] = time();
+            }
+        }
+
+        // Do not retain entries for plugins that are no longer active.
+        $activePluginsIcons = array_intersect_key($activePluginsIcons, array_flip($pluginSlugs));
+        $failedAt = array_intersect_key($failedAt, array_flip($pluginSlugs));
+
+        $cachePayload = array(
+            'version'   => 2,
+            'icons'     => $activePluginsIcons,
+            'failed_at' => $failedAt
+        );
+
+        set_transient(
+            WPACU_PLUGIN_ID . '_active_plugins_icons',
+            wp_json_encode($cachePayload),
+            604800 // one week
+        );
+
+        delete_transient($lockTransient);
+
+        return $activePluginsIcons;
+    }
+
+    /**
+     * @return array
+     */
+    private static function getActiveFreePluginSlugs()
+    {
+        $pluginSlugs = array();
+
+        foreach (Misc::getActivePlugins() as $activePlugin) {
             if (! is_string($activePlugin) || strpos($activePlugin, '/') === false) {
                 continue;
             }
@@ -139,79 +305,54 @@ class MiscAdmin
             list($pluginSlug) = explode('/', $activePlugin);
             $pluginSlug = trim($pluginSlug);
 
-            if (! $pluginSlug) {
+            if ($pluginSlug === '' || in_array($pluginSlug, array('wp-asset-clean-up', 'wp-asset-clean-up-pro'), true)) {
                 continue;
             }
 
-            // Avoid the calls to WordPress.org as much as possible
-            // as it would decrease the resources and timing to fetch the data we need
-
-            // not relevant to check Asset CleanUp's plugin info in this case
-            if (in_array($pluginSlug, array('wp-asset-clean-up', 'wp-asset-clean-up-pro'))) {
-                continue;
-            }
-
-            // no readme.txt file in the plugin's root folder? skip it
-            if (! is_file(WP_PLUGIN_DIR.'/'.$pluginSlug.'/readme.txt')) {
-                continue;
-            }
-
-            $payload = array(
-                'action'  => 'plugin_information',
-                'request' => serialize( (object) array(
-                    'slug'   => $pluginSlug,
-                    'fields' => array(
-                        'tags'          => false,
-                        'icons'         => true, // that's what will get fetched
-                        'sections'      => false,
-                        'description'   => false,
-                        'tested'        => false,
-                        'requires'      => false,
-                        'rating'        => false,
-                        'downloaded'    => false,
-                        'downloadlink'  => false,
-                        'last_updated'  => false,
-                        'homepage'      => false,
-                        'compatibility' => false,
-                        'ratings'       => false,
-                        'added'         => false,
-                        'donate_link'   => false
-                    ),
-                ) ),
-            );
-
-            $body = @wp_remote_post('http://api.wordpress.org/plugins/info/1.0/', array('body' => $payload));
-
-            if (is_wp_error($body) || (! (isset($body['body']) && is_serialized($body['body'])))) {
-                continue;
-            }
-
-            $pluginInfo = @unserialize($body['body']);
-
-            if (! isset($pluginInfo->name, $pluginInfo->icons)) {
-                continue;
-            }
-
-            if (empty($pluginInfo->icons)) {
-                continue;
-            }
-
-            $pluginIcon = array_shift($pluginInfo->icons);
-
-            if ($pluginIcon !== '') {
-                $activePluginsIcons[$pluginSlug] = $pluginIcon;
-            }
+            $pluginSlugs[] = $pluginSlug;
         }
 
-        if (empty($activePluginsIcons)) {
-            return array();
+        return array_values(array_unique($pluginSlugs));
+    }
+
+    /**
+     * Supports both the legacy slug => URL cache and the version 2 payload.
+     *
+     * @return array
+     */
+    private static function getActiveFreePluginsIconsCacheData()
+    {
+        $cacheData = array(
+            'icons'     => array(),
+            'failed_at' => array()
+        );
+        $cachedJson = get_transient(WPACU_PLUGIN_ID . '_active_plugins_icons');
+
+        if (! is_string($cachedJson) || $cachedJson === '') {
+            return $cacheData;
         }
 
-        $expiresInSeconds = 604800; // one week
+        $cached = json_decode($cachedJson, true);
 
-        set_transient(WPACU_PLUGIN_ID . '_active_plugins_icons', wp_json_encode($activePluginsIcons), $expiresInSeconds);
+        if (! is_array($cached)) {
+            return $cacheData;
+        }
 
-        return $activePluginsIcons;
+        if (isset($cached['version']) && (int)$cached['version'] >= 2) {
+            $cacheData['icons'] = isset($cached['icons']) && is_array($cached['icons'])
+                ? $cached['icons']
+                : array();
+            $cacheData['failed_at'] = isset($cached['failed_at']) && is_array($cached['failed_at'])
+                ? $cached['failed_at']
+                : array();
+
+            return $cacheData;
+        }
+
+        // Legacy payload: the whole decoded array contains slug => icon URL pairs.
+        $cacheData['icons'] = $cached;
+
+        return $cacheData;
     }
 
     /**
@@ -257,7 +398,7 @@ class MiscAdmin
         global $wpdb;
 
         $frontPageNoLoad      = get_option(WPACU_PLUGIN_ID . '_front_page_no_load');
-        $frontPageNoLoadArray = json_decode($frontPageNoLoad, ARRAY_A);
+        $frontPageNoLoadArray = wpacuJsonDecodeToArray($frontPageNoLoad);
 
         $unloadedTotalAssets = 0;
 
@@ -319,7 +460,7 @@ SQL;
         if (in_array($for, array('everywhere', 'all'))) {
             // Everywhere (Site-wide) unloads
             $globalUnloadListJson = get_option(WPACU_PLUGIN_ID . '_global_unload');
-            $globalUnloadArray    = @json_decode($globalUnloadListJson, ARRAY_A);
+            $globalUnloadArray    = wpacuJsonDecodeToArray($globalUnloadListJson);
 
             foreach (array('styles', 'scripts') as $assetType) {
                 if ( ! empty( $globalUnloadArray[$assetType] ) ) {
@@ -331,7 +472,7 @@ SQL;
         if (in_array($for, array('bulk', 'all'))) {
             // Any bulk unloads? e.g. unload specific CSS/JS on all pages of a specific post type
             $bulkUnloadListJson = get_option(WPACU_PLUGIN_ID . '_bulk_unload');
-            $bulkUnloadArray  = @json_decode($bulkUnloadListJson, ARRAY_A);
+            $bulkUnloadArray  = wpacuJsonDecodeToArray($bulkUnloadListJson);
 
             $bulkUnloadedAllTypes = array('search', 'date', '404', 'taxonomy', 'post_type', 'author');
             foreach (array('styles', 'scripts') as $assetType) {

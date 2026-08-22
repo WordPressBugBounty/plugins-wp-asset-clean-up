@@ -33,12 +33,47 @@ class BulkChanges
      */
     public function __construct()
     {
-	    $this->wpacuFor      = sanitize_text_field(Misc::getVar('request', 'wpacu_for', $this->wpacuFor));
+	    $this->wpacuFor      = sanitize_text_field(Misc::getVar('request', 'wpacu_for',       $this->wpacuFor));
 	    $this->wpacuPostType = sanitize_text_field(Misc::getVar('request', 'wpacu_post_type', $this->wpacuPostType));
 
         if (Misc::getVar('request', 'wpacu_update') == 1) {
             $this->update();
         }
+
+        add_action('wpacu_below_menu_admin_notices', array($this, 'bulkChangesDeprecatedNotice')); // deprecated
+    }
+
+    // To be added when edit overview mode is completed as well
+    /**
+     * @return void
+     */
+    public function bulkChangesDeprecatedNotice()
+    {
+        ?>
+        <div style="width: 95%; margin: 0 0 22px 0; padding: 18px; border-left: 4px solid #72aee6; background: #f0f6fc; border-radius: 6px; color: #333; line-height: 1.6;">
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center;">
+                <svg style="flex: 0 0 23px; width: 23px; height: 23px; margin-right: 8px;" viewBox="0 0 20 20" aria-hidden="true">
+                    <rect x="1" y="1" width="18" height="18" rx="3" fill="#5f8faf"/>
+                    <circle cx="10" cy="5.5" r="1.2" fill="#fff"/>
+                    <rect x="9" y="8" width="2" height="7" rx="1" fill="#fff"/>
+                </svg>
+                <?php esc_html_e('Bulk Changes is now a legacy page', 'wp-asset-clean-up'); ?>
+            </div>
+
+            <div style="font-size: 14px;">
+                <p style="max-width: 1050px; margin: 0 0 12px;">
+                    <?php esc_html_e('Bulk rules can now be reviewed and managed more efficiently from Overview, including rules created through CSS/JS Manager or Plugins Manager and dormant rules left behind by deleted pages or deactivated plugins.', 'wp-asset-clean-up'); ?>
+                </p>
+                <p style="max-width: 1050px; margin: 0 0 15px;">
+                    <?php esc_html_e('Bulk Changes will no longer appear in the plugin navigation at the top or in the WordPress sidebar menu. The page will remain available through its direct URL or an existing bookmark for users familiar with the legacy workflow. We recommend using Overview for ongoing rule management.', 'wp-asset-clean-up'); ?>
+                </p>
+                <p style="margin: 0;">
+                    <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_overview')); ?>"><?php esc_html_e('Open Overview', 'wp-asset-clean-up'); ?></a>
+                    <span style="display: inline-block; margin-left: 10px; color: #52636b;"><?php esc_html_e('Direct URL access to Bulk Changes will remain available.', 'wp-asset-clean-up'); ?></span>
+                </p>
+            </div>
+        </div>
+        <?php
     }
 
     /**
@@ -51,8 +86,13 @@ class BulkChanges
         if ($this->wpacuFor === 'everywhere') {
             $values = Main::instance()->getGlobalUnload();
         } elseif ($this->wpacuFor === 'post_types') {
-	        $values = Main::instance()->getBulkUnload('post_type', $this->wpacuPostType);
+            if (strpos($this->wpacuPostType, 'wpacu_custom_post_type_archive') === false) {
+	            // For the singular page belonging to the post type (e.g. /news/the-post-title-here/)
+	            $values = Main::instance()->getBulkUnload( 'post_type', $this->wpacuPostType );
+            }
         }
+
+        $values = apply_filters('wpacu_internal_bulk_changes_get_count', $values, $this);
 
 	    if ( ! empty($values['styles']) ) {
 		    sort($values['styles']);
@@ -71,7 +111,9 @@ class BulkChanges
     public function pageBulkUnloads()
     {
 	    $this->data['assets_info'] = Main::getHandlesInfo();
-	    if ( ! isset($this->data['values']) ) {
+	    $this->data = apply_filters('wpacu_internal_bulk_changes_page_bulk_unloads_data', $this->data, $this);
+
+        if ( ! isset($this->data['values']) ) {
             /*
              * Bulk Unloaded (page types)
              * e.g. Everywhere, Posts, Pages &amp; Custom Post Types, Taxonomies, etc.
@@ -85,6 +127,8 @@ class BulkChanges
 		        $postTypes                     = get_post_types( array( 'public' => true ) );
 		        $this->data['post_types_list'] = MiscAdmin::filterPostTypesList( $postTypes );
 	        }
+
+            $this->data = apply_filters('wpacu_internal_bulk_changes_page_bulk_unloads_common_data', $this->data, $this);
 
             $this->data['values'] = $this->getCount();
         }
@@ -159,13 +203,15 @@ class BulkChanges
             }
         }
 
-	    if ($this->wpacuFor === 'post_types') {
-		    $removed = $wpacuUpdate->removeBulkUnloads($this->wpacuPostType);
+	    if ($this->wpacuFor === 'post_types' && strpos($this->wpacuPostType, 'wpacu_custom_post_type_archive_') === false) {
+		    $removed = $wpacuUpdate->removeBulkUnloads(array(), array(), 'post_type', $this->wpacuPostType, 'post');
 
 		    if ($removed) {
 			    add_action('wpacu_admin_notices', array($this, 'noticePostTypesRemoved'));
 		    }
 	    }
+
+        do_action('wpacu_internal_bulk_changes_update', $this, $wpacuUpdate);
     }
 
     /**

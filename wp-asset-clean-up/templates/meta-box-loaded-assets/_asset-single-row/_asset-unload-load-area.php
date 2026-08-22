@@ -26,6 +26,8 @@ if ( ! isset($data, $assetTypeS) ) {
     // Unload via RegEx (if site-wide is not already chosen)
     include __DIR__ . '/_asset-single-row-unload-via-regex.php';
 
+    require WPACU_PLUGIN_DIR . '/templates/_common/hooks/asset-row-after-regex-unload.php';
+
     // If any bulk unload rule is set, show the load exceptions
     include __DIR__ . '/_asset-single-row-load-exceptions.php';
     ?>

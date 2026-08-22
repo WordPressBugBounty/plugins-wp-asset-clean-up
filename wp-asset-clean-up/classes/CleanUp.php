@@ -19,7 +19,7 @@ class CleanUp
 		// "Test Mode" is enabled and the page is viewed by a regular visitor (not administrator with plugin activation privileges)
 		// Stop here as the script will NOT PREVENT any of the elements below to load
 		// They will load as they used to for the regular visitor while the admin debugs the website
-		add_action('init', array($this, 'doClean'), 12);
+		$this->doClean();
 	}
 
 	/**

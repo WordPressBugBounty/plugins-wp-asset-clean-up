@@ -9,6 +9,8 @@ if ( ! class_exists('\MatthiasMullieWpacu\Minify\Minify') ) {
 }
 
 /**
+ * @phpstan-consistent-constructor
+ *
  * Combine CSS Imports extended from CSS minifier
  *
  * Please report bugs on https://github.com/matthiasmullie/minify/issues
@@ -258,7 +260,7 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 	/**
 	 * Import files into the CSS, base64-sized.
 	 *
-	 * @url(image.jpg) images will be loaded and their content merged into the
+	 * url(image.jpg) images will be loaded and their content merged into the
 	 * original file, to save HTTP requests.
 	 *
 	 * @param string $source  The file to import files for
@@ -307,8 +309,8 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 	/**
 	 * Perform CSS optimizations.
 	 *
-	 * @param string[optional] $path    Path to write the data to
-	 * @param string[]         $parents Parent paths, for circular reference checks
+	 * @param string|null $path    Path to write the data to
+	 * @param array $parents Parent paths, for circular reference checks
 	 *
 	 * @return string The minified data
 	 */

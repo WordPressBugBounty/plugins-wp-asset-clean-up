@@ -1,0 +1,929 @@
+.wpacu-lite-pro-preview-notice {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin: 14px 0 18px;
+    padding: 13px 14px;
+    border: 1px solid #b7d7dc;
+    border-left: 4px solid #008f9c;
+    border-radius: 6px;
+    background: #f5fbfc;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .03);
+}
+
+.wpacu-lite-pro-preview-notice-icon {
+    display: flex;
+    flex: 0 0 28px;
+    align-items: center;
+    justify-content: center;
+}
+
+.wpacu-lite-pro-preview-notice-icon img {
+    display: block;
+    margin: 0;
+}
+
+.wpacu-lite-pro-preview-notice-copy {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.45;
+}
+
+.wpacu-lite-pro-preview-notice-copy strong {
+    color: #004567;
+    font-size: 14px;
+}
+
+.wpacu-lite-pro-preview-notice-copy span {
+    color: #3c434a;
+}
+
+.wpacu-lite-pro-preview-notice .wpacu-lite-pro-preview-cta {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.wpacu-lite-pro-preview-notice-compact {
+    margin: 9px 0 12px;
+    padding: 10px 12px;
+}
+
+.wpacu-lite-pro-badge {
+    display: inline-block;
+    margin-left: 5px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: #004567;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 18px;
+    letter-spacing: .04em;
+    vertical-align: 1px;
+}
+
+.wpacu-lite-pro-preview-surface {
+    position: relative;
+}
+
+.wpacu-lite-pro-preview-surface .wpacu-lite-pro-preview-control,
+.wpacu-lite-pro-preview-surface input:disabled,
+.wpacu-lite-pro-preview-surface select:disabled,
+.wpacu-lite-pro-preview-surface textarea:disabled,
+.wpacu-lite-pro-preview-surface button:disabled {
+    cursor: not-allowed !important;
+}
+
+/* Keep the feature readable. Only the controls, not the whole preview, are visually muted. */
+.wpacu-lite-pro-preview-surface input:disabled,
+.wpacu-lite-pro-preview-surface select:disabled,
+.wpacu-lite-pro-preview-surface textarea:disabled,
+.wpacu-lite-pro-preview-surface button:disabled {
+    opacity: .72;
+}
+
+.wpacu-lite-pro-preview-surface .wpacu_switch input:disabled + .wpacu_slider,
+.wpacu-lite-pro-preview-surface input[type="checkbox"]:disabled,
+.wpacu-lite-pro-preview-surface input[type="radio"]:disabled {
+    filter: grayscale(.35);
+}
+
+.wpacu-lite-pro-preview-dynamic .CodeMirror {
+    pointer-events: none;
+}
+
+.wpacu-lite-pro-preview-help {
+    margin: 8px 0 0;
+    color: #646970;
+    font-size: 12px;
+}
+
+.wpacu-lite-plugin-rule-preview {
+    margin-top: 13px;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.wpacu-lite-plugin-rule-preview > summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 12px;
+    color: #004567;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.wpacu-lite-plugin-rule-preview > summary::-webkit-details-marker {
+    display: none;
+}
+
+.wpacu-lite-plugin-rule-preview > summary::before {
+    content: "\f140";
+    font: normal 20px/1 dashicons;
+    transition: transform .12s ease;
+}
+
+.wpacu-lite-plugin-rule-preview[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.wpacu-lite-plugin-rule-preview-body {
+    padding: 0 12px 12px;
+}
+
+.wpacu-lite-plugin-rule-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.wpacu-lite-plugin-rule-preview-group {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid #e2e4e7;
+    border-radius: 5px;
+    background: #fbfbfc;
+}
+
+.wpacu-lite-plugin-rule-preview-group h4 {
+    margin: 0 0 8px;
+    color: #004567;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.wpacu-lite-plugin-rule-preview-group label {
+    display: block;
+    margin: 5px 0;
+    line-height: 1.4;
+}
+
+.wpacu-lite-plugin-rule-preview-group select,
+.wpacu-lite-plugin-rule-preview-group textarea,
+.wpacu-lite-plugin-rule-preview-group input[type="text"] {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.wpacu-lite-plugin-rule-preview-group textarea {
+    min-height: 54px;
+    resize: none;
+}
+
+.wpacu-lite-plugin-rule-preview-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 11px;
+    padding-top: 11px;
+    border-top: 1px solid #e2e4e7;
+}
+
+.wpacu-lite-plugin-rule-preview-footer span {
+    color: #646970;
+}
+
+@media screen and (max-width: 900px) {
+    .wpacu-lite-pro-preview-notice {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .wpacu-lite-pro-preview-notice .wpacu-lite-pro-preview-cta {
+        margin-left: 40px;
+    }
+
+    .wpacu-lite-plugin-rule-preview-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.wpacu-lite-plugin-rule-preview-intro {
+    margin: 0 0 10px;
+    color: #50575e;
+    line-height: 1.5;
+}
+
+.wpacu-lite-plugin-rule-preview-group select[multiple] {
+    min-height: 92px;
+}
+
+.wpacu-lite-plugin-rule-preview > summary .wpacu-lite-pro-badge {
+    margin-left: auto;
+}
+
+.wpacu-lite-pro-saved-rules {
+    display: inline-block;
+    margin-left: 8px;
+    color: #2271b1;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wpacu-lite-pro-saved-rules-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 10px 0 0;
+    padding: 9px 10px;
+    border-left: 3px solid #2271b1;
+    background: #f0f6fc;
+    color: #3c434a;
+    line-height: 1.45;
+}
+
+.wpacu-lite-pro-saved-rules-notice .dashicons {
+    flex: 0 0 auto;
+    color: #2271b1;
+}
+
+.wpacu-lite-pro-saved-rules-notice strong {
+    display: block;
+    color: #004567;
+}
+
+/* Plugins Manager Lite: product preview aligned with the Pro card experience. */
+.wpacu-lite-pm {
+    --wpacu-lite-pm-brand: #004567;
+    --wpacu-lite-pm-accent: #008f9c;
+    --wpacu-lite-pm-border: #dcdcde;
+    --wpacu-lite-pm-muted: #646970;
+    --wpacu-lite-pm-surface: #f6f7f7;
+    max-width: 1320px;
+    margin-top: 18px;
+}
+
+.wpacu-lite-pm-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, .75fr);
+    gap: 30px;
+    align-items: center;
+    padding: 26px 28px;
+    border: 1px solid #b7d7dc;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f7fcfc 0%, #eef8f9 100%);
+    box-shadow: 0 2px 8px rgba(0, 69, 103, .06);
+}
+
+.wpacu-lite-pm-eyebrow {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--wpacu-lite-pm-accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.wpacu-lite-pm-overview h2,
+.wpacu-lite-pm-upgrade h2 {
+    margin: 0;
+    color: var(--wpacu-lite-pm-brand);
+    font-size: 22px;
+    line-height: 1.3;
+}
+
+.wpacu-lite-pm-overview-copy p {
+    max-width: 780px;
+    margin: 10px 0 0;
+    color: #3c434a;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.wpacu-lite-pm-overview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid #c9dfe2;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, .86);
+}
+
+.wpacu-lite-pm-overview-stats > div {
+    min-width: 0;
+    padding: 15px 10px;
+    text-align: center;
+}
+
+.wpacu-lite-pm-overview-stats > div + div {
+    border-left: 1px solid #dbe9eb;
+}
+
+.wpacu-lite-pm-overview-stats strong,
+.wpacu-lite-pm-overview-stats span {
+    display: block;
+}
+
+.wpacu-lite-pm-overview-stats strong {
+    color: var(--wpacu-lite-pm-brand);
+    font-size: 23px;
+    line-height: 1.1;
+}
+
+.wpacu-lite-pm-overview-stats span {
+    margin-top: 5px;
+    color: var(--wpacu-lite-pm-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.wpacu-lite-pm-pro-workspace {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    background: #f6f7f7;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+}
+
+.wpacu-lite-pm-layout-picker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 14px;
+    padding: 15px 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 7px;
+    background: #fff;
+}
+
+.wpacu-lite-pm-layout-picker-copy {
+    min-width: 0;
+}
+
+.wpacu-lite-pm-layout-picker-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--wpacu-lite-pm-brand);
+}
+
+.wpacu-lite-pm-layout-picker-heading .dashicons {
+    color: var(--wpacu-lite-pm-accent);
+}
+
+.wpacu-lite-pm-layout-picker-heading .wpacu-lite-pro-badge {
+    margin-left: 3px;
+}
+
+.wpacu-lite-pm-layout-picker-copy p {
+    margin: 5px 0 0;
+    color: var(--wpacu-lite-pm-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.wpacu-lite-pm-layout-picker-form {
+    flex: 0 0 390px;
+}
+
+.wpacu-lite-pm-layout-picker-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wpacu-lite-pm-layout-picker-controls label {
+    color: #3c434a;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wpacu-lite-pm-layout-picker-controls select {
+    width: 100%;
+    min-height: 34px;
+}
+
+.wpacu-lite-pm-layout-picker-form small {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 5px;
+    color: #787c82;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.wpacu-lite-pm-layout-picker-form small .dashicons {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    font-size: 14px;
+}
+
+.wpacu-lite-pm-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 0 0 12px;
+    padding: 13px 16px;
+    border: 1px solid var(--wpacu-lite-pm-border);
+    border-radius: 7px;
+    background: #fff;
+}
+
+.wpacu-lite-pm-plugin-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 11px 14px;
+    border: 1px solid #c3c4c7;
+    border-bottom: 0;
+    border-radius: 7px 7px 0 0;
+    background: #fff;
+    color: #3c434a;
+}
+
+.wpacu-lite-pm-plugin-group-header > div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.wpacu-lite-pm-plugin-group-header .dashicons {
+    color: var(--wpacu-lite-pm-accent);
+}
+
+.wpacu-lite-pm-plugin-group-header > span {
+    color: #787c82;
+    font-size: 11px;
+}
+
+.wpacu-lite-pm-toolbar-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.wpacu-lite-pm-toolbar-copy strong {
+    color: var(--wpacu-lite-pm-brand);
+}
+
+.wpacu-lite-pm-toolbar-copy span {
+    color: var(--wpacu-lite-pm-muted);
+    font-size: 12px;
+}
+
+.wpacu-lite-pm-search {
+    position: relative;
+    flex: 0 1 310px;
+}
+
+.wpacu-lite-pm-search .dashicons {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    z-index: 1;
+    transform: translateY(-50%);
+    color: #787c82;
+    pointer-events: none;
+}
+
+.wpacu-lite-pm-search input[type="search"] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 38px;
+    padding-left: 36px;
+    border-color: #a7aaad;
+}
+
+.wpacu-lite-pm-search input[type="search"]:focus {
+    border-color: var(--wpacu-lite-pm-accent);
+    box-shadow: 0 0 0 1px var(--wpacu-lite-pm-accent);
+}
+
+.wpacu-lite-pm-plugin-list {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid #c3c4c7;
+    border-radius: 0 0 7px 7px;
+    background: #fff;
+}
+
+.wpacu-lite-pm-plugin-card {
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .035);
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.wpacu-lite-pm-plugin-card + .wpacu-lite-pm-plugin-card {
+    border-top: 1px solid var(--wpacu-lite-pm-border);
+}
+
+.wpacu-lite-pm-plugin-card:hover {
+    border-color: #b7cdd1;
+    box-shadow: 0 3px 10px rgba(0, 69, 103, .07);
+}
+
+.wpacu-lite-pm-plugin-card.has-saved-rules {
+    border-left: 4px solid #2271b1;
+}
+
+.wpacu-lite-pm-plugin-card[hidden] {
+    display: none !important;
+}
+
+.wpacu-lite-pm .wpacu-pm-search-match {
+    text-decoration-line: underline;
+    text-decoration-color: #008f9c;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+.wpacu-lite-pm-plugin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 15px 17px;
+}
+
+.wpacu-lite-pm-plugin-identity {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+}
+
+.wpacu-lite-pm-plugin-icon {
+    display: flex;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #e2e4e7;
+    border-radius: 7px;
+    background: var(--wpacu-lite-pm-surface);
+}
+
+.wpacu-lite-pm-plugin-icon img {
+    display: block;
+    max-width: 44px;
+    max-height: 44px;
+}
+
+.wpacu-lite-pm-plugin-icon .dashicons {
+    width: 26px;
+    height: 26px;
+    color: #787c82;
+    font-size: 26px;
+}
+
+.wpacu-lite-pm-plugin-name {
+    min-width: 0;
+}
+
+.wpacu-lite-pm-plugin-name > div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.wpacu-lite-pm-plugin-name h3 {
+    margin: 0;
+    color: #1d2327;
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.wpacu-lite-pm-plugin-name .wpacu-lite-pro-badge {
+    margin-left: 0;
+}
+
+.wpacu-lite-pm-plugin-name code {
+    display: block;
+    max-width: 650px;
+    margin-top: 4px;
+    overflow: hidden;
+    background: transparent;
+    color: var(--wpacu-lite-pm-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wpacu-lite-pm-network-badge {
+    color: #50575e;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.wpacu-lite-pm-state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 14px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wpacu-lite-pm-state-badge.is-loaded {
+    background: #f0f6f1;
+    color: #2f6b3c;
+}
+
+.wpacu-lite-pm-state-badge.is-loaded > span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #52af00;
+}
+
+.wpacu-lite-pm-state-badge.is-preserved {
+    background: #f0f6fc;
+    color: #135e96;
+}
+
+.wpacu-lite-pm-state-badge .dashicons {
+    width: 15px;
+    height: 15px;
+    font-size: 15px;
+}
+
+.wpacu-lite-pm-capability-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    padding: 9px 17px;
+    border-top: 1px solid #f0f0f1;
+    border-bottom: 1px solid #e2e4e7;
+    background: #fbfbfc;
+    color: #50575e;
+    font-size: 11px;
+}
+
+.wpacu-lite-pm-capability-strip > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.wpacu-lite-pm-capability-strip .dashicons {
+    width: 15px;
+    height: 15px;
+    color: var(--wpacu-lite-pm-accent);
+    font-size: 15px;
+}
+
+.wpacu-lite-pm-plugin-preview {
+    padding: 3px 17px 17px;
+}
+
+.wpacu-lite-pm-plugin-preview .wpacu-lite-pro-saved-rules-notice {
+    margin-top: 14px;
+}
+
+.wpacu-lite-pm-plugin-preview .wpacu-lite-plugin-rule-preview {
+    margin-top: 11px;
+}
+
+.wpacu-lite-pm-no-results,
+.wpacu-lite-pm-no-plugins {
+    padding: 34px 20px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--wpacu-lite-pm-muted);
+    text-align: center;
+}
+
+.wpacu-lite-pm-workspace-footer {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 11px 13px;
+    border: 1px solid #d5e6eb;
+    border-radius: 6px;
+    background: #f5f9fb;
+    color: #50575e;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.wpacu-lite-pm-workspace-footer .dashicons {
+    flex: 0 0 auto;
+    color: var(--wpacu-lite-pm-brand);
+}
+
+.wpacu-lite-pm-no-results .dashicons,
+.wpacu-lite-pm-no-results strong,
+.wpacu-lite-pm-no-results span {
+    display: block;
+    margin: 0 auto 5px;
+}
+
+.wpacu-lite-pm-no-results .dashicons {
+    width: 28px;
+    height: 28px;
+    font-size: 28px;
+}
+
+.wpacu-lite-pm-no-results strong {
+    color: #3c434a;
+}
+
+.wpacu-lite-pm-upgrade {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    margin-top: 18px;
+    padding: 24px 26px;
+    border: 1px solid #b7d7dc;
+    border-radius: 8px;
+    background: #f5fbfc;
+}
+
+.wpacu-lite-pm-upgrade ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 18px;
+    margin: 14px 0 0;
+}
+
+.wpacu-lite-pm-upgrade li {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    color: #3c434a;
+    line-height: 1.45;
+}
+
+.wpacu-lite-pm-upgrade li .dashicons {
+    flex: 0 0 auto;
+    color: #52af00;
+}
+
+.wpacu-lite-pm-upgrade-button {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 315px;
+    min-height: 66px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 22px;
+    border: 1px solid #008f9d;
+    border-radius: 8px;
+    background: #008f9d;
+    box-shadow: 0 3px 8px rgba(0, 69, 103, .14);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 740;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    transition: transform .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.wpacu-lite-pm-upgrade-button:hover,
+.wpacu-lite-pm-upgrade-button:focus {
+    border-color: #006584;
+    background: #006584;
+    box-shadow: 0 7px 16px rgba(0, 69, 103, .2);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.wpacu-lite-pm-upgrade-button:focus-visible {
+    outline: 3px solid rgba(0, 167, 167, .3) !important;
+    outline-offset: 3px;
+}
+
+.wpacu-lite-pm-upgrade-button .dashicons {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    font-size: 22px;
+    line-height: 22px;
+}
+
+.wpacu-lite-pm-upgrade-button-copy,
+.wpacu-lite-pm-upgrade-button-copy strong,
+.wpacu-lite-pm-upgrade-button-copy small {
+    display: block;
+}
+
+.wpacu-lite-pm-upgrade-button-copy {
+    text-align: left;
+}
+
+.wpacu-lite-pm-upgrade-button-copy strong {
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.wpacu-lite-pm-upgrade-button-copy small {
+    margin-top: 3px;
+    color: rgba(255, 255, 255, .82);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+@media screen and (max-width: 1100px) {
+    .wpacu-lite-pm-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .wpacu-lite-pm-upgrade {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wpacu-lite-pm-layout-picker {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .wpacu-lite-pm-layout-picker-form {
+        flex-basis: auto;
+    }
+}
+
+@media screen and (max-width: 782px) {
+    .wpacu-lite-pm-overview {
+        padding: 20px;
+    }
+
+    .wpacu-lite-pm-overview-stats,
+    .wpacu-lite-pm-upgrade ul {
+        grid-template-columns: 1fr;
+    }
+
+    .wpacu-lite-pm-overview-stats > div + div {
+        border-top: 1px solid #dbe9eb;
+        border-left: 0;
+    }
+
+    .wpacu-lite-pm-toolbar,
+    .wpacu-lite-pm-plugin-group-header,
+    .wpacu-lite-pm-plugin-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .wpacu-lite-pm-pro-workspace {
+        padding: 11px;
+    }
+
+    .wpacu-lite-pm-layout-picker {
+        padding: 13px;
+    }
+
+    .wpacu-lite-pm-layout-picker-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .wpacu-lite-pm-search {
+        flex-basis: auto;
+    }
+
+    .wpacu-lite-pm-plugin-state {
+        padding-left: 58px;
+    }
+
+    .wpacu-lite-pm-capability-strip {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wpacu-lite-pm-upgrade {
+        padding: 20px;
+    }
+
+    .wpacu-lite-pm-upgrade-button {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+    }
+}

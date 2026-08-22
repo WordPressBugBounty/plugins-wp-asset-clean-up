@@ -34,13 +34,15 @@ if ($data['dashboard_edit_not_allowed']) {
 ?>
 <div style="margin: 25px 0 0;">
     <?php
-    if (MetaBoxes::isMediaWithPermalinkDeactivated()) {
+    $mediaPermalinkDeactivationInfo = MetaBoxes::getMediaPermalinkDeactivationInfo();
+
+    if ($mediaPermalinkDeactivationInfo !== false) {
         ?>
             <div class="wpacu-notice-info" style="width: 95%; margin-bottom: 20px;">
-                    <span class="dashicons dashicons-info"></span>
-                    <?php
-                    echo __('There are no CSS/JS to manage because <em>"Redirect attachment URLs to the attachment itself?"</em> is set to <em>"Yes"</em> in <em>"Search Appearance - Yoast SEO" - "Media"</em> tab).', 'wp-asset-clean-up');
-                    ?>
+                <span class="dashicons dashicons-info"></span>
+                <strong><?php esc_html_e('Attachment pages are not available on this website.', 'wp-asset-clean-up'); ?></strong>
+                <?php echo wp_kses_post($mediaPermalinkDeactivationInfo['reason']); ?>
+                <?php esc_html_e('The CSS/JS manager is not loaded because there is no separate attachment page from which assets can be fetched.', 'wp-asset-clean-up'); ?>
             </div>
         <?php
     } else {

@@ -12,6 +12,7 @@ use WpAssetCleanUp\MetaBoxes;
 use WpAssetCleanUp\Misc;
 use WpAssetCleanUp\ObjectCache;
 use WpAssetCleanUp\Preloads;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class OptimizeJs
@@ -81,6 +82,20 @@ class OptimizeJs
                         continue;
                     }
 
+                    // The optimized file has different bytes, so a retained SRI hash would block it.
+                    if ( Misc::hasAttributeInHtmlTag($scriptSourceTag, 'integrity') ) {
+                        unset( $wpScriptsList[ $index ] );
+                        continue;
+                    }
+
+                    // Relocating an ES module breaks relative imports and import.meta.url.
+                    $scriptType = Misc::getValueFromTag($scriptSourceTag, 'type', 'dom_with_fallback');
+
+                    if ( ! Misc::isClassicScriptType($scriptType) ) {
+                        unset( $wpScriptsList[ $index ] );
+                        continue;
+                    }
+
 					$cleanScriptSrcFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag( $scriptSourceTag );
 
 					if ( isset( $cleanScriptSrcFromTagArray['source'] ) && $cleanScriptSrcFromTagArray['source'] ) {
@@ -109,6 +124,94 @@ class OptimizeJs
 		// [End] Collect for caching
 	}
 
+    /**
+     * Check whether a same-site script source is handled as a dynamic JavaScript endpoint.
+     *
+     * Keep this aligned with the legacy detection used by the dynamic cache so exception
+     * rules are evaluated before any request-level or persistent cached result is reused.
+     *
+     * @param string $src
+     *
+     * @return bool
+     */
+    private static function isDynamicLoadedJsSource($src)
+    {
+        $src = trim((string)$src);
+
+        if ($src === '') {
+            return false;
+        }
+
+        $hasDynamicEndpointSyntax = strpos($src, '/?') !== false
+            || strpos($src, '.php?') !== false
+            || Misc::endsWith($src, '.php');
+
+        return $hasDynamicEndpointSyntax && strpos($src, site_url()) !== false;
+    }
+
+    /**
+     * Check whether a dynamic JavaScript endpoint must remain on its original URL.
+     *
+     * Rules can be plain URL fragments or RegEx patterns. Both the absolute source and
+     * its path/query representation are checked, together with URL-decoded variants, so
+     * a rule such as "/js-generator.php?user_id=" also matches a full same-site URL.
+     *
+     * @param string $src
+     *
+     * @return bool
+     */
+    public static function skipDynamicLoadedJsCache($src)
+    {
+        $settings = Main::instance()->settings;
+        $exceptions = isset($settings['cache_dynamic_loaded_js_exceptions'])
+            ? trim((string)$settings['cache_dynamic_loaded_js_exceptions'])
+            : '';
+
+        if ($exceptions === '') {
+            return false;
+        }
+
+        $src = trim(html_entity_decode((string)$src, ENT_QUOTES, 'UTF-8'));
+
+        if ($src === '') {
+            return false;
+        }
+
+        $subjects = array($src);
+        $urlParts = wp_parse_url($src);
+
+        if (is_array($urlParts) && ! empty($urlParts['path'])) {
+            $relativeSrc = $urlParts['path'];
+
+            if (isset($urlParts['query']) && $urlParts['query'] !== '') {
+                $relativeSrc .= '?' . $urlParts['query'];
+            }
+
+            $subjects[] = $relativeSrc;
+        }
+
+        $decodedSubjects = array();
+
+        foreach ($subjects as $subject) {
+            $decodedSubject = rawurldecode($subject);
+
+            if ($decodedSubject !== $subject) {
+                $decodedSubjects[] = $decodedSubject;
+            }
+        }
+
+        $subjects = array_values(array_unique(array_merge($subjects, $decodedSubjects)));
+        $rules = Regex::splitRules($exceptions);
+
+        foreach ($subjects as $subject) {
+            if (Regex::matchesAnyRule($rules, $subject) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 	/**
 	 * @param $value
 	 * @param array $fileAlreadyChecked
@@ -117,15 +220,37 @@ class OptimizeJs
 	 */
 	public static function maybeOptimizeIt($value, $fileAlreadyChecked = array())
 	{
-		if ($optimizeValues = ObjectCache::wpacu_cache_get('wpacu_maybe_optimize_it_js_'.$value->handle)) {
-			return $optimizeValues;
-		}
-
         $instance = Main::instance();
 
 		global $wp_version;
 
 		$src = $value->src; // it's always set at this point
+        $srcForDynamicCacheCheck = $src;
+
+        // Check if it starts without "/" or a protocol; e.g. "wp-content/theme/script.js"
+        if (strncmp($srcForDynamicCacheCheck, '/', 1) !== 0 &&
+            strncmp($srcForDynamicCacheCheck, '//', 2) !== 0 &&
+            strncasecmp($srcForDynamicCacheCheck, 'http://', 7) !== 0 &&
+            strncasecmp($srcForDynamicCacheCheck, 'https://', 8) !== 0
+        ) {
+            $srcForDynamicCacheCheck = '/' . $srcForDynamicCacheCheck;
+        }
+
+        $srcForDynamicCacheCheck = Misc::getHrefFromSource($srcForDynamicCacheCheck);
+        $isDynamicLoadedJsSource = self::isDynamicLoadedJsSource($srcForDynamicCacheCheck);
+        $cacheDynamicLoadedJsEnabled = ! empty($instance->settings['cache_dynamic_loaded_js']);
+
+        // Dynamic endpoints should never reuse an old request/persistent cache result after
+        // this feature is disabled or after an endpoint is added to the exception list.
+        if ($isDynamicLoadedJsSource &&
+            ( ! $cacheDynamicLoadedJsEnabled || self::skipDynamicLoadedJsCache($srcForDynamicCacheCheck) )
+        ) {
+            return array();
+        }
+
+		if ($optimizeValues = ObjectCache::wpacu_cache_get('wpacu_maybe_optimize_it_js_'.$value->handle)) {
+			return $optimizeValues;
+		}
 
 		$doFileMinify = true;
 
@@ -206,24 +331,12 @@ class OptimizeJs
 			}
 		}
 
-		// Check if it starts without "/" or a protocol; e.g. "wp-content/theme/script.js"
-		if (strncmp($src, '/', 1) !== 0 &&
-            strncmp($src, '//', 2) !== 0 &&
-            strncasecmp($src, 'http://', 7) !== 0 &&
-            strncasecmp($src, 'https://', 8) !== 0
-		) {
-			$src = '/'.$src; // append the forward slash to be processed as relative later on
-		}
-
-        $src = Misc::getHrefFromSource($src);
+        $src = $srcForDynamicCacheCheck;
 
 		/*
 		 * [START] JS Content Optimization
 		*/
-		if ($instance->settings['cache_dynamic_loaded_js'] &&
-		    ((strpos($src, '/?') !== false) || strpos($src, '.php?') !== false || Misc::endsWith($src, '.php')) &&
-		    (strpos($src, site_url()) !== false)
-		) {
+		if ($cacheDynamicLoadedJsEnabled && $isDynamicLoadedJsSource) {
 			$pathToAssetDir = '';
 			$sourceBeforeOptimization = $value->src;
 
@@ -321,7 +434,7 @@ class OptimizeJs
 		}
 
 		$newLocalPath    = WP_CONTENT_DIR . $newFilePathUri; // Ful Local path
-		$newLocalPathUrl = WP_CONTENT_URL . $newFilePathUri; // Full URL path
+        $newLocalPathUrl = content_url($newFilePathUri);     // Full URL path
 
 		if ($jsContent && $jsContent !== '/**/' && apply_filters('wpacu_print_info_comments_in_cached_assets', true)) {
 			$jsContent = '/*!' . $sourceBeforeOptimization . '*/' . "\n" . $jsContent;
@@ -417,6 +530,8 @@ class OptimizeJs
             $useCacheForInlineScript = false;
         }
 
+        $pathToInlineJsOptimizedItem = '';
+
 		if ($useCacheForInlineScript) {
 			// Anything in the cache? Take it from there and don't spend resources with the minification
 			// (which in some environments uses the CPU, depending on the complexity of the JavaScript code) and any other alteration
@@ -457,7 +572,7 @@ class OptimizeJs
 		}
 		/* [END] Change JS Content */
 
-		if ( $useCacheForInlineScript && isset($pathToInlineJsOptimizedItem) ) {
+		if ( $useCacheForInlineScript && $pathToInlineJsOptimizedItem ) {
 			// Store the optimized content to the cached JS file which would be read quicker
 			FileSystem::filePutContents( $pathToInlineJsOptimizedItem, $jsContent );
 		}
@@ -523,6 +638,20 @@ class OptimizeJs
 			// Check if the JS has any 'data-wpacu-skip' attribute; if it does, do not alter it
             if ( Misc::hasExactDataAttr($scriptSourceTag, 'data-wpacu-skip') ) {
                 continue;
+            }
+
+            // The optimized file has different bytes, so a retained SRI hash would block it.
+            if ( Misc::hasAttributeInHtmlTag($scriptSourceTag, 'integrity') ) {
+                continue;
+            }
+
+            if (strncasecmp(ltrim($scriptSourceTag), '<script', 7) === 0) {
+                $scriptType = Misc::getValueFromTag($scriptSourceTag, 'type', 'dom_with_fallback');
+
+                // Relocating an ES module breaks relative imports and import.meta.url.
+                if ( ! Misc::isClassicScriptType($scriptType) ) {
+                    continue;
+                }
             }
 
 			$cleanScriptSrcFromTagArray = OptimizeCommon::getLocalCleanSourceFromTag($scriptSourceTag);
@@ -675,6 +804,8 @@ class OptimizeJs
 	 */
 	public static function updateOriginalToOptimizedTag($scriptSourceTag, $sourceUrlList, $optimizeUrl, $forAttr = 'src')
 	{
+        $newScriptSourceTag = '';
+
 		if (is_array($sourceUrlList) && ! empty($sourceUrlList)) {
 			foreach ($sourceUrlList as $sourceUrl) {
 				$newScriptSourceTag = str_replace($sourceUrl, $optimizeUrl, $scriptSourceTag);
@@ -687,8 +818,8 @@ class OptimizeJs
 			$newScriptSourceTag = str_replace( $sourceUrlList, $optimizeUrl, $scriptSourceTag );
 		}
 
-        if ( ! isset($newScriptSourceTag) ) {
-            return $scriptSourceTag; // something's wrong with the params that were passed; return tghe original tag
+        if ($newScriptSourceTag === '') {
+            return $scriptSourceTag;
         }
 
 		$tagToCheck = ($forAttr === 'src') ? 'script' : 'link';
@@ -736,6 +867,11 @@ class OptimizeJs
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer( 'alter_html_source_for_optimize_js' ); /* [/wpacu_timing] */
 
+		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_maybe_move_jquery_after_body_tag'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+		$htmlSource = apply_filters('wpacu_internal_maybe_move_jquery_after_body_tag', $htmlSource);
+		$htmlSource = apply_filters('wpacu_pro_maybe_move_jquery_after_body_tag',      $htmlSource); // Backwards compatibility for any custom callbacks still using the old Pro hook
+		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
 		if ( ! Main::instance()->preventAssetsSettings() ) {
 			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_unload_ignore_deps_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
 			// Are there any assets unloaded where their "children" are ignored?
@@ -772,6 +908,25 @@ class OptimizeJs
 			if ( ! empty($preloads['scripts']) ) {
 				$htmlSource = Preloads::appendPreloadsForScriptsToHead($htmlSource);
 			}
+		}
+		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
+        /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_media_query_load_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+        if ( ! isset($_GET['wpacu_no_media_query_load_for_js']) && ! wpacuIsDefinedConstant('WPACU_NO_MEDIA_QUERIES_LOAD_RULES_SET_FOR_ASSETS') ) {
+            $htmlSource = apply_filters('wpacu_internal_media_query_load_js', $htmlSource);
+        }
+        /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
+		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_inline_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+
+        if ( ! empty(Main::instance()->settings['inline_js_files']) ) {
+			$htmlSource = apply_filters('wpacu_internal_inline_js', $htmlSource);
+		}
+		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+
+		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_move_scripts_to_body'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
+		if ( ! empty(Main::instance()->settings['move_scripts_to_body']) ) {
+			$htmlSource = apply_filters('wpacu_internal_move_scripts_to_body', $htmlSource);
 		}
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 

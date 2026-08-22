@@ -20,7 +20,7 @@ class FontsGoogle
 	/**
 	 * @var string
 	 */
-	public static $matchesStr = '//fonts.googleapis.com/(css|icon)\?';
+	public static $matchesStr = '//fonts.googleapis.com/(css2?|icon)\?';
 
 	/**
 	 *
@@ -37,6 +37,8 @@ class FontsGoogle
 	 */
 	public function init()
 	{
+		FontsGooglePreloadScanner::maybeInitFrontendCollector();
+
 		if (self::preventAnyChange()) {
 			return;
 		}
@@ -82,10 +84,20 @@ class FontsGoogle
 			return $urls;
 		}
 
-		// Are the Google Fonts removed? Do not add it and strip any existing ones
+		// Are the Google Fonts removed? Do not add them and strip any existing
+		// resource hints. WordPress accepts both string URLs and arrays such as
+		// array('href' => 'https://fonts.gstatic.com/', 'crossorigin').
 		if (! empty($urls) && Main::instance()->settings['google_fonts_remove']) {
 			foreach ($urls as $urlKey => $urlValue) {
-				if (is_string($urlValue) && ((stripos($urlValue, 'fonts.googleapis.com') !== false) || (stripos($urlValue, 'fonts.gstatic.com') !== false))) {
+				$urlToCheck = '';
+
+				if (is_string($urlValue)) {
+					$urlToCheck = $urlValue;
+				} elseif (is_array($urlValue) && isset($urlValue['href']) && is_string($urlValue['href'])) {
+					$urlToCheck = $urlValue['href'];
+				}
+
+				if ($urlToCheck !== '' && FontsGoogleRemove::containsAnyGoogleFontsReference($urlToCheck)) {
 					unset($urls[$urlKey]);
 				}
 			}
@@ -111,6 +123,12 @@ class FontsGoogle
 	 */
 	public function preloadFontFiles()
 	{
+		// Suppress only WPACU's manual Google font-file preloads during the
+		// browser-assisted audit. The site's Google stylesheets remain active.
+		if ( FontsGooglePreloadScanner::isActiveRequest() ) {
+			return;
+		}
+
 		// Don't apply any changes if not in the front-end view (e.g. Dashboard view)
 		// or test mode is enabled, and a guest user is accessing the page
 		if ( OptimizeCommon::preventAnyFrontendOptimization() ) {
@@ -123,34 +141,24 @@ class FontsGoogle
 
 		$preloadFontFilesArray = array();
 
-		if (strpos($preloadFontFiles, "\n") !== false) {
-            foreach (explode("\n", $preloadFontFiles) as $preloadFontFile) {
-                $preloadFontFile = esc_attr(trim($preloadFontFile));
+		foreach (preg_split('/\r\n|\r|\n/', $preloadFontFiles) as $preloadFontFile) {
+			// Keep legacy compatibility with existing configurations that used this
+			// field for another HTTP(S) font host. The audit reports those entries
+			// for manual review, while runtime output remains safely escaped.
+			$preloadFontFile = esc_url_raw(trim(wp_strip_all_tags($preloadFontFile)), array('http', 'https'));
 
-                if ( ! $preloadFontFile ) {
-                    continue;
-                }
+			if ( ! $preloadFontFile ) {
+				continue;
+			}
 
-                $preloadFontFilesArray[] = $preloadFontFile;
-            }
-		} else {
-            $preloadFontFiles = esc_attr(trim($preloadFontFiles));
-
-            if ($preloadFontFiles) {
-                $preloadFontFilesArray[] = $preloadFontFiles;
-            }
+			$preloadFontFilesArray[$preloadFontFile] = $preloadFontFile;
 		}
-
-		$preloadFontFilesArray = array_unique($preloadFontFilesArray);
 
 		$preloadFontFilesOutput = '';
 
-		// Finally, go through the list
-        if ( ! empty($preloadFontFilesArray) ) {
-            foreach ($preloadFontFilesArray as $preloadFontFile) {
-                $preloadFontFilesOutput .= '<link rel="preload" as="font" href="' . $preloadFontFile . '" data-wpacu-preload-google-font="1" crossorigin>' . "\n";
-            }
-        }
+		foreach ($preloadFontFilesArray as $preloadFontFile) {
+			$preloadFontFilesOutput .= '<link rel="preload" as="font" href="' . esc_url($preloadFontFile) . '" data-wpacu-preload-google-font="1" crossorigin>' . "\n";
+		}
 
 		echo apply_filters('wpacu_preload_google_font_files_output', $preloadFontFilesOutput);
 	}
@@ -213,15 +221,13 @@ class FontsGoogle
 
 						$finalLinkHref = $linkHrefOriginal = Misc::getValueFromTag($linkTag);
 
-						// [START] Remove invalid requests with no font family
-						$urlParse = parse_url( str_replace( array('&amp;', '&#038;'), '&', $linkHrefOriginal ), PHP_URL_QUERY );
-						parse_str( $urlParse, $qStr );
-
-						if ( isset( $qStr['family'] ) && ! $qStr['family'] ) {
-							$htmlSource = str_replace( $linkTag, '', $htmlSource );
+						// Remove malformed Google Fonts requests that declare no usable family.
+						// The helper preserves repeated CSS2 family parameters instead of
+						// collapsing them through parse_str().
+						if ( ! self::hasNonEmptyFamilyParameter($linkHrefOriginal) ) {
+							$htmlSource = str_replace($linkTag, '', $htmlSource);
 							continue;
 						}
-						// [END] Remove invalid requests with no font family
 
 						// If anything is set apart from '[none set]', proceed
 						if ( Main::instance()->settings['google_fonts_display'] ) {
@@ -233,6 +239,13 @@ class FontsGoogle
 								// Finally, alter the HTML source
 								$htmlSource = str_replace( $linkTag, $finalLinkTag, $htmlSource );
 							}
+						}
+
+						// The combine implementation below targets the legacy Google Fonts
+						// CSS API v1 syntax. Leave CSS2, Material Icons and other endpoints
+						// untouched apart from the safe font-display append above.
+						if ( ! self::isLegacyCombinableGoogleFontsUrl($finalLinkHref) ) {
+							continue;
 						}
 
 						if ( preg_match( '/rel=(["\'])preload(["\'])/i', $finalLinkTag )
@@ -283,15 +296,13 @@ class FontsGoogle
 
 						$linkHrefOriginal = Misc::getValueFromTag($linkTag);
 
-						// [START] Remove invalid requests with no font family
-						$urlParse = parse_url( str_replace( array('&amp;', '&#038;'), '&', $linkHrefOriginal ), PHP_URL_QUERY );
-						parse_str( $urlParse, $qStr );
-
-						if ( isset( $qStr['family'] ) && ! $qStr['family'] ) {
-							$htmlSource = str_replace( $linkTag, '', $htmlSource );
+						// Remove malformed Google Fonts requests that declare no usable family.
+						// The helper preserves repeated CSS2 family parameters instead of
+						// collapsing them through parse_str().
+						if ( ! self::hasNonEmptyFamilyParameter($linkHrefOriginal) ) {
+							$htmlSource = str_replace($linkTag, '', $htmlSource);
 							continue;
 						}
-						// [END] Remove invalid requests with no font family
 
 						// If anything is set apart from '[none set]', proceed
 						$newLinkHref = self::alterGoogleFontLink( $linkHrefOriginal );
@@ -330,49 +341,61 @@ class FontsGoogle
 			$containsStrNoSlashes = str_replace('/', '', self::$containsStr);
 			$conditionOne = stripos($linkHrefOriginal, $containsStrNoSlashes) === false;
 
-			if (strpos($linkHrefOriginal, '\/') !== false) {
+			if (strpos($linkHrefOriginal, '\\/') !== false) {
 				$isInVar = true;
 			}
 		} else { // css (default)
 			$conditionOne = stripos($linkHrefOriginal, self::$containsStr) === false;
 		}
 
-		// Do not continue if it doesn't contain the right string, or it contains 'display=' or it does not contain 'family=' or there is no value set for "font-display"
-		if ($conditionOne ||
-		    stripos($linkHrefOriginal, 'display=') !== false ||
-		    stripos($linkHrefOriginal, 'family=') === false ||
-		    ! Main::instance()->settings['google_fonts_display']) {
-			// Return original source
+		if ($conditionOne || ! self::hasNonEmptyFamilyParameter($linkHrefOriginal) || ! Main::instance()->settings['google_fonts_display']) {
 			return $linkHrefOriginal;
 		}
 
-		$altLinkHref = str_replace('&#038;', '&', $linkHrefOriginal);
+		$displayValue = rawurlencode((string) Main::instance()->settings['google_fonts_display']);
+		$displayOverwrite = ! empty(Main::instance()->settings['google_fonts_display_overwrite']);
+
+		if ($displayValue === '') {
+			return $linkHrefOriginal;
+		}
+
+		$analysisHref = str_replace(array('&#038;', '&amp;'), '&', $linkHrefOriginal);
 
 		if ($isInVar) {
-			$altLinkHref = str_replace('\/', '/', $altLinkHref);
+			$analysisHref = str_replace('\\/', '/', $analysisHref);
 		}
 
-		$urlQuery = parse_url($altLinkHref, PHP_URL_QUERY);
-		parse_str($urlQuery, $outputStr);
+		$query = parse_url($analysisHref, PHP_URL_QUERY);
+		$query = is_string($query) ? $query : '';
 
-		// Is there no "display" or there is, but it has an empty value? Append the one we have in the "Settings" - "Google Fonts"
-		if ( ! isset($outputStr['display']) || (isset($outputStr['display']) && $outputStr['display'] === '') ) {
-			$outputStr['display'] = Main::instance()->settings['google_fonts_display'];
-
-			list($linkHrefFirstPart) = explode('?', $linkHrefOriginal);
-
-			// Returned the updated source with the 'display' parameter appended to it
-			$afterQuestionMark = http_build_query($outputStr);
-
-			if ($escHtml) {
-				$afterQuestionMark = esc_attr($afterQuestionMark);
+		if (preg_match('/(?:^|&)display=([^&]*)/i', $query, $displayMatch)) {
+			if (isset($displayMatch[1]) && $displayMatch[1] !== '' && ! $displayOverwrite) {
+				return $linkHrefOriginal;
 			}
 
-			return $linkHrefFirstPart . '?' . $afterQuestionMark;
+			// Preserve the original query byte-for-byte. Fill an empty display
+			// value by default, or replace any existing value when requested.
+			return preg_replace(
+				'~((?:\?|&|&amp;|&#038;)display=)[^&]*~i',
+				'$1' . $displayValue,
+				$linkHrefOriginal,
+				1
+			);
 		}
 
-		// Return original source
-		return $linkHrefOriginal;
+		if (strpos($linkHrefOriginal, '?') === false) {
+			return $linkHrefOriginal . '?display=' . $displayValue;
+		}
+
+		if (strpos($linkHrefOriginal, '&#038;') !== false) {
+			$separator = '&#038;';
+		} elseif (strpos($linkHrefOriginal, '&amp;') !== false) {
+			$separator = '&amp;';
+		} else {
+			$separator = $escHtml ? '&#038;' : '&';
+		}
+
+		return $linkHrefOriginal . $separator . 'display=' . $displayValue;
 	}
 
 	/**
@@ -474,7 +497,7 @@ class FontsGoogle
         if (stripos($jsContent, 'fonts.googleapis.com') !== false) {
             preg_match_all('#fonts.googleapis.com(.*?)(["\'])#si', $jsContent, $matchesFromJsCode);
 
-            if (isset($matchesFromJsCode[0]) && ! empty($matchesFromJsCode)) {
+            if ( ! empty($matchesFromJsCode[0]) ) {
                 foreach ($matchesFromJsCode[0] as $match) {
                     $matchRule     = $match;
                     $googleApisUrl = trim($match, '"\' ');
@@ -504,17 +527,16 @@ class FontsGoogle
                         $originalWholeMatch  = $webFontConfigMatches[0][$webFontConfigKey];
                         $familiesMatchOutput = trim($webFontConfigMatch);
 
-                        // NO match or existing "display" parameter was found? Do not continue
-                        if ( ! $familiesMatchOutput || strpos($familiesMatchOutput, 'display=') ) {
+                        $hasDisplayParameter = stripos($familiesMatchOutput, 'display=') !== false;
+
+                        // Keep an existing value unless overwriting was explicitly requested.
+                        if ( ! $familiesMatchOutput || ($hasDisplayParameter && empty(Main::instance()->settings['google_fonts_display_overwrite'])) ) {
                             continue;
                         }
 
-                        // Alter the matched string
-                        $familiesNewOutput      = preg_replace(
-                            '/([\'"])$/',
-                            '&display=' . Main::instance()->settings['google_fonts_display'] . '\\1',
-                            $familiesMatchOutput
-                        );
+                        $familiesNewOutput = $hasDisplayParameter
+                            ? preg_replace('/([?&]display=)[^&\'\"]*/i', '$1' . Main::instance()->settings['google_fonts_display'], $familiesMatchOutput, 1)
+                            : preg_replace('/([\'"])$/', '&display=' . Main::instance()->settings['google_fonts_display'] . '\\1', $familiesMatchOutput);
 
                         $newWebFontConfigOutput = str_replace($familiesMatchOutput, $familiesNewOutput, $originalWholeMatch);
 
@@ -537,17 +559,16 @@ class FontsGoogle
                         $originalWholeMatch  = $webFontConfigMatchesTwo[0][$webFontConfigKey];
                         $familiesMatchOutput = trim($webFontConfigMatch);
 
-                        // NO match or existing "display" parameter was found? Do not continue
-                        if ( ! $familiesMatchOutput || strpos($familiesMatchOutput, 'display=')) {
+                        $hasDisplayParameter = stripos($familiesMatchOutput, 'display=') !== false;
+
+                        // Keep an existing value unless overwriting was explicitly requested.
+                        if ( ! $familiesMatchOutput || ($hasDisplayParameter && empty(Main::instance()->settings['google_fonts_display_overwrite'])) ) {
                             continue;
                         }
 
-                        // Alter the matched string
-                        $familiesNewOutput = preg_replace(
-                            '/([\'"])$/',
-                            '&display=' . Main::instance()->settings['google_fonts_display'] . '\\1',
-                            $familiesMatchOutput
-                        );
+                        $familiesNewOutput = $hasDisplayParameter
+                            ? preg_replace('/([?&]display=)[^&\'\"]*/i', '$1' . Main::instance()->settings['google_fonts_display'], $familiesMatchOutput, 1)
+                            : preg_replace('/([\'"])$/', '&display=' . Main::instance()->settings['google_fonts_display'] . '\\1', $familiesMatchOutput);
 
                         $newWebFontConfigOutput = str_replace($familiesMatchOutput, $familiesNewOutput, $originalWholeMatch);
 
@@ -573,6 +594,10 @@ class FontsGoogle
 
 		foreach ($finalLinks as $finalLinkIndex => $finalLinkData) {
 			$finalLinkHref = $finalLinkData['href'];
+
+			if ( ! self::isLegacyCombinableGoogleFontsUrl($finalLinkHref) ) {
+				continue;
+			}
 
             // Make sure all have the same common delimiters
             // They will be restored later on for "W3 Validator Compatibility"
@@ -816,6 +841,54 @@ LINK;
 		sort($newTypes);
 
 		return implode(',', $newTypes);
+	}
+
+	/**
+	 * Whether a Google Fonts URL contains at least one non-empty family value.
+	 * Repeated CSS2 family parameters are deliberately preserved.
+	 *
+	 * @param string $url
+	 *
+	 * @return bool
+	 */
+	private static function hasNonEmptyFamilyParameter($url)
+	{
+		$analysisUrl = str_replace(array('&#038;', '&amp;', '\\/'), array('&', '&', '/'), (string) $url);
+		$query       = parse_url($analysisUrl, PHP_URL_QUERY);
+
+		if ( ! is_string($query) ) {
+			return false;
+		}
+
+		preg_match_all('/(?:^|&)family=([^&]*)/i', $query, $familyMatches);
+
+		if (empty($familyMatches[1])) {
+			return false;
+		}
+
+		foreach ($familyMatches[1] as $familyValue) {
+			if (trim(rawurldecode(str_replace('+', ' ', $familyValue))) !== '') {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The existing combiner is intentionally limited to the legacy /css API.
+	 * CSS2 and icon endpoints can contain repeated parameters and variable axes
+	 * that must not be reconstructed as a v1 family list.
+	 *
+	 * @param string $url
+	 *
+	 * @return bool
+	 */
+	private static function isLegacyCombinableGoogleFontsUrl($url)
+	{
+		$analysisUrl = str_replace(array('&#038;', '&amp;', '\\/'), array('&', '&', '/'), (string) $url);
+
+		return (bool) preg_match('#(?:https?:)?//fonts\.googleapis\.com/css\?#i', $analysisUrl);
 	}
 
 	/**

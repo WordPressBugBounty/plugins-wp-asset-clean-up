@@ -8,15 +8,17 @@ use WpAssetCleanUp\Admin\Overview;
 if (! isset($data)) {
 	exit;
 }
+
+//echo '<pre>'; print_r($data['handles']['scripts']); echo '</pre>'; exit();
 ?>
 <hr style="margin: 15px 0;"/>
 
-<h3><span class="dashicons dashicons-media-code"></span> <?php _e('Scripts (.js)', 'wp-asset-clean-up'); ?>
+<h3 id="wpacu-overview-section-scripts" class="wpacu-overview-section-title"><span class="dashicons dashicons-media-code"></span> <?php _e('Scripts (.js)', 'wp-asset-clean-up'); ?>
 	<?php
 	if (isset($data['handles']['scripts']) && count($data['handles']['scripts']) > 0) {
 		echo ' &#10230; Total handles with rules: '.count($data['handles']['scripts']);
 	}
-	?></h3>
+	?> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
 <?php
 if ( ! empty($data['handles']['scripts']) ) {
 	?>
@@ -29,40 +31,23 @@ if ( ! empty($data['handles']['scripts']) ) {
 		</thead>
 		<?php
 		foreach ($data['handles']['scripts'] as $handle => $handleData) {
-			// [wpacu_lite]
-			// Traces from the PRO version in case a downgrade to LITE was made
-			$hasProTraces = (strpos($handle, 'wpacu_hardcoded_') !== false);
-			$trStyle = $hasProTraces ? 'opacity: 0.5;' : '';
-			// [/wpacu_lite]
 			?>
-			<tr id="wpacu-overview-js-<?php echo esc_attr($handle); ?>" class="wpacu_global_rule_row wpacu_bulk_change_row" style="<?php echo esc_attr($trStyle); ?>">
-				<td>
+			<tr id="wpacu-overview-js-<?php echo esc_attr($handle); ?>" class="wpacu_global_rule_row wpacu_bulk_change_row">
+                <td data-wpacu-item-data="1">
 					<?php
                     Overview::renderHandleTd($handle, 'scripts', $data);
                     ?>
-
-                    <?php
-                    // [wpacu_lite]
-					if ($hasProTraces) {
-						echo ' &#10230; Inactive rule left from the PRO version';
-					}
-                    // [/wpacu_lite]
-					?>
 				</td>
-				<td>
+                <td data-wpacu-item-unload-load-rules="1">
 					<?php
 					$handleData['handle']     = $handle;
 					$handleData['asset_type'] = 'scripts';
 					$handleChangesOutput      = Overview::renderHandleChangesOutput($handleData);
 
 					if ( ! empty($handleChangesOutput) ) {
-						echo '<ul style="margin: 0;">' . "\n";
-
 						foreach ( $handleChangesOutput as $handleChangesOutputPart ) {
-							echo '<li>' . $handleChangesOutputPart . '</li>' . "\n";
+							echo $handleChangesOutputPart;
 						}
-
-						echo '</ul>';
 					} else {
 						echo '<em style="color: #6d6d6d;">'.__('No unload/load exception rules of any kind are set for this JavaScript file', 'wp-asset-clean-up').'</em>.';
 					}

@@ -178,10 +178,70 @@ class CriticalCss
 	 */
 	public function showAnyCriticalCss($args)
 	{
+		/*
+		 * An enabled object-level rule is independent and has priority.
+		 * If it is absent, disabled or empty, continue with the original
+		 * general Critical CSS flow below, unchanged.
+		 */
+		$granularCriticalCssData = self::getGranularCriticalCssDataForCurrentPage();
+
+		if ( ! empty($granularCriticalCssData) ) {
+			$storedData = $granularCriticalCssData['data'];
+
+			if (isset($storedData['enable']) && $storedData['enable']) {
+				$showMethod = isset($storedData['show_method']) ? $storedData['show_method'] : 'original';
+
+				if ($showMethod === 'minified' && ! empty($storedData['content_minified'])) {
+					$args['content'] = $storedData['content_minified'];
+				} elseif ( ! empty($storedData['content_original']) ) {
+					$args['content'] = $storedData['content_original'];
+				}
+
+				if (isset($args['content']) && is_string($args['content']) && trim($args['content']) !== '') {
+					$args['location_key'] = $granularCriticalCssData['location_key'];
+					return $args;
+				}
+			}
+		}
+
 		$criticalCssLocationKey = false; // default value until any location is detected (e.g. homepage)
+		$customPostTypeArchiveLocationKey = false;
+		$isPostTypeArchive = is_post_type_archive();
+
+		/*
+		 * A custom post type archive (e.g. /books/) is separate from both
+		 * its singular entries (e.g. /book/title-here/) and taxonomies.
+		 * Detect it before MainFront::isSingularPage(), as the WooCommerce
+		 * shop archive is deliberately treated as singular-like elsewhere.
+		 */
+		if ($isPostTypeArchive) {
+			$queriedObject = function_exists('get_queried_object') ? get_queried_object() : false;
+			$archivePostType = ($queriedObject instanceof \WP_Post_Type && ! empty($queriedObject->name))
+				? $queriedObject->name
+				: get_query_var('post_type');
+
+			if (is_array($archivePostType)) {
+				$archivePostType = reset($archivePostType);
+			}
+
+			$archivePostType = is_string($archivePostType) ? sanitize_key($archivePostType) : '';
+			$postTypeObject  = $archivePostType !== '' ? get_post_type_object($archivePostType) : false;
+
+			if ($postTypeObject
+			    && empty($postTypeObject->_builtin)
+			    && ! empty($postTypeObject->public)
+			    && ! empty($postTypeObject->publicly_queryable)
+			    && ! empty($postTypeObject->has_archive)
+			    && get_post_type_archive_link($archivePostType)) {
+				$customPostTypeArchiveLocationKey = 'custom_post_type_archive_' . $archivePostType;
+			}
+		}
 
 		if (MainFront::isHomePage()) {
 			$criticalCssLocationKey = 'homepage'; // Main page of the website when just the default site URL is loaded
+		} elseif ($isPostTypeArchive) {
+			// Keep any post type archive out of the singular-page fallback.
+			$criticalCssLocationKey = $customPostTypeArchiveLocationKey;
 		} elseif (MainFront::isSingularPage()) {
 			if (get_post_type() === 'post') { // "Posts" -> "All Posts" -> "View"
 				$criticalCssLocationKey = 'posts';
@@ -244,6 +304,101 @@ class CriticalCss
 		$args['location_key'] = $criticalCssLocationKey;
 
 		return $args;
+	}
+
+	/**
+	 * The same key is used in postmeta, termmeta and usermeta.
+	 *
+	 * @return string
+	 */
+	public static function getMetaKey()
+	{
+		return '_' . WPACU_PLUGIN_ID . '_critical_css';
+	}
+
+	/**
+	 * @param mixed $storedValue
+	 *
+	 * @return array
+	 */
+	public static function decodeStoredCriticalCssData($storedValue)
+	{
+		if (is_array($storedValue)) {
+			return $storedValue;
+		}
+
+		if ( ! (is_string($storedValue) && $storedValue !== '') ) {
+			return array();
+		}
+
+		$storedData = @json_decode($storedValue, true);
+
+		if (wpacuJsonLastError() !== JSON_ERROR_NONE || ! is_array($storedData)) {
+			return array();
+		}
+
+		return $storedData;
+	}
+
+	/**
+	 * @return array
+	 */
+	private static function getGranularCriticalCssDataForCurrentPage()
+	{
+		$metaKey = self::getMetaKey();
+
+		$queriedObjectId = function_exists('get_queried_object_id') ? (int)get_queried_object_id() : 0;
+		$queriedObject   = function_exists('get_queried_object') ? get_queried_object() : false;
+
+		if ((is_category() || is_tag() || is_tax()) && $queriedObjectId > 0) {
+			$storedData = self::decodeStoredCriticalCssData(get_term_meta($queriedObjectId, $metaKey, true));
+
+			if ( ! empty($storedData) ) {
+				return array(
+					'data'         => $storedData,
+					'location_key' => 'term_meta_' . $queriedObjectId
+				);
+			}
+		}
+
+		if (is_author()) {
+			$authorId = $queriedObjectId;
+
+			if ($authorId < 1) {
+				$authorId = (int)get_query_var('author');
+			}
+
+			if ($authorId > 0) {
+				$storedData = self::decodeStoredCriticalCssData(get_user_meta($authorId, $metaKey, true));
+
+				if ( ! empty($storedData) ) {
+					return array(
+						'data'         => $storedData,
+						'location_key' => 'user_meta_' . $authorId
+					);
+				}
+			}
+		}
+
+		/*
+		 * A queried post can represent a regular singular page, the static front page
+		 * or the assigned posts page. CPT archives are intentionally excluded above.
+		 */
+		if ( ! is_post_type_archive()
+		    && (MainFront::isSingularPage() || MainFront::isHomePage())
+		    && $queriedObjectId > 0
+		    && $queriedObject instanceof \WP_Post) {
+			$storedData = self::decodeStoredCriticalCssData(get_post_meta($queriedObjectId, $metaKey, true));
+
+			if ( ! empty($storedData) ) {
+				return array(
+					'data'         => $storedData,
+					'location_key' => 'post_meta_' . $queriedObjectId
+				);
+			}
+		}
+
+		return array();
 	}
 
 	/**

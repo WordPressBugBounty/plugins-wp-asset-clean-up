@@ -131,9 +131,7 @@ HTML;
                     foreach ( $values as $locationChild => $values2 ) {
                         ksort($values2);
 
-                        if ($locationMain === 'plugins') {
-                            $totalPluginAssets = $totalBulkUnloadedAssetsPerPlugin = 0;
-                        }
+                        $totalPluginAssets = $totalBulkUnloadedAssetsPerPlugin = 0;
 
                         $assetRowsOutput = '';
 
@@ -155,6 +153,9 @@ HTML;
                         }
 
                         if ( $locationChild !== 'none' ) {
+                            $locationChildThemeArray = array();
+                            $extraClassesToAppend = '';
+
                             if ( $locationMain === 'plugins' ) {
                                 $locationChildText = Info::getPluginInfo( $locationChild, $allPlugins, $allActivePluginsIcons );
 
@@ -166,17 +167,16 @@ HTML;
 
                                 // Show it if all the assets from the plugin are bulk unloaded
                                 $showLoadItOnThisPageCheckUncheckAll = $totalBulkUnloadedAssetsPerPlugin === $totalPluginAssets;
+
+                                if ($isLastPluginAsset) {
+                                    $extraClassesToAppend .= ' wpacu-area-last ';
+
+                                }
                             } elseif ( $locationMain === 'themes' ) {
                                 $locationChildThemeArray = Info::getThemeInfo( $locationChild, $allThemes );
                                 $locationChildText = $locationChildThemeArray['output'];
                             } else {
                                 $locationChildText = $locationChild;
-                            }
-
-                            $extraClassesToAppend = '';
-
-                            if ( $locationMain === 'plugins' && $isLastPluginAsset ) {
-                                $extraClassesToAppend .= ' wpacu-area-last ';
                             }
 
                             if ($locI === 1) {

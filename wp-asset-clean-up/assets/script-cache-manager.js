@@ -105,12 +105,16 @@ document.addEventListener("DOMContentLoaded", function () {
                                     'wpacu_preload': 1,
                                     'wpacu_no_frontend_show': 1,
                                     'wpacu_time_r': new Date().getTime()
-                                }, function () {
+                                }).always(function () {
                                     // Then, preload (for the guest)
                                     self.wpacuPreloadForGuest();
                                 });
                             }
                         }, 150);
+                    }).fail(function () {
+                        if ($(wpacuSpinnerElId).length > 0) {
+                            $(wpacuSpinnerElId).addClass('wpacu_hide');
+                        }
                     }).always(function () {
                         if ($('#wpacu-assets-reloading-in-edit-post-area').length > 0) {
                             $('#wpacu-assets-reloading-in-edit-post-area').remove();
@@ -124,7 +128,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         'page_url': wpacu_object.page_url,
                         'wpacu_nonce': wpacu_object.wpacu_ajax_preload_url_nonce,
                         'wpacu_time_r': new Date().getTime()
-                    }, function () {
+                    }).always(function () {
                         if ($(wpacuSpinnerElId).length > 0) {
                             // As the caching has been cleared, hide the notice from the screen
                             $(wpacuSpinnerElId).addClass('wpacu_hide');
@@ -190,3 +194,4 @@ document.addEventListener("DOMContentLoaded", function () {
         wpacuCacheManager.init();
     });
 });
+

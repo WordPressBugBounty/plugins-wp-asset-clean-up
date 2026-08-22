@@ -20,13 +20,18 @@ $specialSettings = array(
     'load_on_elementor_builder'             => wpacuIsDefinedConstant('WPACU_LOAD_ON_ELEMENTOR_BUILDER')
 );
 
+// [wpacu_pro]
+$specialSettings['allow_dash_plugin_filter'] = wpacuIsDefinedConstant('WPACU_ALLOW_DASH_PLUGIN_FILTER');
+$specialSettings['load_on_rest_call']        = wpacuIsDefinedConstant('WPACU_LOAD_ON_REST_CALLS');
+// [/wpacu_pro]
+
 $noSpecialSettings = empty(array_filter($specialSettings));
 ?>
 <div id="wpacu-special-settings-wrap">
 	<h3><span class="dashicons dashicons-admin-generic"></span> <?php _e('Special Settings', 'wp-asset-clean-up'); ?></h3>
 	<div style="padding: 10px; background: white; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
 		<div>To avoid broken functionality, Asset CleanUp Pro does not load by default when certain URLs are loading (e.g. on REST Calls, when using specific Page Builders). Some experienced users would want to change this behaviour and allow the plugin to load and trigger its unload rules. Through special settings, you can do that. <a target="_blank" style="text-decoration: none;" href="https://www.assetcleanup.com/docs/?p=1495"><span class="dashicons dashicons-info"></span> Read more</a></div>
-
+        <p>Due to the sensitive nature of these settings, requiring manual update in <em>wp-config.php</em>, you can not edit their values from this area.</p>
 		<?php
 		if ($noSpecialSettings) {
 			?>
@@ -44,6 +49,26 @@ $noSpecialSettings = empty(array_filter($specialSettings));
 					</thead>
 					<tbody>
 					<?php
+					// [wpacu_pro]
+					if ($specialSettings['allow_dash_plugin_filter']) {
+						?>
+						<tr>
+							<td><span style="color: green;">Enable plugin unload rules within the Dashboard</span></td>
+							<td>The constant <code>WPACU_ALLOW_DASH_PLUGIN_FILTER</code> is set to <code style="color: blue;">true</code>, thus turning on the following option: <em>"Plugins Manager" -- " IN THE DASHBOARD /wp-admin/"</em>. <a style="text-decoration: none; white-space: nowrap;" target="_blank" href="https://www.assetcleanup.com/docs/?p=1128"><span class="dashicons dashicons-info"></span> Read more</a></td>
+						</tr>
+						<?php
+					}
+
+					if ($specialSettings['load_on_rest_call']) {
+						?>
+						<tr>
+							<td><span style="color: green;">Load plugin unload rules on REST API Calls</span></td>
+							<td>The constant <code>WPACU_LOAD_ON_REST_CALLS</code> is set to <code style="color: blue;">true</code>. If you have rules in <em>"Plugins Manager" -- "IN FRONTEND VIEW (your visitors)"</em>, they will take effect whenever REST API calls are made and the URI is matched (e.g. /wp-json/). <a style="text-decoration: none; white-space: nowrap;" target="_blank" href="https://www.assetcleanup.com/docs/?p=1469"><span class="dashicons dashicons-info"></span> Read more</a></td>
+						</tr>
+						<?php
+					}
+					// [/wpacu_pro]
+
 					if ($specialSettings['do_not_also_clear_autoptimize_cache']) {
 						?>
 						<tr>

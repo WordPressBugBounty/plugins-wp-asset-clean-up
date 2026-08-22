@@ -11,6 +11,9 @@ use WpAssetCleanUp\Admin\SettingsAdminOnlyForAdmin;
  */
 class Settings
 {
+    const INPUT_STYLE_ENHANCED = 'enhanced';
+    const INPUT_STYLE_STANDARD = 'standard';
+
 	/**
 	 * @var array
 	 */
@@ -27,13 +30,12 @@ class Settings
         'hide_meta_boxes_for_post_types', // Hide all metaboxes for the chosen post types
 
 		// Front-end View Assets Management
-        'frontend_show',
-        'frontend_show_exceptions',
-
-        // [For Admnistrators Only]
 		// Allow managing assets to:
 		'allow_manage_assets_to',
 		'allow_manage_assets_to_list',
+		'allow_manage_assets_to_roles',
+		'allow_manage_assets_via_roles',
+		'allow_manage_assets_via_users',
         // [For Admnistrators Only]
 
 		// Hide plugin's menus to make the top admin bar / left sidebar within the Dashboard cleaner (if the plugin is not used much)
@@ -41,6 +43,10 @@ class Settings
 		'hide_from_side_bar', // Since v1.1.7.1 (Pro)
 
 		// The way the CSS/JS list is showing (various ways depending on the preference)
+        'frontend_show',
+        'frontend_show_exceptions',
+
+        // [For Admnistrators Only]
 		'assets_list_layout',
 		'assets_list_layout_areas_status',
 		'assets_list_inline_code_status',
@@ -70,7 +76,9 @@ class Settings
         // [/CRITICAL CSS]
 
         'cache_dynamic_loaded_css',
+        'cache_dynamic_loaded_css_exceptions',
 		'cache_dynamic_loaded_js',
+        'cache_dynamic_loaded_js_exceptions',
 
         'inline_js_files_below_size', // Enable?
 		'inline_js_files_below_size_input', // Actual size
@@ -168,6 +176,8 @@ class Settings
         'access_via_specific_non_admin_users',
         // [/For Admnistrators Only]
 
+        'resource_loading',
+
         // Local Fonts: "font-display" CSS property
         'local_fonts_display',
         'local_fonts_display_overwrite',
@@ -181,6 +191,7 @@ class Settings
 
         // Google Fonts: "font-display" CSS property: LINK & STYLE tags, @import in CSS files
         'google_fonts_display',
+        'google_fonts_display_overwrite',
 
         // Google Fonts: preconnect hint
         'google_fonts_preconnect',
@@ -189,12 +200,7 @@ class Settings
         'google_fonts_preload_files',
 
         // Google Fonts: Remove all traces
-        'google_fonts_remove',
-
-        // [wpacu_lite]
-        // Do not trigger Feedback Popup on Deactivation
-        'disable_freemius'
-		// [/wpacu_lite]
+        'google_fonts_remove'
     );
 
     /**
@@ -212,6 +218,8 @@ class Settings
 	 */
 	public function __construct()
     {
+        $this->settingsKeys = apply_filters('wpacu_internal_settings_keys', $this->settingsKeys);
+
         $this->defaultSettings = array(
 	        // Show the assets' list within the Dashboard, while they are hidden in the front-end view
 	        'dashboard_show' => '1',
@@ -223,7 +231,12 @@ class Settings
 
 	        'hide_meta_boxes_for_post_types' => array(),
 
-            'announcements' => array(),
+            // Remote announcements require an explicit administrator opt-in.
+            'announcements' => array(
+                'global' => array(
+                    'enabled' => 0,
+                ),
+            ),
 
 	        // Very good especially for page builders: Divi Visual Builder, Oxygen Builder, WPBakery, Beaver Builder etc.
 	        // It is also hidden in preview mode (if query strings such as 'preview_nonce' are used)
@@ -233,8 +246,11 @@ class Settings
 	                                       .'preview_nonce='."\n",
 
             // [For Admnistrators Only]
-	        'allow_manage_assets_to' => 'any_admin',
+	        'allow_manage_assets_to'      => 'any_admin',
 	        'allow_manage_assets_to_list' => array(),
+	        'allow_manage_assets_to_roles' => array(),
+	        'allow_manage_assets_via_roles' => 0,
+	        'allow_manage_assets_via_users' => 0,
             // [/For Admnistrators Only]
 
 	        // Since v1.2.9.3 (Lite) and version 1.1.0.8 (Pro), the default value is "by-location" (All Styles & All Scripts - By Location (Theme, Plugins, Custom & External))
@@ -255,10 +271,10 @@ class Settings
 	        'minify_loaded_css_exceptions' => '(.*?)\.min.css'. "\n". '/wd-instagram-feed/(.*?).css',
 	        'minify_loaded_js_exceptions'  => '(.*?)\.min.js' . "\n". '/wd-instagram-feed/(.*?).js',
 
-	        'inline_css_files_below_size' => '1', // Enabled by default
+	        'inline_css_files_below_size'       => '1', // Enabled by default
 	        'inline_css_files_below_size_input' => '3', // Size in KB
 
-	        'inline_js_files_below_size_input' => '3', // Size in KB
+	        'inline_js_files_below_size_input'  => '3', // Size in KB
 
             // Specific AMP scripts should always be in 'HEAD'
             'move_scripts_to_body_exceptions' => '//cdn.ampproject.org/',
@@ -271,7 +287,13 @@ class Settings
 	        'combine_loaded_js_exceptions'  => '/wd-instagram-feed/(.*?).js',
 
             // Since 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
-            'resource_loading' => array('_enabled' => 1),
+            'resource_loading' => array(
+                '_enabled' => 0,
+                'images' => array(
+                    'attr'      => array('_enabled' => 0, 'data' => array()),
+                    'lazy_load' => array('_enabled' => 0, 'decoding_async' => 1),
+                )
+            ),
 
 	        // [CRITICAL CSS]
 	        'critical_css_status' => 'on',
@@ -289,6 +311,8 @@ class Settings
             // Starting from v1.3.6.9 (Lite) & v1.1.7.9 (Pro), /cart/ & /checkout/ pages are added to the exclusion list by default
             'do_not_load_plugin_patterns' => '/cart/'. "\n". '/checkout/',
 
+            'do_not_load_plugin_features' => array(),
+
             // [For Admnistrators Only]
             'access_via_non_admin_user_roles' => array(),
             'access_via_specific_non_admin_users' => array(),
@@ -303,6 +327,8 @@ class Settings
 	        // [/Hidden Settings]
         );
 
+        $this->defaultSettings = apply_filters('wpacu_internal_settings_default_values', $this->defaultSettings);
+
         // In case it's udpated within the CSS/JS manager, make sure it's updated in the settings no matter how early they will be triggered (before the actual update takes place, after the "Update" button is clicked)
         add_filter('wpacu_settings', function($settings) {
             if ( ! empty($_POST['wpacu_assets_list_layout']) ) {
@@ -316,7 +342,7 @@ class Settings
             return $settings;
         });
 
-        add_filter('admin_init', array($this, 'filterSettingsOnAdminInit'), 0);
+        add_action('admin_init', array($this, 'filterSettingsOnAdminInit'), 0);
     }
 
     /**
@@ -352,7 +378,7 @@ class Settings
 
         $applyDefaultToNeverSaved = array(
             'alter_html_source_method',
-
+		    'input_style',
 		    'frontend_show_exceptions',
 		    'minify_loaded_css_exceptions',
 		    'inline_css_files_below_size_input',
@@ -360,14 +386,28 @@ class Settings
 		    'inline_js_files_below_size_input',
 		    'clear_cached_files_after',
 		    'hide_meta_boxes_for_post_types',
-            'disable_rss_feed_message'
+            'disable_rss_feed_message',
+            'resource_loading',
+            'announcements',
+            'do_not_load_plugin_features',
+            'allow_manage_assets_to_roles',
+            'allow_manage_assets_via_roles',
+            'allow_manage_assets_via_users',
+            'access_via_non_admin_user_roles',
+            'access_via_specific_non_admin_users'
 	    );
+
+        $applyDefaultToNeverSaved = apply_filters('wpacu_internal_settings_apply_default_to_never_saved', $applyDefaultToNeverSaved);
 
         // If there's already a record in the database
         if ($settingsOption !== '' && is_string($settingsOption)) {
             $settings = json_decode($settingsOption, ARRAY_A);
 
-            if (wpacuJsonLastError() === JSON_ERROR_NONE) {
+            if (is_array($settings) && ! isset($settings['resource_loading']['images']['attr']) ) {
+                $settings = $this->normalizeCommonSettingsStructure($settings);
+            }
+
+            if (wpacuJsonLastError() === JSON_ERROR_NONE && is_array($settings)) {
                 // Make sure all the keys are there even if no value is attached to them
                 // To avoid writing extra checks in other parts of the code and prevent PHP notice errors
                 foreach ($this->settingsKeys as $settingsKey) {
@@ -403,6 +443,24 @@ class Settings
 	    return apply_filters('wpacu_settings', $this->filterSettings($finalDefaultSettings));
     }
 
+    /**
+     * @param $settings
+     *
+     * @return array|mixed
+     */
+    public function normalizeCommonSettingsStructure($settings)
+    {
+        if ( ! is_array($settings) ) {
+            return $settings;
+        }
+
+        if (class_exists('\WpAssetCleanUp\OptimiseAssets\ResourceLoading')) {
+            $settings = OptimiseAssets\ResourceLoading::normalizeResourceLoadingImagesSettings($settings);
+        }
+
+        return $settings;
+    }
+
 	/**
 	 * @param $settings
 	 *
@@ -423,6 +481,10 @@ class Settings
 		if ( ! isset($settings['show_assets_meta_box']) || $settings['show_assets_meta_box'] === '' ) {
 			$settings['show_assets_meta_box'] = 1;
 		}
+
+        // Keep one predictable value throughout PHP templates, JavaScript and asset loading.
+        // Any missing or legacy/invalid value falls back to the default enhanced interface.
+        $settings['input_style'] = self::getInputStyle($settings);
 
 		// Oxygen Builder is triggered, and some users might want to trigger unload rules there to make the editor faster, especially plugin unload rules
         // We will prevent minify/combine and other functions that will require caching any files to avoid any errors
@@ -445,18 +507,44 @@ class Settings
 		    $settings['minify_loaded_js_for'] = 'all';
 		}
 
-        // "resource_loading[_enabled]" is either 1 or 0
-        // If it doesn't exist, it was never saved because the user didn't update the settings after updating to 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
-        // Thus it will be activated by default: 1
-        if ( ! isset($settings['resource_loading']['_enabled']) || $settings['resource_loading']['_enabled'] === '' ) {
-            $settings['resource_loading']['_enabled'] = 1;
+        /*
+        * [START] - If it doesn't exist, it was never saved because the user didn't update the settings after updating to 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
+        */
+        // It has to be an array
+        if ( ! isset($settings['resource_loading']) || is_string($settings['resource_loading']) ) {
+            $settings['resource_loading'] = array();
         }
+
+        // The value either 1 or 0
+        // Deactivated by default: 0
+        if ( ! isset($settings['resource_loading']['_enabled']) ||
+             $settings['resource_loading']['_enabled'] === '' ) {
+            $settings['resource_loading']['_enabled'] = 0;
+        }
+
+        // "resource_loading[images][attr][_enabled]"
+        // Deactivated by default: 0
+        if ( ! isset($settings['resource_loading']['images']['attr']['_enabled']) ||
+             $settings['resource_loading']['images']['attr']['_enabled'] === '' ) {
+            $settings['resource_loading']['images']['attr']['_enabled'] = 0;
+        }
+
+        // "resource_loading[images][lazy_load][_enabled]"
+        // Deactivated by default: 0
+        if ( ! isset($settings['resource_loading']['images']['lazy_load']['_enabled']) ||
+             $settings['resource_loading']['images']['lazy_load']['_enabled'] === '' ) {
+            $settings['resource_loading']['images']['lazy_load']['_enabled'] = 0;
+        }
+        /*
+         * [END] - If it doesn't exist, it was never saved because the user didn't update the settings after updating to 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
+         */
 
 		// Google Fonts Removal is enabled; make sure other related settings are nullified
 		if ($settings['google_fonts_remove']) {
             $settings['google_fonts_combine']
                 = $settings['google_fonts_combine_type']
                 = $settings['google_fonts_display']
+                = $settings['google_fonts_display_overwrite']
                 = $settings['google_fonts_preconnect']
                 = $settings['google_fonts_preload_files']
                 = '';
@@ -464,6 +552,12 @@ class Settings
 
         if ((int)$settings['clear_cached_files_after'] === 0) {
 	        $settings['clear_cached_files_after'] = 1; // Starting from v1.2.3.6 (Pro)
+        }
+
+        $filteredSettings = apply_filters('wpacu_internal_filter_settings_after_common', $settings);
+
+        if (is_array($filteredSettings)) {
+            $settings = $filteredSettings;
         }
 
         if ( function_exists('get_rocket_option') && wpacuIsPluginActive('wp-rocket/wp-rocket.php') ) {
@@ -475,16 +569,35 @@ class Settings
 	        }
         }
 
-		// [START] Overwrite specific settings via query string
+        // Internal extension point used by Asset CleanUp Lite/Pro.
+        // Not intended as a public integration API.
+        $filteredSettings = apply_filters('wpacu_internal_filter_settings_after_plugin_compatibility', $settings);
+
+        if (is_array($filteredSettings)) {
+            $settings = $filteredSettings;
+        }
+
+		// [START] Temporarily overwrite specific settings via query string for authorized troubleshooting
+        // Multiple flat values are supported, e.g. /?wpacu_settings[key_one]=1&wpacu_settings[key_two]=false
         // Ideally, either use /?wpacu_settings[...] OR /?wpacu_skip_test_mode (never both because they could interfere)
-		if ( ! empty($_GET['wpacu_settings']) && is_array($_GET['wpacu_settings']) ) {
-            foreach ($_GET['wpacu_settings'] as $settingKey => $settingValue) {
+		if ( ! empty($_GET['wpacu_settings']) && is_array($_GET['wpacu_settings']) && Menu::userCanAccessPlugin()) {
+            foreach (wp_unslash($_GET['wpacu_settings']) as $settingKey => $settingValue) {
+                if ( ! is_string($settingKey)
+                    || sanitize_key($settingKey) !== $settingKey
+                    || ! array_key_exists($settingKey, $settings)
+                    || ! is_scalar($settingValue)
+                ) {
+                    continue;
+                }
+
+                $settingValue = sanitize_text_field((string)$settingValue);
+
                 if ($settingValue === 'true') {
 	                $settingValue = true;
-                }
-	            if ($settingValue === 'false') {
+                } elseif ($settingValue === 'false') {
 		            $settingValue = false;
 	            }
+
                 $settings[$settingKey] = $settingValue;
             }
 		}
@@ -495,6 +608,9 @@ class Settings
 			$settings['test_mode'] = true;
 		}
 
+		// Intentionally available to unauthenticated visitors as a request-scoped
+		// preview URL for support and debugging while Test Mode remains enabled.
+		// This does not persist settings or disable Test Mode for other requests.
 		if ( isset($_GET['wpacu_skip_test_mode']) ) {
 			$settings['test_mode'] = false;
 		}
@@ -521,6 +637,9 @@ class Settings
 			$settings['dashboard_show'] = true;
 		}
 		// [END] Overwrite specific settings via query string
+
+        // A query-string override or an internal filter might have changed it.
+        $settings['input_style'] = self::getInputStyle($settings);
 
         // "Settings"
         // -- "Plugin Usage Preferences"
@@ -619,6 +738,19 @@ class Settings
                         $settings['google_fonts_preload_files'] = '';
                     }
                     // [/Google Fonts]
+
+                    // Internal extension point used by Asset CleanUp Lite/Pro.
+                    // Not intended as a public integration API.
+                    $filteredSettings = apply_filters(
+                        'wpacu_internal_filter_settings_for_avoided_feature',
+                        $settings,
+                        $featureToAvoid,
+                        $setValues
+                    );
+
+                    if (is_array($filteredSettings)) {
+                        $settings = $filteredSettings;
+                    }
                 }
             }
         }
@@ -633,6 +765,49 @@ class Settings
 	}
 
     /**
+     * Normalize the interface preference to one of the two supported values.
+     *
+     * @param array|string $settingsOrInputStyle
+     *
+     * @return string
+     */
+    public static function getInputStyle($settingsOrInputStyle = array())
+    {
+        $inputStyle = is_array($settingsOrInputStyle)
+            ? (isset($settingsOrInputStyle['input_style']) ? $settingsOrInputStyle['input_style'] : '')
+            : $settingsOrInputStyle;
+
+        return $inputStyle === self::INPUT_STYLE_STANDARD
+            ? self::INPUT_STYLE_STANDARD
+            : self::INPUT_STYLE_ENHANCED;
+    }
+
+    /**
+     * @param array|string $settingsOrInputStyle
+     *
+     * @return bool
+     */
+    public static function useEnhancedInputs($settingsOrInputStyle = array())
+    {
+        return self::getInputStyle($settingsOrInputStyle) === self::INPUT_STYLE_ENHANCED;
+    }
+
+    /**
+     * Keep the existing switch class for backward compatibility and expose a generic class
+     * that can also scope select, search and other input-specific rules.
+     *
+     * @param array|string $settingsOrInputStyle
+     *
+     * @return string
+     */
+    public static function getInputStyleCssClasses($settingsOrInputStyle = array())
+    {
+        $inputStyle = self::getInputStyle($settingsOrInputStyle);
+
+        return 'wpacu-switch-' . $inputStyle . ' wpacu-input-style-' . $inputStyle;
+    }
+
+    /**
      * @param $settings
      *
      * @return mixed
@@ -644,6 +819,10 @@ class Settings
                 $allowManageAssetsArray                  = SettingsAdminOnlyForAdmin::filterAnySpecifiedAdminsForAccessToAssetsManager($settings);
                 $settings['allow_manage_assets_to']      = $allowManageAssetsArray['allow_manage_assets_to'];
                 $settings['allow_manage_assets_to_list'] = $allowManageAssetsArray['allow_manage_assets_to_list'];
+
+                if ($settings['allow_manage_assets_to'] === 'selected' && empty($settings['allow_manage_assets_to_roles']) && empty($settings['allow_manage_assets_to_list'])) {
+                    $settings['allow_manage_assets_to'] = 'any_admin';
+                }
 
                 // "only to the following administrator(s):" can not be empty; if that's the case, reset it to "any administrator"
                 if ($settings['allow_manage_assets_to'] === 'chosen' && empty($settings['allow_manage_assets_to_list'])) {
@@ -659,9 +838,9 @@ class Settings
                 $settings['access_via_specific_non_admin_users'] = $nonAdminsWithPluginAccessCap;
             }
         } else {
-            // Non-admins have no business with these settings
-            $settings['allow_manage_assets_to']              = 'any_admin';
-            $settings['allow_manage_assets_to_list']         = array();
+            // Non-administrators cannot configure Access Control, but the saved
+            // CSS/JS Manager visibility policy must remain available so it can
+            // be enforced for users who received plugin access.
             $settings['access_via_non_admin_user_roles']     = array();
             $settings['access_via_specific_non_admin_users'] = array();
         }
@@ -688,7 +867,7 @@ class Settings
             return true;
         }
 
-        if ( Menu::isPluginPage() || ( ! is_admin() && AssetsManager::instance()->frontendShow() ) ) {
+        if ( Menu::isPluginPage() || ( ! is_admin() && Main::showAssetsManagerInFrontend()) ) {
             return true;
         }
 

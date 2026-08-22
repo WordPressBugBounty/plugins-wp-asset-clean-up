@@ -53,64 +53,26 @@ class AssetsManager
 		add_action( 'wp_ajax_'.WPACU_PLUGIN_ID.'_get_external_file_size', array( $this, 'ajaxGetExternalFileSize' ) ) ;
 	}
 
-	/**
+    /**
 	 * @return bool
 	 */
-	public function frontendShow()
-	{
-        if (is_admin()) {
-            return false; // Only relevant in the front-end view
-        }
-
-		// The option is disabled
-		if (! Main::instance()->settings['frontend_show']) {
-			return false;
-		}
-
-		// The asset list is hidden via query string: /?wpacu_no_frontend_show
-		if (isset($_REQUEST['wpacu_no_frontend_show'])) {
-			return false;
-		}
-
-		// Page loaded via Yellow Pencil Editor within an iframe? Do not show it as it's irrelevant there
-		if (isset($_GET['yellow_pencil_frame'], $_GET['yp_page_type'])) {
-			return false;
-		}
-
-		// The option is enabled, but there are show exceptions, check if the list should be hidden
-		if (Main::instance()->settings['frontend_show_exceptions']) {
-			$frontendShowExceptions = trim( Main::instance()->settings['frontend_show_exceptions'] );
-
-			// We want to make sure the RegEx rules will be working fine if certain characters (e.g. Thai ones) are used
-			$requestUriAsItIs = rawurldecode($_SERVER['REQUEST_URI']);
-
-			if ( strpos( $frontendShowExceptions, "\n" ) !== false ) {
-				foreach ( explode( "\n", $frontendShowExceptions ) as $frontendShowException ) {
-					$frontendShowException = trim($frontendShowException);
-
-					if ( strpos( $requestUriAsItIs, $frontendShowException ) !== false ) {
-						return false;
-					}
-				}
-			} elseif ( strpos( $requestUriAsItIs, $frontendShowExceptions ) !== false ) {
-				return false;
-			}
-		}
-
-		// Allows managing assets to chosen admins and the user is not in the list
-		if ( ! self::currentUserCanViewAssetsList() ) {
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
-	 * @return bool
-	 */
-	public static function currentUserCanViewAssetsList()
+    public static function currentUserCanViewAssetsList()
 	{
         Main::instance()->settings = SettingsAdminOnlyForAdmin::filterAnySpecifiedAdminsForAccessToAssetsManager(Main::instance()->settings);
+
+        if ( in_array(Main::instance()->settings['allow_manage_assets_to'], array('selected', 'selected_roles'), true) ) {
+            $selectedRoles = ! empty(Main::instance()->settings['allow_manage_assets_to_roles']) && is_array(Main::instance()->settings['allow_manage_assets_to_roles'])
+                ? Main::instance()->settings['allow_manage_assets_to_roles']
+                : array();
+            $currentUser = wp_get_current_user();
+
+            $roleMatches = ! empty(array_intersect($selectedRoles, (array)$currentUser->roles));
+            $userMatches = Main::instance()->settings['allow_manage_assets_to'] === 'selected'
+                && ! empty(Main::instance()->settings['allow_manage_assets_to_list'])
+                && in_array((int)$currentUser->ID, array_map('intval', Main::instance()->settings['allow_manage_assets_to_list']), true);
+
+            return $roleMatches || $userMatches;
+        }
 
         if ( Main::instance()->settings['allow_manage_assets_to'] === 'chosen' && ! empty(Main::instance()->settings['allow_manage_assets_to_list']) ) {
 			$wpacuCurrentUserId = get_current_user_id();
@@ -288,6 +250,10 @@ class AssetsManager
 	 */
 	public function ajaxPrintLoadedHardcodedAssets()
 	{
+        if ( ! Menu::userCanAccessPlugin() ) {
+            wp_die('Error: You are not allowed to access this area.');
+        }
+
 		if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_print_loaded_hardcoded_assets_nonce' ) ) {
 			echo 'Error: The security nonce is not valid.';
 			exit();
@@ -300,52 +266,58 @@ class AssetsManager
 		// Only set the following variables if there is at least one hardcoded LINK/STYLE/SCRIPT
 		$jsonH = base64_decode( $wpacuListH );
 
-		function wpacuPrintHardcodedManagementList( $jsonH, $wpacuSettings ) {
-			$data                      = $wpacuSettings ?: array();
-			$data['do_not_print_list'] = true;
-			$data['print_outer_html']  = false;
-			$data['all']['hardcoded']  = (array) json_decode( $jsonH, ARRAY_A );
-
-            // e.g. Unload on this page, Unload on this product page (depending on the page where the assets are managed)
-            $data = AssetsManager::textRulesToShowInCssJsManager($data);
-
-			if ( ! empty( $data['all']['hardcoded']['within_conditional_comments'] ) ) {
-				ObjectCache::wpacu_cache_set(
-					'wpacu_hardcoded_content_within_conditional_comments',
-					$data['all']['hardcoded']['within_conditional_comments']
-				);
-			}
-
-            $afterHardcodedTitle = ''; // will be added in the inclusion
-            $viewHardcodedMode   = HardcodedAssets::viewHardcodedModeLayout($wpacuSettings['plugin_settings']);
-
-			ob_start();
-			// $totalHardcodedTags is set here
-			include_once WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/view-hardcoded-'.$viewHardcodedMode.'.php'; // generate $hardcodedTagsOutput
-			$output = ob_get_clean();
-
-            $response = array(
-                'output'                => $output,
-                'after_hardcoded_title' => $afterHardcodedTitle
-            );
-
-            // [START] Set reference for checking external URLs
-            $anyExternalSrcsFromHardcodedAssets = HardcodedAssets::getAllExternalSrcsFromHardcodedAssets($data['all']['hardcoded']);
-
-            $response['external_srcs_ref'] = AssetsManager::setExternalSrcsRef($anyExternalSrcsFromHardcodedAssets, 'css_js_manager_hardcoded_frontend_view');
-            // [END] Set reference for checking external URLs
-
-			return wp_json_encode( $response );
-		}
-
-		echo wpacuPrintHardcodedManagementList( $jsonH, $wpacuSettings );
-
+		echo $this->printHardcodedManagementListFromAjaxCall( $jsonH, $wpacuSettings );
 		exit();
 	}
 
     /**
+     * @param $jsonH
+     * @param $wpacuSettings
      *
-     * @param array $externalSrcsRef
+     * @return false|string
+     */
+    private function printHardcodedManagementListFromAjaxCall( $jsonH, $wpacuSettings )
+    {
+        $data                      = $wpacuSettings ?: array();
+        $data['do_not_print_list'] = true;
+        $data['print_outer_html']  = false;
+        $data['all']['hardcoded']  = (array) json_decode( $jsonH, ARRAY_A );
+
+        // e.g. Unload on this page, Unload on this product page (depending on the page where the assets are managed)
+        $data = self::textRulesToShowInCssJsManager($data);
+
+        if ( ! empty( $data['all']['hardcoded']['within_conditional_comments'] ) ) {
+            ObjectCache::wpacu_cache_set(
+                'wpacu_hardcoded_content_within_conditional_comments',
+                $data['all']['hardcoded']['within_conditional_comments']
+            );
+        }
+
+        $afterHardcodedTitle = ''; // will be added in the inclusion
+        $viewHardcodedMode   = HardcodedAssets::viewHardcodedModeLayout($wpacuSettings['plugin_settings']);
+
+        ob_start();
+        // $totalHardcodedTags is set here
+        include_once WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/view-hardcoded-'.$viewHardcodedMode.'.php'; // generate $hardcodedTagsOutput
+        $output = ob_get_clean();
+
+        $response = array(
+            'output'                => $output,
+            'after_hardcoded_title' => $afterHardcodedTitle
+        );
+
+        // [START] Set reference for checking external URLs
+        $anyExternalSrcsFromHardcodedAssets = HardcodedAssets::getAllExternalSrcsFromHardcodedAssets($data['all']['hardcoded']);
+
+        $response['external_srcs_ref'] = self::setExternalSrcsRef($anyExternalSrcsFromHardcodedAssets, 'css_js_manager_hardcoded_frontend_view');
+        // [END] Set reference for checking external URLs
+
+        return wp_json_encode( $response );
+    }
+
+    /**
+     *
+     * @param array $array
      * @param string $for
      *
      * @return string
@@ -355,7 +327,7 @@ class AssetsManager
         $allExternalSrcs = array(); // default
 
         if ($for === 'css_js_manager') {
-            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array, $for);
+            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array);
         } elseif (in_array($for, array('css_js_manager_hardcoded_frontend_view', 'bulk_changes'))) {
             $allExternalSrcs = $array;
         } elseif ($for === 'overview') {
@@ -383,7 +355,7 @@ class AssetsManager
                 }
             }
 
-            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array, $for);
+            $allExternalSrcs = self::getAllExternalSrcsFromAssetsList($array);
         }
 
         $externalSrcsRef = MiscAdmin::generateUniqueString();
@@ -400,7 +372,7 @@ class AssetsManager
      *
      * @param array $list
      *
-     * @return void
+     * @return array
      */
     public static function getAllExternalSrcsFromAssetsList($list)
     {
@@ -426,24 +398,173 @@ class AssetsManager
     }
 
 	/**
+	 * Perform an HTTP request while validating the initial URL and each redirect.
+	 * Redirects are handled explicitly so the protection also applies on the
+	 * minimum supported WordPress versions.
+	 *
+	 * @param string $url
+	 * @param array  $args
+	 * @param int    $maxRedirects
+	 *
+	 * @return array|\WP_Error
+	 */
+	private static function safeRemoteRequestWithValidatedRedirects($url, $args = array(), $maxRedirects = 3)
+	{
+		$currentUrl   = esc_url_raw($url);
+		$maxRedirects = max(0, (int)$maxRedirects);
+		$requestArgs  = array_merge(array('timeout' => 10), $args);
+
+		// Redirects are followed manually and validated before each new request.
+		$requestArgs['redirection']        = 0;
+		$requestArgs['reject_unsafe_urls'] = true;
+
+		for ($redirectCount = 0; $redirectCount <= $maxRedirects; $redirectCount++) {
+			$validatedUrl = wp_http_validate_url($currentUrl);
+
+			if ($validatedUrl === false) {
+				return new \WP_Error(
+					'wpacu_unsafe_remote_url',
+					'The remote URL is not safe to request from the server.'
+				);
+			}
+
+			$response = wp_remote_request($validatedUrl, $requestArgs);
+
+			if (is_wp_error($response)) {
+				return $response;
+			}
+
+			$responseCode = (int)wp_remote_retrieve_response_code($response);
+
+			if ($responseCode < 300 || $responseCode > 399) {
+				return $response;
+			}
+
+			$redirectLocation = wp_remote_retrieve_header($response, 'location');
+
+			if (is_array($redirectLocation)) {
+				$redirectLocation = end($redirectLocation);
+			}
+
+			if ( ! is_string($redirectLocation) || trim($redirectLocation) === '' ) {
+				return $response;
+			}
+
+			if ($redirectCount === $maxRedirects) {
+				return new \WP_Error(
+					'wpacu_remote_too_many_redirects',
+					'The remote request exceeded the allowed number of redirects.'
+				);
+			}
+
+			$currentUrl = \WP_Http::make_absolute_url(trim($redirectLocation), $validatedUrl);
+		}
+
+		return new \WP_Error(
+			'wpacu_remote_request_failed',
+			'The remote request could not be completed.'
+		);
+	}
+
+	/**
+	 * Extract a reliable total file size from Content-Range or Content-Length.
+	 *
+	 * @param array|\WP_Error $response
+	 *
+	 * @return int|false
+	 */
+	private static function getRemoteFileSizeFromResponse($response)
+	{
+		if (is_wp_error($response) || ! is_array($response)) {
+			return false;
+		}
+
+		$responseCode = (int)wp_remote_retrieve_response_code($response);
+
+		if ($responseCode < 200 || $responseCode >= 400) {
+			return false;
+		}
+
+		$contentRange = wp_remote_retrieve_header($response, 'content-range');
+
+		if (is_array($contentRange)) {
+			$contentRange = end($contentRange);
+		}
+
+		if (is_scalar($contentRange) && preg_match('/\/\s*(\d+)\s*$/', trim((string)$contentRange), $matches)) {
+			$contentRangeSize = (int)$matches[1];
+
+			if ($contentRangeSize > 0) {
+				return $contentRangeSize;
+			}
+		}
+
+		$contentLength = wp_remote_retrieve_header($response, 'content-length');
+
+		if (is_array($contentLength)) {
+			$contentLength = end($contentLength);
+		}
+
+		if (is_scalar($contentLength) && preg_match('/^\d+$/', trim((string)$contentLength))) {
+			$contentLengthSize = (int)$contentLength;
+
+			if ($contentLengthSize > 0) {
+				return $contentLengthSize;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get the size from a complete response body when the server does not expose
+	 * Content-Length and does not support byte range requests.
+	 *
+	 * @param array|\WP_Error $response
+	 * @param int             $maxFileSize
+	 *
+	 * @return int|false
+	 */
+	private static function getRemoteFileSizeFromCompleteBody($response, $maxFileSize)
+	{
+		if (is_wp_error($response) || ! is_array($response)) {
+			return false;
+		}
+
+		$responseCode = (int)wp_remote_retrieve_response_code($response);
+
+		if ($responseCode < 200 || $responseCode >= 300) {
+			return false;
+		}
+
+		$body       = wp_remote_retrieve_body($response);
+		$bodyLength = is_string($body) ? strlen($body) : 0;
+
+		// The request reads one byte beyond the limit. Reaching that extra byte
+		// proves that the response was truncated and its total size is unknown.
+		if ($bodyLength < 1 || $bodyLength > $maxFileSize) {
+			return false;
+		}
+
+		return $bodyLength;
+	}
+
+	/**
 	 *
 	 */
 	public function ajaxCheckExternalUrlsForStatusCode()
 	{
 		if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_ajax_check_external_urls_nonce' ) ) {
-			echo 'Error: The security nonce is not valid.';
-			exit();
+			wp_send_json_error(array('message' => 'The security nonce is not valid.'), 403);
 		}
 
 		if ( ! isset($_POST['action'], $_POST['wpacu_external_srcs_ref']) ) {
-			echo 'Error: The post parameters are not the right ones.';
-			exit();
+			wp_send_json_error(array('message' => 'The post parameters are not the right ones.'), 400);
 		}
 
 		// Check privileges
 		if ( ! Menu::userCanAccessPlugin() ) {
-			echo 'Error: Not enough privileges to perform this action.';
-			exit();
+			wp_send_json_error(array('message' => 'Not enough privileges to perform this action.'), 403);
 		}
 
         $externalSrcsRef = sanitize_text_field($_POST['wpacu_external_srcs_ref']);
@@ -451,29 +572,42 @@ class AssetsManager
         $checkUrls = get_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef);
 
         if ( empty($checkUrls) ) {
-            exit();
+			wp_send_json(array());
         }
 
         // Remove it from the database, it as it's meant to be used only once
         delete_transient(WPACU_PLUGIN_ID . '_external_srcs_ref_' . $externalSrcsRef);
 
         foreach ($checkUrls as $index => $checkUrl) {
-			if (strncmp($checkUrl, '//', 2) === 0) { // starts with // (append the right protocol)
-				if (strpos($checkUrl, 'fonts.googleapis.com') !== false)  {
-					$checkUrl = 'https:'.$checkUrl;
+			$checkUrlToRequest = is_string($checkUrl) ? $checkUrl : '';
+
+			if (strncmp($checkUrlToRequest, '//', 2) === 0) { // starts with // (append the right protocol)
+				if (strpos($checkUrlToRequest, 'fonts.googleapis.com') !== false)  {
+					$checkUrlToRequest = 'https:'.$checkUrlToRequest;
 				} else {
 					// either HTTP or HTTPS depending on the current page situation (that the admin has loaded)
-					$checkUrl = (Misc::isHttpsSecure() ? 'https:' : 'http:') . $checkUrl;
+					$checkUrlToRequest = (Misc::isHttpsSecure() ? 'https:' : 'http:') . $checkUrlToRequest;
 				}
 			}
 
-            if ( ! filter_var($checkUrl, FILTER_VALIDATE_URL) ) {
-                // Something's funny! Only URLs should be accepted for the check below
-                unset($checkUrls[$index]);
-                continue;
-            }
+			$checkUrlToRequest = esc_url_raw($checkUrlToRequest);
 
-			$response = wp_remote_get($checkUrl);
+			if (wp_http_validate_url($checkUrlToRequest) === false) {
+				// Do not make server-side requests to malformed, local or private destinations.
+				unset($checkUrls[$index]);
+				continue;
+			}
+
+			$response = self::safeRemoteRequestWithValidatedRedirects($checkUrlToRequest, array(
+				'method'              => 'GET',
+				'limit_response_size' => 1
+			));
+
+			if (is_wp_error($response) && $response->get_error_code() === 'wpacu_unsafe_remote_url') {
+				// An unsafe redirect means the status could not be checked reliably.
+				unset($checkUrls[$index]);
+				continue;
+			}
 
 			// Remove 200 OK ones as the other ones will remain for highlighting
 			if (wp_remote_retrieve_response_code($response) === 200) {
@@ -481,90 +615,78 @@ class AssetsManager
 			}
 		}
 
-        echo wp_json_encode($checkUrls);
-		exit();
+        wp_send_json(array_values($checkUrls));
 	}
 
 	/**
-	 * Source: https://stackoverflow.com/questions/2602612/remote-file-size-without-downloading-file
+	 * Get a remote asset's size without downloading the whole file.
 	 */
 	public function ajaxGetExternalFileSize()
 	{
 		// Check nonce
 		if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_ajax_check_remote_file_size_nonce' ) ) {
-			echo 'Error: The security nonce is not valid.';
-			exit();
+			wp_send_json_error(array('message' => 'The security nonce is not valid.'), 403);
 		}
 
 		// Check privileges
 		if (! Menu::userCanAccessPlugin()) {
-			echo 'Error: Not enough privileges to perform this action.';
-			exit();
+			wp_send_json_error(array('message' => 'Not enough privileges to perform this action.'), 403);
 		}
-
-		// Assume failure.
-		$result = -1;
 
 		$remoteFile = Misc::getVar('post', 'wpacu_remote_file', false);
 
-		if (! $remoteFile) {
+		if ( ! is_string($remoteFile) || $remoteFile === '' ) {
 			echo 'N/A (external file)';
 			exit;
 		}
 
+		$remoteFile = wp_unslash($remoteFile);
+
 		// If it starts with //
 		if (strncmp($remoteFile, '//', 2) === 0) {
-			$remoteFile = 'http:'.$remoteFile;
+			$remoteFile = (Misc::isHttpsSecure() ? 'https:' : 'http:') . $remoteFile;
 		}
 
-		// Check if the URL is valid
-        $remoteFileToCheck = filter_var($remoteFile, FILTER_SANITIZE_URL);
+		$remoteFileToCheck = esc_url_raw($remoteFile);
 
-		if (! filter_var($remoteFileToCheck, FILTER_VALIDATE_URL)) {
-			echo 'The asset\'s URL - '.$remoteFile.' - could not be validated.';
+		if (wp_http_validate_url($remoteFileToCheck) === false) {
+			echo 'The asset\'s URL could not be validated for a safe server-side request.';
 			exit();
 		}
 
-		$curl = curl_init($remoteFile);
+		$response = self::safeRemoteRequestWithValidatedRedirects($remoteFileToCheck, array(
+			'method' => 'HEAD'
+		));
 
-		// Issue a HEAD request and follow any redirects.
-		curl_setopt($curl, CURLOPT_NOBODY, true);
-		curl_setopt($curl, CURLOPT_HEADER, true);
-		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+		$result = self::getRemoteFileSizeFromResponse($response);
 
-		$data = curl_exec($curl);
-		curl_close($curl);
+		if ($result === false) {
+			// Some servers do not support HEAD. Request only the first byte and
+			// use Content-Range (preferred) or Content-Length when available.
+			$response = self::safeRemoteRequestWithValidatedRedirects($remoteFileToCheck, array(
+				'method'              => 'GET',
+				'headers'             => array('Range' => 'bytes=0-0'),
+				'limit_response_size' => 1
+			));
 
-		$contentLength = $status = 'unknown';
-
-		if ($data) {
-			if (preg_match( '/^HTTP\/1\.[01] (\d\d\d)/', $data, $matches ) ) {
-				$status = (int)$matches[1];
-			}
-
-			if ( preg_match( '/Content-Length: (\d+)/', $data, $matches ) ) {
-				$contentLength = (int)$matches[1];
-			}
-
-			// http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
-			if ( $status === 200 || ($status > 300 && $status <= 308) ) {
-				$result = $contentLength;
-			}
+			$result = self::getRemoteFileSizeFromResponse($response);
 		}
 
-		if ($contentLength === 'unknown') {
-			// One more try
-			$response     = wp_remote_get($remoteFile);
+		if ($result === false) {
+			// Some CDNs expose no size headers and ignore Range. As a final fallback,
+			// download small assets with a hard limit and measure the complete body.
+			$maxFileSize = 5 * MB_IN_BYTES;
+			$response    = self::safeRemoteRequestWithValidatedRedirects($remoteFileToCheck, array(
+				'method'              => 'GET',
+				'headers'             => array('Accept-Encoding' => 'identity'),
+				'decompress'          => false,
+				'limit_response_size' => $maxFileSize + 1
+			));
 
-			$responseCode = wp_remote_retrieve_response_code($response);
-
-			if ($responseCode === 200) {
-				$result = mb_strlen(wp_remote_retrieve_body($response));
-			}
+			$result = self::getRemoteFileSizeFromCompleteBody($response, $maxFileSize);
 		}
 
-		echo MiscAdmin::formatBytes($result);
+		echo $result === false ? 'N/A (external file)' : MiscAdmin::formatBytes($result);
 
 		if (stripos($remoteFile, '//fonts.googleapis.com/') !== false) {
 			// Google Font APIS CDN
@@ -588,7 +710,6 @@ class AssetsManager
 
         $handleNotesList = wpacuGetGlobalData();
 
-        // Are new positions set for styles and scripts?
         foreach (array('styles', 'scripts') as $assetKey) {
             if ( ! empty( $handleNotesList[$assetKey]['notes'] ) ) {
                 $handleNotes[$assetKey] = $handleNotesList[$assetKey]['notes'];
@@ -610,7 +731,6 @@ class AssetsManager
         $handleRowStatusList = wpacuGetGlobalData();
 		$globalKey = 'handle_row_contracted';
 
-        // Are new positions set for styles and scripts?
         foreach (array('styles', 'scripts') as $assetKey) {
             if ( ! empty( $handleRowStatusList[$assetKey][$globalKey] ) ) {
                 $handleRowStatus[$assetKey] = $handleRowStatusList[$assetKey][$globalKey];
@@ -670,8 +790,9 @@ class AssetsManager
 
         $postType = false;
 
-        if ( is_admin() && Misc::getVar('post', 'page_type') === 'singular' ) {
-            $postType = Misc::getVar('post', 'current_post_type');
+        if ( is_admin() && in_array(Misc::getVar('post', 'page_type'), array('post', 'page', 'attachment', 'custom_post_type')) ) {
+            $postId   = Misc::getVar('post', 'post_id');
+            $postType = get_post_type($postId);
         } elseif (MainFront::isSingularPage() && Main::instance()->getCurrentPostId() > 0) {
             $postType = get_post_type(Main::instance()->getCurrentPostId());
         }
@@ -682,12 +803,17 @@ class AssetsManager
         } elseif ($postType === 'product') {
             $data['page_unload_text'] = __('Unload on this product page', 'wp-asset-clean-up');
             $data['page_load_text']   = __('On this product page', 'wp-asset-clean-up');
+        } elseif ($postType === 'attachment') {
+            $data['page_unload_text'] = __('Unload on this media page', 'wp-asset-clean-up');
+            $data['page_load_text']   = __('On this media page', 'wp-asset-clean-up');
         }
 
         if (MainFront::isHomePage() && Main::instance()->getCurrentPostId() < 1 && get_option('show_on_front') === 'posts') {
             $data['page_unload_text'] = __('Unload on this homepage', 'wp-asset-clean-up');
             $data['page_load_text']   = __('On this homepage', 'wp-asset-clean-up');
         }
+
+        $data = apply_filters('wpacu_internal_assets_manager_text_rules_to_show_in_css_js_manager', $data);
 
         return $data;
     }

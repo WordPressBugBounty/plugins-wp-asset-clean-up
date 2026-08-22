@@ -67,6 +67,8 @@ $wpacuTopAreaLinks = array(
 	// [/wpacu_lite]
 );
 
+$wpacuTopAreaLinks = apply_filters('wpacu_internal_top_area_links', $wpacuTopAreaLinks);
+
 global $current_screen;
 
 $wpacuCurrentPage = isset($data['page']) ? $data['page'] : false;
@@ -99,9 +101,14 @@ $isSettingsCurrentPage = ($wpacuCurrentPage !== WPACU_PLUGIN_ID . '_settings');
 
     <div id="wpacu-quick-actions">
         <span class="wpacu-actions-title"><?php _e('QUICK ACTIONS', 'wp-asset-clean-up'); ?>:</span>
-        <a class="wpacu-clear-cache-link" href="<?php echo esc_url(OptimizeCommon::generateClearCachingUrl()); ?>">
-            <span class="dashicons dashicons-update"></span> <?php _e('Clear CSS/JS Files Cache', 'wp-asset-clean-up'); ?>
-        </a>
+        <form method="post" action="<?php echo esc_url(OptimizeCommon::generateClearCachingUrl()); ?>" style="display: inline;">
+            <input type="hidden" name="action" value="assetcleanup_clear_assets_cache" />
+            <input type="hidden" name="wpacu_dash_area" value="1" />
+            <?php wp_nonce_field('assetcleanup_clear_assets_cache'); ?>
+            <button type="submit" class="wpacu-clear-cache-link" style="padding: 0; border: 0; background: transparent; color: #004567; font: inherit; cursor: pointer;">
+                <span class="dashicons dashicons-update"></span> <?php _e('Clear CSS/JS Files Cache', 'wp-asset-clean-up'); ?>
+            </button>
+        </form>
         |
         <?php
         if ($isSettingsCurrentPage) {
@@ -158,14 +165,6 @@ $isSettingsCurrentPage = ($wpacuCurrentPage !== WPACU_PLUGIN_ID . '_settings');
                             <span class="extra-info assets-unloaded-true"><strong><?php echo (int)$totalUnloadedAssets; ?></strong> page unloads</span>
                             <?php
                         }
-                    }
-
-                    if ($wpacuIsPluginsManagerPageLink) {
-                    // [wpacu_lite]
-                    ?>
-                    <span class="extra-info assets-unloaded-false"><span class="dashicons dashicons-lock"></span> Premium Feature</span>
-                    <?php
-                    // [/wpacu_lite]
                     }
 
                     if ($wpacuIsBulkUnloadsPageLink) {

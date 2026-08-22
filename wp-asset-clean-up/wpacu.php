@@ -2,57 +2,188 @@
 /*
  * Plugin Name: Asset CleanUp: Page Speed Booster
  * Plugin URI: https://wordpress.org/plugins/wp-asset-clean-up/
- * Version: 1.4.0.4
- * Requires at least: 4.6
+ * Version: 1.4.0.5
+ * Requires at least: 4.7
  * Requires PHP: 5.6
  * Description: Unload Chosen Scripts & Styles from Posts/Pages to reduce HTTP Requests, Combine/Minify CSS/JS files
  * Author: Gabe Livan
- * Author URI: http://www.gabelivan.com/
+ * Author URI: https://www.gabelivan.com/
  * Text Domain: wp-asset-clean-up
- * Domain Path: /languages
 */
 
-// Premium plugin version already exists, is it active?
-// This action is valid starting from LITE version 1.2.6.8
-// From 1.0.3, the PRO version works independently (does not need anymore LITE to be active and act as a parent plugin)
-// However, it's good to have both versions active for compatibility with plugins such as "WP Cloudflare Super Page Cache"
-
-// If the pro version (version above 1.0.2) was triggered first, we'll just check one of its constants
-// If the lite version was triggered first, then we'll check if the pro version is active
-// Lastly, check if the Pro version is activated via is_plugin_active()
-if ( (defined('WPACU_PRO_NO_LITE_NEEDED') && WPACU_PRO_NO_LITE_NEEDED !== false && defined('WPACU_PRO_PLUGIN_VERSION') && WPACU_PRO_PLUGIN_VERSION !== false)
-     || (function_exists('is_plugin_active') && is_plugin_active('wp-asset-clean-up-pro/wpacu.php'))
-     || in_array('wp-asset-clean-up-pro/wpacu.php', apply_filters('active_plugins', get_option('active_plugins', array()))) ) {
-	// Stop here as the Pro version handles everything the Lite does
-	return;
+// Keep the Lite version available without claiming the shared runtime constant.
+// On Multisite, a network-active Lite can load before a site-active Pro and
+// must be allowed to become dormant without leaving its version behind.
+if ( ! defined('WPACU_LITE_PLUGIN_VERSION') ) {
+    define('WPACU_LITE_PLUGIN_VERSION', '1.4.0.5');
 }
 
-// Is the Pro version triggered before the Lite one and are both plugins active?
-if (! defined('WPACU_PLUGIN_VERSION')) {
-	define('WPACU_PLUGIN_VERSION', '1.4.0.4');
-}
 
 // Exit if accessed directly
-if (! defined('ABSPATH')) {
+if ( ! defined('ABSPATH') ) {
     exit;
 }
 
-if (! defined('WPACU_PLUGIN_ID')) {
+// [wpacu_lite]
+// Premium plugin version already exists, is it active?
+// This action is valid starting from LITE version 1.2.6.8
+// Since 1.0.3, the PRO version works independently (does not need anymore LITE to be active and act as a parent plugin)
+// However, it's good to have both versions active for compatibility with plugins such as "WP Cloudflare Super Page Cache"
+
+if ( ! defined('WPACU_PRO_PLUGIN_TO_CHECK') ) {
+    define('WPACU_PRO_PLUGIN_TO_CHECK', 'wp-asset-clean-up-pro/wpacu.php');
+}
+
+if ( ! defined('WPACU_PRO_PLUGIN_TO_CHECK_BASE') ) {
+    list($wpacuProPluginToCheckBase) = explode('/', WPACU_PRO_PLUGIN_TO_CHECK);
+
+    define('WPACU_PRO_PLUGIN_TO_CHECK_BASE', $wpacuProPluginToCheckBase);
+}
+
+if ( ! function_exists('assetCleanUpIsProPluginBasename') ) {
+    /**
+     * Check whether the given plugin basename belongs to Asset CleanUp Pro.
+     *
+     * @param mixed $pluginTargetedBasename
+     *
+     * @return bool
+     */
+    function assetCleanUpIsProPluginBasename($pluginTargetedBasename)
+    {
+        if ( ! is_string($pluginTargetedBasename)) {
+            return false;
+        }
+
+        $wpacuProPluginBase     = preg_quote(WPACU_PRO_PLUGIN_TO_CHECK_BASE, '#');
+        $pluginTargetedBasename = wp_normalize_path($pluginTargetedBasename);
+
+        return preg_match('#^'.$wpacuProPluginBase.'(?:[-_][a-z0-9._-]+)?/wpacu\.php$#i', $pluginTargetedBasename) === 1;
+    }
+}
+
+if ( ! function_exists('assetCleanUpLiteShouldStayDormant') ) {
+    /**
+     * Determine whether Asset CleanUp Lite should stay dormant because Pro is active.
+     * LITE parent plugin does not need to be triggered anymore if the Pro version is active (since 1.0.3)
+     *
+     * @return bool
+     */
+    function assetCleanUpLiteShouldStayDormant()
+    {
+        // Pro was loaded before Lite
+        if (defined('WPACU_PRO_NO_LITE_NEEDED') && WPACU_PRO_NO_LITE_NEEDED !== false) {
+            return true;
+        }
+
+        // Pro is active, even if it has not been loaded yet.
+        $activePlugins = get_option('active_plugins', array());
+
+        if (is_array($activePlugins)) {
+            if (in_array(WPACU_PRO_PLUGIN_TO_CHECK, $activePlugins, true)) {
+                return true;
+            }
+
+            foreach ($activePlugins as $activePlugin) {
+                if (assetCleanUpIsProPluginBasename($activePlugin)) {
+                    return true;
+                }
+            }
+        }
+
+        // Pro is network-active on multisite.
+        if (is_multisite()) {
+            $networkActivePlugins = get_site_option('active_sitewide_plugins', array());
+
+            if (is_array($networkActivePlugins)) {
+                if (isset($networkActivePlugins[WPACU_PRO_PLUGIN_TO_CHECK])) {
+                    return true;
+                }
+
+                foreach (array_keys($networkActivePlugins) as $activePlugin) {
+                    if (assetCleanUpIsProPluginBasename($activePlugin)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+}
+
+// Check this at the earliest time the plugin loads to avoid defining any further code that could interfere with the Pro version
+if (assetCleanUpLiteShouldStayDormant()) {
+    return;
+}
+// [/wpacu_lite]
+
+// Lite is the edition that will continue loading. Define the shared constant
+// only now, preserving compatibility with integrations that rely on it.
+if ( ! defined('WPACU_PLUGIN_VERSION') ) {
+    define('WPACU_PLUGIN_VERSION', WPACU_LITE_PLUGIN_VERSION);
+}
+
+$wpacuPluginTitle = 'Asset CleanUp';
+
+if ( ! defined('WPACU_PLUGIN_TITLE') ) {
+    define('WPACU_PLUGIN_TITLE', $wpacuPluginTitle); // a short version of the plugin name
+}
+
+if ( ! defined('WPACU_PLUGIN_ID') ) {
 	define( 'WPACU_PLUGIN_ID', 'wpassetcleanup' ); // unique prefix (same plugin ID name for 'lite' and 'pro')
 }
 
-if (! defined('WPACU_PLUGIN_SLUG')) {
-	define( 'WPACU_PLUGIN_SLUG', 'wp-asset-clean-up' ); // useful to detect which functions to trigger (e.g. JS files)
+if ( ! defined('WPACU_PLUGIN_SLUG') ) {
+    define('WPACU_PLUGIN_SLUG', 'wp-asset-clean-up'); // useful to detect which functions to trigger (e.g. JS files)
 }
 
-require_once __DIR__ . '/early-triggers.php';
+if ( ! defined('WPACU_PLUGIN_FILE') ) {
+    define('WPACU_PLUGIN_FILE', __FILE__);
+}
+
+if ( ! defined('WPACU_PLUGIN_BASE') ) {
+    define('WPACU_PLUGIN_BASE', plugin_basename(WPACU_PLUGIN_FILE));
+}
+
+if ( ! defined('WPACU_PLUGIN_DIR') ) {
+    define('WPACU_PLUGIN_DIR', __DIR__);
+}
+
+if ( ! defined('WPACU_PLUGIN_CLASSES_PATH') ) {
+    define('WPACU_PLUGIN_CLASSES_PATH', WPACU_PLUGIN_DIR . '/classes/');
+}
+
+if ( ! defined('WPACU_PLUGIN_URL') ) {
+    define('WPACU_PLUGIN_URL', plugins_url('', WPACU_PLUGIN_FILE));
+}
+
+if ( ! defined('WPACU_EARLY_TRIGGERS_CALLED') ) {
+    // [wpacu_lite]
+    add_filter('wpacu_plugin_no_load', function() {
+        // There's no point in loading the plugin on a REST API call
+        // This is valid for the Lite version as the Pro version could work differently  / read more: https://www.assetcleanup.com/docs/?p=1469
+
+        // Make exception and leave the oEmbed in case the feature is disabled
+        // In "Settings" -- "Site-Wide Common Unloads" -- "Disable oEmbed (Embeds) Site-Wide"
+        // Some functions has to be processed
+        $restUrlPrefix = function_exists( 'rest_get_url_prefix' ) ? rest_get_url_prefix() : 'wp-json';
+        $requestUri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
+        $isOembedRequest = strpos($requestUri, '/' . $restUrlPrefix . '/oembed/') !== false;
+
+        if ( ! $isOembedRequest && function_exists('assetCleanUpIsRestCall') && assetCleanUpIsRestCall() ) {
+            return true;
+        }
+
+        return false;
+    });
+    // [/wpacu_lite]
+
+    require_once __DIR__ . '/early-triggers.php';
+}
 
 if (assetCleanUpNoLoad()) {
-	return; // do not continue
+    return; // do not continue
 }
-
-define('WPACU_PLUGIN_FILE',         __FILE__);
-define('WPACU_PLUGIN_BASE',         plugin_basename(WPACU_PLUGIN_FILE));
 
 define('WPACU_ADMIN_PAGE_ID_START', WPACU_PLUGIN_ID . '_getting_started');
 
@@ -88,20 +219,30 @@ if ($wpacuWrongPhp && is_admin()) { // Dashboard
     return;
 }
 
-define('WPACU_PLUGIN_DIR',                  __DIR__);
-define('WPACU_PLUGIN_CLASSES_PATH',         WPACU_PLUGIN_DIR.'/classes/');
-define('WPACU_PLUGIN_URL',                  plugins_url('', WPACU_PLUGIN_FILE));
-
-// Upgrade to Pro Sales Page
-define('WPACU_PLUGIN_GO_PRO_URL',   'https://www.gabelivan.com/items/wp-asset-cleanup-pro/'); // no query strings to be added
-
 // Global Values
 define('WPACU_LOAD_ASSETS_REQ_KEY',  WPACU_PLUGIN_ID . '_load');
 define('WPACU_FORM_ASSETS_POST_KEY', WPACU_PLUGIN_ID.'_form_assets'); // starting from Pro version 1.1.9.9 & Lite version 1.3.8.1
 
 $wpacuGetLoadedAssetsAction = ((isset($_REQUEST[WPACU_LOAD_ASSETS_REQ_KEY]) && $_REQUEST[WPACU_LOAD_ASSETS_REQ_KEY])
-                               || (isset($_REQUEST['action']) && $_REQUEST['action'] === WPACU_PLUGIN_ID.'_get_loaded_assets'));
+                            || (isset($_REQUEST['action']) && $_REQUEST['action'] === WPACU_PLUGIN_ID.'_get_loaded_assets'));
 define('WPACU_GET_LOADED_ASSETS_ACTION', $wpacuGetLoadedAssetsAction);
+
+// [wpacu_lite]
+if ( ! defined('WPACU_LITE_DIR') ) {
+    define('WPACU_LITE_DIR', WPACU_PLUGIN_DIR . '/lite/');
+}
+
+if ( ! defined('WPACU_LITE_CLASSES_PATH') ) {
+    define('WPACU_LITE_CLASSES_PATH', WPACU_LITE_DIR . 'classes/');
+}
+
+if ( ! defined('WPACU_PLUGIN_GO_PRO_URL') ) {
+    define('WPACU_PLUGIN_GO_PRO_URL', 'https://www.gabelivan.com/items/wp-asset-cleanup-pro/'); // no query strings to be added
+}
+
+include_once WPACU_LITE_CLASSES_PATH . '_BootstrapLite.php';
+\WpAssetCleanUpLite\_BootstrapLite::registerEarlyHooks();
+// [/wpacu_lite]
 
 require_once WPACU_PLUGIN_DIR.'/wpacu-load.php';
 
@@ -164,7 +305,7 @@ add_action('init', static function() {
         return; // Not relevant for the Dashboard view, stop here!
     }
 
-    if ( ! \WpAssetCleanUp\Menu::userCanAccessPlugin() ) {
+    if ( ! is_user_logged_in() || ! \WpAssetCleanUp\Menu::userCanAccessPlugin() ) {
         return; // Not relevant if the logged-in user does not have full rights
     }
 
@@ -188,7 +329,11 @@ add_action('init', static function() {
 
 // "Transliterator - WordPress Transliteration" breaks the HTML content in Asset CleanUp's admin pages
 // by converting characters such as &lt; (that should stay as they are) to < thus, a fix is attempted to be made here
-if (isset($_GET['page']) && is_string($_GET['page']) && (strpos($_GET['page'], WPACU_PLUGIN_ID.'_') !== false) && is_admin() && method_exists('Serbian_Transliteration_Cache', 'set')) {
-    Serbian_Transliteration_Cache::set('is_editor', true);
+if (isset($_GET['page']) && is_string($_GET['page']) && (strpos($_GET['page'], WPACU_PLUGIN_ID.'_') !== false) && is_admin()) {
+    $serbianTransliterationCacheClass = 'Serbian_Transliteration_Cache';
+
+    if (class_exists($serbianTransliterationCacheClass) && method_exists($serbianTransliterationCacheClass, 'set')) {
+        $serbianTransliterationCacheClass::set('is_editor', true);
+    }
 }
 

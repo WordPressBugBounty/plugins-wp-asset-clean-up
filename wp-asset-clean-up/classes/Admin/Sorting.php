@@ -196,7 +196,7 @@ class Sorting
 	 * @param $asset
 	 * @param $assetType
 	 *
-	 * @return bool
+	 * @return bool|object
 	 */
 	public static function matchesWpCoreCriteria($asset, $assetType)
 	{
@@ -306,7 +306,7 @@ LIST;
 	}
 
     /**
-     * @param array $assetRows
+     * @param array $assetRowsValues
      * @@param bool $sortByKey
      *
      * @return array

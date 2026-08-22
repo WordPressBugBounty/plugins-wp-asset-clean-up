@@ -1,6 +1,8 @@
 <?php
 namespace WpAssetCleanUp\Admin;
 
+use WpAssetCleanUp\Main;
+
 /**
  * Gets information pages such as "Getting Started", "Help" and "Info"
  * Retrieves specific information about a plugin or a theme
@@ -29,6 +31,8 @@ class Info
 			$data['for'] = sanitize_text_field($_GET['wpacu_for']);
 		}
 
+        $data['settings'] = Main::instance()->settings;
+
 		MainAdmin::instance()->parseTemplate('admin-page-getting-started', $data, true);
 	}
 
@@ -39,16 +43,6 @@ class Info
     {
         MainAdmin::instance()->parseTemplate('admin-page-get-help', array(), true);
     }
-
-    // [wpacu_lite]
-    /**
-     *
-     */
-    public function license()
-    {
-        MainAdmin::instance()->parseTemplate('admin-page-license', array(), true);
-    }
-    // [/wpacu_lite]
 
 	/**
 	 * @param $locationChild

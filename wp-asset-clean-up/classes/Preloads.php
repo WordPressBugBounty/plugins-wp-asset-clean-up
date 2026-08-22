@@ -54,6 +54,8 @@ class Preloads
         add_filter('wpfc_buffer_callback_filter', static function ($buffer) {
             $buffer = str_replace('rel=\'preload\' data-from-rel=\'stylesheet\'', 'rel=\'preload\'', $buffer);
 
+            $buffer = apply_filters('wpacu_wpfc_update_deferred_css_links', $buffer);
+
             return $buffer;
         });
 
@@ -269,6 +271,12 @@ class Preloads
 		}
 
 		if ( ! empty(self::instance()->preloads['styles'][$handle]) ) {
+            if (apply_filters('wpacu_preloads_skip_css_tag', false, $htmlTag, $handle)) {
+                // Preloading will not be applied if a "match query load" rule is already applied
+                /* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
+                return $htmlTag;
+            }
+
             if (isset($_REQUEST['wpacu_no_css_preload_basic'])) { // do not apply it for debugging purposes
                 /* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
                 return str_replace('<link ', '<link data-wpacu-skip-preload=\'1\' ', $htmlTag);
@@ -290,6 +298,8 @@ class Preloads
             }
 
 			ObjectCache::wpacu_cache_set($handle, 1, 'wpacu_basic_preload_handles');
+
+            $htmlTag = apply_filters('wpacu_preloads_css_tag_before_basic_preload', $htmlTag, $handle);
 
             /* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
             return str_replace('<link ', '<link data-wpacu-to-be-preloaded-basic=\'1\' ', $htmlTag);
@@ -320,15 +330,22 @@ class Preloads
 		// Only valid for front-end pages with SCRIPTs
 		if (! $this->enablePreloads('js') || strpos($htmlTag,'<script ') === false || Main::instance()->preventAssetsSettings()) {
 			/* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
-			//endRemoveIf(development)
 			return $htmlTag;
 		}
 
 		if (! isset(self::instance()->preloads['scripts'])) {
+			/* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
 			return $htmlTag;
 		}
 
 		if (array_key_exists($handle, self::instance()->preloads['scripts']) && self::instance()->preloads['scripts'][$handle]) {
+            if (apply_filters('wpacu_preloads_skip_js_tag', false, $htmlTag, $handle)) {
+                /* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
+                return $htmlTag;
+            }
+
+            $htmlTag = apply_filters('wpacu_preloads_js_tag_before_basic_preload', $htmlTag, $handle);
+
             /* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
 			return str_replace('<script ', '<script data-wpacu-to-be-preloaded-basic=\'1\' ', $htmlTag);
 		}
@@ -444,7 +461,7 @@ class Preloads
                     if ($linkObj) {
 	                    $conditional = isset($linkObj->extra['conditional']) ? $linkObj->extra['conditional'] : '';
                     } elseif (strncmp($linkHandle, 'wpacu_hardcoded_', 16) === 0) {
-                        $conditional = Misc::getValueFromTag($linkTag, 'data-wpacu-cond-comm');
+                        $conditional = apply_filters('wpacu_preloads_style_conditional_comment', $conditional, $linkTag, $linkHandle);
                     }
 
                     if ($conditional) {
@@ -538,8 +555,8 @@ class Preloads
             // Any IE comments around the tag?
             $scriptIdAttr = Misc::getValueFromTag($scriptTag, 'id');
 
-            if ($scriptIdAttr && strpos($scriptTag, '-js') !== false) {
-	            $scriptHandle = rtrim($scriptIdAttr, '-js');
+            if ($scriptIdAttr && substr($scriptIdAttr, -3) === '-js') {
+                $scriptHandle = substr($scriptIdAttr, 0, -3);
 
                 if ($scriptHandle) {
                     // This is for enqueued (the WordPress way) SCRIPTs
@@ -549,6 +566,10 @@ class Preloads
 
                     if ($scriptObj) {
 	                    $conditional = isset($scriptObj->extra['conditional']) ? $scriptObj->extra['conditional'] : '';
+                    }
+
+                    if (strncmp($scriptHandle, 'wpacu_hardcoded_', 16) === 0) {
+                        $conditional = apply_filters('wpacu_preloads_script_conditional_comment', $conditional, $scriptTag, $scriptHandle);
                     }
 
                     if ($conditional) {
@@ -611,7 +632,7 @@ class Preloads
 			}
 		}
 
-		Misc::addUpdateOption($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 
 		set_transient(WPACU_PLUGIN_ID . '_preloads_just_removed', 1, 30);
 

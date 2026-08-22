@@ -1,0 +1,172 @@
+@charset "UTF-8";
+/*
+ * Asset CleanUp Lite — Plugins Manager Pro-layout preview adjustments
+ *
+ * The shared and Compact Grid files beside this one are copied from Pro.
+ * Keep Lite-only presentation and read-only safeguards isolated here so the
+ * preview can continue tracking the production Pro layout without divergence.
+ */
+.wpacu-lite-pm.wpacu-lite-pm--front {
+  width: 100%;
+  max-width: none;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front > .wpacu-lite-pm-overview,
+.wpacu-lite-pm.wpacu-lite-pm--front > .wpacu-lite-pm-upgrade {
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1840px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-manager-layout-picker {
+  margin-top: 18px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-manager-layout-picker .wpacu-lite-pro-badge {
+  margin-left: 2px;
+  background: #004567;
+  color: #fff;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-manager-layout-picker .wpacu-pm-layout-picker-storage-note .dashicons {
+  color: #004567;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-manager-layout-picker select:disabled {
+  border-color: #b8c8cd;
+  background-color: #f6f7f7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23646970' d='M1.41.59 6 5.17 10.59.59 12 2l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+  background-size: 10px auto;
+  color: #3c434a;
+  opacity: 1;
+  padding-right: 32px;
+  -webkit-text-fill-color: #3c434a;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap {
+  margin: 0;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-pm-search-control input[type=search] {
+  cursor: text;
+  opacity: 1;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu_plugin_expand_contract_area button[data-wpacu-lite-preview-allow="1"],
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu_plugins_groups_change_state_area button[data-wpacu-lite-preview-allow="1"],
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-pm-load-exceptions button[data-wpacu-lite-preview-allow="1"] {
+  opacity: 1;
+  cursor: pointer;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-rule-input:disabled {
+  opacity: 0.9;
+  filter: none;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control input[type=text],
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control select,
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control textarea {
+  width: 100%;
+  max-width: 100%;
+  border-color: #c3c4c7;
+  background: #f6f7f7;
+  color: #50575e;
+  opacity: 1;
+  -webkit-text-fill-color: #50575e;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control input[type=text] {
+  min-height: 34px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control select[multiple] {
+  min-height: 70px;
+  padding: 4px 7px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-preview-associated-control textarea {
+  resize: vertical;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-pm-load-exceptions--lite-preview {
+  display: block;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-pm-plugin-table tr:hover > td {
+  background: #fbfcfc;
+}
+.wpacu-lite-pm.wpacu-lite-pm--front > .wpacu-lite-pm-upgrade {
+  margin-top: 18px;
+}
+
+.wpacu-lite-pm .wpacu_plugins_groups_change_state_area button[data-wpacu-lite-preview-allow="1"]:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+  pointer-events: none;
+}
+
+@media screen and (max-width: 782px) {
+  .wpacu-lite-pm.wpacu-lite-pm--front > .wpacu-lite-pm-overview,
+.wpacu-lite-pm.wpacu-lite-pm--front > .wpacu-lite-pm-upgrade {
+    width: 100%;
+  }
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash {
+  width: 100%;
+  max-width: none;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-overview,
+.wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-upgrade {
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1840px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-pro-rules-ui {
+  width: 100%;
+  max-width: none;
+  margin-top: 18px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap {
+  margin: 0;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-pm-search-control input[type=search] {
+  cursor: text;
+  opacity: 1;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu_plugin_expand_contract_area button[data-wpacu-lite-preview-allow="1"],
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu_plugins_groups_change_state_area button[data-wpacu-lite-preview-allow="1"] {
+  opacity: 1;
+  cursor: pointer !important;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap input[type=checkbox]:disabled,
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap select:disabled,
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap textarea:disabled {
+  opacity: 0.9;
+  filter: none;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap select:disabled,
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap textarea:disabled {
+  border-color: #c3c4c7;
+  background: #f6f7f7;
+  color: #50575e;
+  -webkit-text-fill-color: #50575e;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap select[multiple] {
+  min-width: 280px;
+  min-height: 74px;
+  padding: 4px 7px;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap textarea:disabled {
+  resize: vertical;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap .wpacu-lite-pm-dash-groups-separator {
+  height: 1px;
+  margin: 30px 1% 35px;
+  background: #dcdcde;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap table tr:hover > td {
+  background: #fbfcfc;
+}
+.wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-upgrade {
+  margin-top: 18px;
+}
+
+@media screen and (max-width: 782px) {
+  .wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-overview,
+.wpacu-lite-pm.wpacu-lite-pm--dash > .wpacu-lite-pm-upgrade {
+    width: 100%;
+  }
+  .wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap select[multiple],
+.wpacu-lite-pm.wpacu-lite-pm--dash .wpacu-lite-pm-pro-rules-ui #wpacu-plugins-load-manager-wrap textarea {
+    min-width: 0;
+    width: 100%;
+  }
+}

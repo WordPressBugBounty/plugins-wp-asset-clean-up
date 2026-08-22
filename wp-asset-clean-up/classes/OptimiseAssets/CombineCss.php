@@ -8,6 +8,7 @@ use WpAssetCleanUp\FileSystem;
 use WpAssetCleanUp\Misc;
 use WpAssetCleanUp\ObjectCache;
 use WpAssetCleanUp\Preloads;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class CombineCss
@@ -96,8 +97,15 @@ class CombineCss
 						}
 
 						// Check if the CSS file has any 'data-wpacu-skip' attribute; if it does, do not alter it
-						if (isset($linkAttributes['data-wpacu-skip'])
-                        ) {
+						$skipLinkTag = isset($linkAttributes['data-wpacu-skip']);
+
+						$skipLinkTag = apply_filters(
+							'wpacu_internal_combine_css_skip_link_tag',
+							$skipLinkTag,
+							$linkAttributes
+						);
+
+						if ($skipLinkTag) {
 							continue;
 						}
 
@@ -117,7 +125,18 @@ class CombineCss
 							if (isset($linkAttributes['data-wpacu-preload-css-basic'])) {
 								$mediaValue = 'wpacu_preload_basic_' . $mediaValue;
 							} else {
-								continue;
+								$preloadMediaValue = apply_filters(
+									'wpacu_internal_combine_css_preload_media_value',
+									false,
+									$mediaValue,
+									$linkAttributes
+								);
+
+								if ($preloadMediaValue === false || $preloadMediaValue === '') {
+									continue;
+								}
+
+								$mediaValue = $preloadMediaValue;
 							}
 						}
 
@@ -130,6 +149,12 @@ class CombineCss
 						if (isset($linkAttributes['id']) && $linkAttributes['id'] === WPACU_PLUGIN_ID.'-style-css') {
 							continue;
 						}
+
+						$mediaValue = apply_filters(
+							'wpacu_internal_combine_css_media_value',
+							$mediaValue,
+							$linkAttributes
+						);
 
 						$localAssetPath = OptimizeCommon::getLocalAssetPath($href, 'css');
 
@@ -280,6 +305,35 @@ HTML;
 						$finalCssTagAttrs['media'] = $mediaValue;
 					}
 
+					$customFinalCssTagData = apply_filters(
+						'wpacu_internal_combine_css_final_tag_data',
+						array(
+							'final_css_tag'       => $finalCssTag,
+							'final_css_tag_attrs' => $finalCssTagAttrs,
+							'media_value'         => $mediaValue
+						),
+						array(
+							'media_value'    => $mediaValue,
+							'doc_location'   => $docLocationTag,
+							'group_location' => $groupLocation,
+							'final_tag_url'  => $finalTagUrl
+						)
+					);
+
+					if (is_array($customFinalCssTagData)) {
+						if (isset($customFinalCssTagData['final_css_tag'])) {
+							$finalCssTag = $customFinalCssTagData['final_css_tag'];
+						}
+
+						if (isset($customFinalCssTagData['final_css_tag_attrs'])) {
+							$finalCssTagAttrs = $customFinalCssTagData['final_css_tag_attrs'];
+						}
+
+						if (isset($customFinalCssTagData['media_value'])) {
+							$mediaValue = $customFinalCssTagData['media_value'];
+						}
+					}
+
 					// In case one (e.g. usually a developer) needs to alter it
 					$finalCssTag = apply_filters(
 						'wpacu_combined_css_tag',
@@ -407,47 +461,32 @@ HTML;
 		return $htmlSource;
 	}
 
-	/**
-	 * @param $href
-	 *
-	 * @return bool
-	 */
-	public static function skipCombine($href)
-	{
-		$regExps = array(
-			'#/wp-content/bs-booster-cache/#'
-		);
+    /**
+     * @param $href
+     *
+     * @return bool
+     */
+    public static function skipCombine($href)
+    {
+        $href = trim((string)$href);
 
-		if (Main::instance()->settings['combine_loaded_css_exceptions'] !== '') {
-			$loadedCssExceptionsPatterns = trim(Main::instance()->settings['combine_loaded_css_exceptions']);
+        if ($href === '') {
+            return false;
+        }
 
-			if (strpos($loadedCssExceptionsPatterns, "\n") !== false) {
-				// Multiple values (one per line)
-				foreach (explode("\n", $loadedCssExceptionsPatterns) as $loadedCssExceptionPattern) {
-					$regExps[] = '#'.trim($loadedCssExceptionPattern).'#';
-				}
-			} else {
-				// Only one value?
-				$regExps[] = '#'.trim($loadedCssExceptionsPatterns).'#';
-			}
-		}
+        $rules = array(
+            '/wp-content/bs-booster-cache/'
+        );
 
-		// No exceptions set? Do not skip combination
-		if (empty($regExps)) {
-			return false;
-		}
+        if (Main::instance()->settings['combine_loaded_css_exceptions'] !== '') {
+            $rules = array_merge(
+                $rules,
+                Regex::splitRules(Main::instance()->settings['combine_loaded_css_exceptions'])
+            );
+        }
 
-		foreach ($regExps as $regExp) {
-            $regExp = trim($regExp);
-
-			if ( @preg_match( $regExp, $href ) || ( strpos($href, $regExp) !== false ) ) {
-				// Skip combination
-				return true;
-			}
-		}
-
-		return false;
-	}
+        return Regex::matchesAnyRule($rules, $href);
+    }
 
 	/**
 	 * @param $localAssetsPaths

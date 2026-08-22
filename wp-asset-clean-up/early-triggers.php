@@ -15,9 +15,35 @@ if ( ! defined('FS_CHMOD_FILE') ) {
     define('FS_CHMOD_FILE', @fileperms(ABSPATH . 'index.php') & 0777 | 0644);
 }
 
-if ( ! defined('WPACU_PLUGIN_TITLE') ) {
-    define('WPACU_PLUGIN_TITLE', 'Asset CleanUp'); // a short version of the plugin name
+
+/*
+ * Signed Local/Google font-preload audit requests need a very small amount of
+ * setup before the normal WPACU classes are loaded. In particular, page caches
+ * and development instrumentation must not change the hidden iframe timing or
+ * inject markup that a public visitor would never receive.
+ *
+ * Keep the early work in a dedicated, heavily documented class. It validates
+ * the transient-backed token before changing request behaviour, disables Query
+ * Monitor only for this one request, and deliberately avoids filtering
+ * `option_active_plugins` or mutating the site's plugin configuration.
+ */
+$wpacuHasFontPreloadScanQueryArg = ! is_admin() &&
+    (isset($_GET['wpacu_local_font_preload_scan']) || isset($_GET['wpacu_google_font_preload_scan']));
+
+// Keep ordinary front-end requests completely untouched: the extra class file
+// is loaded only when one of the two scanner query arguments is actually present.
+if ($wpacuHasFontPreloadScanQueryArg) {
+    $wpacuFontPreloadScannerEarlyPath = __DIR__ . '/classes/OptimiseAssets/FontPreloadScannerEarly.php';
+
+    if (is_file($wpacuFontPreloadScannerEarlyPath)) {
+        require_once $wpacuFontPreloadScannerEarlyPath;
+        \WpAssetCleanUp\OptimiseAssets\FontPreloadScannerEarly::bootstrap();
+    }
+
+    unset($wpacuFontPreloadScannerEarlyPath);
 }
+
+unset($wpacuHasFontPreloadScanQueryArg);
 
 if ( isset($_GET['wpacu_clean_load']) && ! is_admin() ) {
     // Autoptimize
@@ -38,6 +64,32 @@ if ( isset($_GET['wpacu_clean_load']) && ! is_admin() ) {
     });
 }
 
+if ( ! function_exists('wpacuLoadRegexClassForMu') ) {
+    /**
+     * @return bool
+     */
+    function wpacuLoadRegexClassForMu()
+    {
+        if (class_exists('\WpAssetCleanUp\Regex')) {
+            return true;
+        }
+
+        $wpacuRegexClassPath = '';
+
+        if (defined('WPACU_PLUGIN_CLASSES_PATH')) {
+            $wpacuRegexClassPath = WPACU_PLUGIN_CLASSES_PATH . 'Regex.php';
+        } else {
+            // early-triggers.php is in the plugin root
+            $wpacuRegexClassPath = __DIR__ . '/classes/Regex.php';
+        }
+
+        if (is_file($wpacuRegexClassPath)) {
+            require_once $wpacuRegexClassPath;
+        }
+
+        return class_exists('\WpAssetCleanUp\Regex');
+    }
+}
 
 if ( ! function_exists('wpacuDefineConstant') ) {
     /**
@@ -63,16 +115,21 @@ if ( ! function_exists('wpacuIsDefinedConstant') ) {
      */
     function wpacuIsDefinedConstant($name, $value = true)
     {
-        $condition = defined($name) && constant($name) === $value;
+        // If the default value "true" is used, we will consider any value as valid
+        // e.g. some people might put defined('WPACU_VALUE_HERE', 'true'), instead of: defined('WPACU_VALUE_HERE', true)
+        // so, it will be validated (bool or string)
 
-        if ($value === true) {
-            // If the default value "true" is used, we will consider any value as valid
-            // e.g. some people might put defined('WPACU_VALUE_HERE', 'true'), instead of: defined('WPACU_VALUE_HERE', true)
-            // so, it will be validated (bool or string)
-            $condition = $condition || (defined($name) && constant($name));
+        if ( ! defined($name) ) {
+            return false;
         }
 
-        return $condition;
+        $constantValue = constant($name);
+
+        if ($value === true) {
+            return (bool) $constantValue;
+        }
+
+        return $constantValue === $value;
     }
 }
 
@@ -111,6 +168,34 @@ if ( ! function_exists('wpacuJsonLastError') ) {
     }
 }
 
+if ( ! function_exists('wpacuJsonDecodeToArray') ) {
+    /**
+     * Decode an option that is normally stored as JSON without fatalling when
+     * a migration, import or third-party update has already stored an array.
+     *
+     * @param mixed $value
+     * @param array $fallback
+     *
+     * @return array
+     */
+    function wpacuJsonDecodeToArray($value, $fallback = array())
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if ( ! is_string($value) || $value === '') {
+            return $fallback;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return wpacuJsonLastError() === JSON_ERROR_NONE && is_array($decoded)
+            ? $decoded
+            : $fallback;
+    }
+}
+
 if ( ! function_exists('wpacuNoGlobalDataSet') ) {
     /**
      * @return void
@@ -144,9 +229,9 @@ if ( ! function_exists('wpacuGetGlobalData') ) {
             return array();
         }
 
-        $globalRulesDbList = @json_decode($globalRulesDbListJson, true);
+        $globalRulesDbList = wpacuJsonDecodeToArray($globalRulesDbListJson);
 
-        if (wpacuJsonLastError() !== JSON_ERROR_NONE) {
+        if (empty($globalRulesDbList)) {
             wpacuNoGlobalDataSet();
             $GLOBALS['wpacu_global_data_json_decoded'] = array();
             return array();
@@ -179,13 +264,31 @@ if ( ! function_exists('wpacuGetGlobalData') ) {
                 wpacuDefineConstant('WPACU_NO_IGNORE_CHILD_RULES_SET_FOR_ASSETS');
             }
 
-            if ( strpos($globalRulesDbListJson, '"attributes":["') === false ) {
+            $hasSiteWideScriptAttrs = is_string($globalRulesDbListJson)
+                ? strpos($globalRulesDbListJson, '"attributes":["') !== false
+                : ! empty($globalRulesDbList['scripts']['everywhere']);
+
+            if ( ! $hasSiteWideScriptAttrs ) {
                 wpacuDefineConstant('WPACU_NO_SITE_WIDE_SCRIPT_ATTRS_SET');
             }
         }
 
         $GLOBALS['wpacu_global_data_json_decoded'] = $globalRulesDbList;
         return $globalRulesDbList;
+    }
+}
+
+if ( ! function_exists('assetCleanUpIsDebugQueryString') ) {
+    /**
+     * @return bool
+     */
+    function assetCleanUpIsDebugQueryString()
+    {
+        return isset($_GET['wpacu_debug']) ||
+               isset($_GET['wpacu_get_cache_dir_size']) ||
+               isset($_GET['wpacu_get_already_minified']) ||
+               isset($_GET['wpacu_remove_already_minified']) ||
+               isset($_GET['wpacu_limit_already_minified']);
     }
 }
 
@@ -360,7 +463,7 @@ if ( ! function_exists( 'wpacuUriHasOnlyCommonQueryStrings' ) ) {
 
         // Are there query srings to be ignored also set by the user? Append them to $ignoreQueryStrings!
         $wpacuPluginSettingsJson = get_option( WPACU_PLUGIN_ID . '_settings' );
-        $wpacuPluginSettings     = @json_decode( $wpacuPluginSettingsJson, ARRAY_A );
+        $wpacuPluginSettings     = wpacuJsonDecodeToArray($wpacuPluginSettingsJson);
         $extraIgnoreQueryStrings = isset( $wpacuPluginSettings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'] )
             ? trim($wpacuPluginSettings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
             : '';
@@ -657,7 +760,19 @@ if ( ! function_exists( 'wpacuGetQueryStringsToBeIgnoredPredefinedList') ) {
             'wpacu_updated',
             'wpacu_ignore_no_load_option',
             'wpacu_debug',
-            'wpacu_no_cache'
+            'wpacu_no_cache',
+
+            // Local/Google legacy preload checker (temporary browser scan requests)
+            'wpacu_local_font_preload_scan',
+            'wpacu_local_font_preload_scan_view',
+            'wpacu_google_font_preload_scan',
+            'wpacu_google_font_preload_scan_view',
+            'wpacu_font_scan_cb',
+            'wpacu_font_scan_task',
+            'wpacu_font_scan_attempt',
+            'wpacu_font_scan_verify',
+            'wpacu_font_scan_optimized',
+            'wpacu_no_frontend_show'
         );
 
         return apply_filters('wpacu_skip_query_strings_for_homepage_detection', $skipQueryStringsForHomepageDetection);
@@ -672,27 +787,44 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
      */
     function wpacuIsHomePageUrl($requestUriAsItIs)
     {
-        if (defined('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK')) {
-            return WPACU_IS_HOME_PAGE_URL_EARLY_CHECK;
+        if ( ! is_string($requestUriAsItIs) || $requestUriAsItIs === '' ) {
+            $requestUriAsItIs = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '/';
         }
 
-        if (isset($_SERVER['REQUEST_URI'])) {
-            $compareOne = parse_url(get_site_url(), PHP_URL_PATH);
-            $compareOne = $compareOne ? rtrim($compareOne, '/') : $compareOne;
-            $compareTwo = $_SERVER['REQUEST_URI'] ? rtrim($_SERVER['REQUEST_URI'], '/') : $_SERVER['REQUEST_URI'];
+        static $resultsCache = array();
 
-            if ( $_SERVER['REQUEST_URI'] === '/' ||
-                 $compareOne === $compareTwo ) {
-                // Obviously, the home page, no further checks necessary
-                define( 'WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', true );
-                return true;
-            }
+        $cacheKey = md5($requestUriAsItIs);
+
+        if (array_key_exists($cacheKey, $resultsCache)) {
+            return $resultsCache[$cacheKey];
         }
+
+        /*
+         * Safe and very early match: only the literal root URI,
+         * without any query string.
+         */
+        $homePath = parse_url(get_home_url(), PHP_URL_PATH);
+        $homePath = is_string($homePath) && $homePath !== '' ? $homePath : '/';
+
+        if ($requestUriAsItIs === '/' && $homePath === '/') {
+            $resultsCache[$cacheKey] = true;
+            return true;
+        }
+
+        // Continue with add-to-cart, AJAX, public query vars,
+        // common tracking query strings and WPML checks.
 
         // e.g. www.mydomain.com/?add-to-cart=.... - this is not a homepage
+        $targetQueryString = parse_url($requestUriAsItIs, PHP_URL_QUERY);
+        $targetQueryArgs   = array();
+
+        if (is_string($targetQueryString)) {
+            parse_str($targetQueryString, $targetQueryArgs);
+        }
+
         foreach (array('edd_action', 'add-to-cart') as $commonAction) {
-            if (isset($_REQUEST[$commonAction])) {
-                define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+            if (array_key_exists($commonAction, $targetQueryArgs)) {
+                $resultsCache[$cacheKey] = false;
                 return false;
             }
         }
@@ -703,7 +835,7 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
             // External AJAX request on the home page
             // It could be from a different plugin, thus this will not be detected as the homepage
             // as it might be an action URL from a specific plugin such as Gravity Forms
-            define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+            $resultsCache[$cacheKey] = false;
             return false;
         }
 
@@ -713,7 +845,7 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
 
         if ($parseTargetUriCleanQuery && wpacuUriHasAnyPublicWpQuery($parseTargetUriCleanQuery, wpacuGetWpPublicQueryVars())) {
             // If any of the public queries are within the query string, then it's not a homepage
-            define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+            $resultsCache[$cacheKey] = false;
             return false;
         }
         // [END] URI has public query string
@@ -737,7 +869,7 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
                 // This one has queries to the database, and to save resources
                 // it is only called IF: 1) it was not deactivated through a hook/constant; 2) the previous one (when $i was equal to 1) failed to match
                 if (wpacuIsDefinedConstant('WPACU_NO_HOMEPAGE_CHECK_FOR_PLUGIN_RULES_WPML')) {
-                    // More information about this one here: https://assetcleanup.com/docs/?p=1774
+                    // More information about this one here: https://www.assetcleanup.com/docs/?p=1774
                     break;
                 }
 
@@ -749,15 +881,13 @@ if ( ! function_exists( 'wpacuIsHomePageUrl') ) {
             // e.g. if the requested URL is https://www.mydomain.com/my-blog?utm_source=... and the site's URL is https://www.mydomain.com/my-blog it will be considered to be the homepage
 
             // If either match, it's the homepage
-            if ( ( $requestUriAsItIs === '/' && $parseSiteUrlCleanPath === '/' )
-                 || ( rtrim($parsePossibleTargetUriCleanPath, '/') === rtrim($parseSiteUrlCleanPath, '/') && $hasNoQueryOrTheQueryIsCommon ) ) {
-                // Obviously, the home page, no further checks necessary
-                define( 'WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', true );
+            if ( rtrim($parsePossibleTargetUriCleanPath, '/') === rtrim($parseSiteUrlCleanPath, '/') && $hasNoQueryOrTheQueryIsCommon ) {
+                $resultsCache[$cacheKey] = true;
                 return true;
             }
         }
 
-        define('WPACU_IS_HOME_PAGE_URL_EARLY_CHECK', false);
+        $resultsCache[$cacheKey] = false;
         return false;
     }
 }
@@ -825,38 +955,38 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			return $GLOBALS['wpacu_no_load_matches'][$targetUri];
 		}
 
-		$doNotLoadRegExps = array();
+        $doNotLoadRules = array();
 
-		$wpacuPluginSettingsJson = get_option( WPACU_PLUGIN_ID . '_settings' );
-		$wpacuPluginSettings     = @json_decode( $wpacuPluginSettingsJson, ARRAY_A );
-		$doNotLoadPatterns       = isset( $wpacuPluginSettings['do_not_load_plugin_patterns'] ) ? $wpacuPluginSettings['do_not_load_plugin_patterns'] : '';
+        $wpacuPluginSettingsJson = get_option( WPACU_PLUGIN_ID . '_settings' );
+        $wpacuPluginSettings     = wpacuJsonDecodeToArray($wpacuPluginSettingsJson);
 
-		if ( $doNotLoadPatterns !== '' ) {
-			$doNotLoadPatterns = trim( $doNotLoadPatterns );
+        $doNotLoadPatterns = isset( $wpacuPluginSettings['do_not_load_plugin_patterns'] ) ? $wpacuPluginSettings['do_not_load_plugin_patterns'] : '';
 
-			if ( strpos( $doNotLoadPatterns, "\n" ) ) {
-				// Multiple values (one per line)
-				foreach ( explode( "\n", $doNotLoadPatterns ) as $doNotLoadPattern ) {
-					$doNotLoadPattern = trim( $doNotLoadPattern );
-					if ( $doNotLoadPattern ) {
-						$doNotLoadRegExps[] = '#' . $doNotLoadPattern . '#';
-					}
-				}
-			} elseif ( $doNotLoadPatterns ) {
-				// Only one value?
-				$doNotLoadRegExps[] = '#' . $doNotLoadPatterns . '#';
-			}
-		}
+        // Fast path for the default rules used on most installs: /cart/ and /checkout/
+        if ( $doNotLoadPatterns !== '' ) {
+            $doNotLoadPatternsNormalized = trim(str_replace(array("\r\n", "\r"), "\n", $doNotLoadPatterns));
 
-		if ( ! empty( $doNotLoadRegExps ) ) {
-			foreach ( $doNotLoadRegExps as $doNotLoadRegExp ) {
-				if ( @preg_match( $doNotLoadRegExp, $targetUri ) || (strpos($targetUri, $doNotLoadRegExp) !== false) ) {
-					// There's a match
-					$GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_settings';
-					return $GLOBALS['wpacu_no_load_matches'][$targetUri];
-				}
-			}
-		}
+            if ( $doNotLoadPatternsNormalized === "/cart/\n/checkout/" ) {
+                foreach (array('/cart/', '/checkout/') as $doNotLoadDefaultRule) {
+                    if (strpos($targetUri, $doNotLoadDefaultRule) !== false) {
+                        $GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_settings';
+                        return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+                    }
+                }
+            } elseif ( wpacuLoadRegexClassForMu() ) {
+                $doNotLoadRules = \WpAssetCleanUp\Regex::splitRules( $doNotLoadPatterns );
+            }
+        }
+
+        if ( ! empty( $doNotLoadRules ) ) {
+            foreach ( $doNotLoadRules as $doNotLoadRule ) {
+                if ( \WpAssetCleanUp\Regex::matchesRule( $doNotLoadRule, $targetUri ) ) {
+                    // There's a match
+                    $GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_settings';
+                    return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+                }
+            }
+        }
 
 		/*
 		 * Page Options -> The following option might be checked "Do not load Asset CleanUp Pro on this page (this will disable any functionality of the plugin)"
@@ -1285,28 +1415,11 @@ if ( ! function_exists('assetCleanUpNoLoad') ) {
 
 		// WordPress Customise Mode
 		if ( ( isset( $_GET['customize_changeset_uuid'], $_GET['customize_theme'] ) && $_GET['customize_changeset_uuid'] && $_GET['customize_theme'] )
-		     || ( strpos( $_SERVER['REQUEST_URI'], '/wp-admin/customize.php' ) !== false && isset( $_GET['url'] ) && $_GET['url'] ) ) {
+		     || ( isset( $_SERVER['REQUEST_URI'] ) && strpos( (string)$_SERVER['REQUEST_URI'], '/wp-admin/customize.php' ) !== false && ! empty( $_GET['url'] ) ) ) {
 			define( 'WPACU_NO_LOAD_SET', true );
 
 			return true;
 		}
-
-		// [wpacu_lite]
-		// There's no point in loading the plugin on a REST API call
-		// This is valid for the Lite version as the Pro version could work differently  / read more: https://www.assetcleanup.com/docs/?p=1469
-
-        // Make exception and leave the oEmbed in case the feature is disabled
-        // In "Settings" -- "Site-Wide Common Unloads" -- "Disable oEmbed (Embeds) Site-Wide"
-        // Some functions has to be processed
-        $restUrlPrefix = function_exists( 'rest_get_url_prefix' ) ? rest_get_url_prefix() : 'wp-json';
-        $isOembedRequest = strpos($_SERVER['REQUEST_URI'], '/' . $restUrlPrefix . '/oembed/') !== false;
-
-		if ( ! $isOembedRequest && assetCleanUpIsRestCall() ) {
-			define( 'WPACU_NO_LOAD_SET', true );
-
-			return true;
-		}
-		// [/wpacu_lite]
 
 		// WordPress AJAX Heartbeat
 		if ( isset( $_POST['action'] ) && $_POST['action'] === 'heartbeat' ) {
@@ -1351,24 +1464,24 @@ if ( ! function_exists('assetCleanUpNoLoad') ) {
         }
 
 		// AJAX Requests from various plugins/themes
-		if ( isset( $wpacuIsAjaxRequest, $_POST['action'] ) && $wpacuIsAjaxRequest
-		     && (strncmp($_POST['action'], 'woocommerce', 11) === 0
-                 || strncmp($_POST['action'], 'wc_', 3) === 0
-                 || strncmp($_POST['action'], 'jetpack', 7) === 0
-                 || strncmp($_POST['action'], 'wpfc_', 5) === 0
-                 || strncmp($_POST['action'], 'oxygen_', 7) === 0
-                 || strncmp($_POST['action'], 'oxy_', 4) === 0
-                 || strncmp($_POST['action'], 'w3tc_', 5) === 0
-                 || strncmp($_POST['action'], 'wpforms_', 8) === 0
-                 || strncmp($_POST['action'], 'wdi_', 4) === 0
-                 || strncmp($_POST['action'], 'brizy_update', 12) === 0
-                 || strncmp($_POST['action'], 'brizy-update', 12) === 0
-                 || in_array( $_POST['action'], array(
-					  'brizy_heartbeat',
-			          'contactformx',
-					  'eckb_apply_editor_changes' // Knowledge Base for Documents and FAQs (save changes mode)
-				  ))
-		     ) ) {
+		if ( $wpacuIsAjaxRequest && isset($_POST['action'] ) &&
+            (strncmp($_POST['action'], 'woocommerce', 11) === 0
+            || strncmp($_POST['action'], 'wc_', 3) === 0
+            || strncmp($_POST['action'], 'jetpack', 7) === 0
+            || strncmp($_POST['action'], 'wpfc_', 5) === 0
+            || strncmp($_POST['action'], 'oxygen_', 7) === 0
+            || strncmp($_POST['action'], 'oxy_', 4) === 0
+            || strncmp($_POST['action'], 'w3tc_', 5) === 0
+            || strncmp($_POST['action'], 'wpforms_', 8) === 0
+            || strncmp($_POST['action'], 'wdi_', 4) === 0
+            || strncmp($_POST['action'], 'brizy_update', 12) === 0
+            || strncmp($_POST['action'], 'brizy-update', 12) === 0
+            || in_array( $_POST['action'], array(
+                  'brizy_heartbeat',
+                  'contactformx',
+                  'eckb_apply_editor_changes' // Knowledge Base for Documents and FAQs (save changes mode)
+                ))
+		     )) {
 			define( 'WPACU_NO_LOAD_SET', true );
 
 			return true;
@@ -1429,14 +1542,14 @@ if ( ! function_exists('assetCleanUpNoLoad') ) {
 								),
 								WPACU_PLUGIN_TITLE
 							);
+                            exit( $msg );
 						} elseif ( $wpacuNoLoadMatchesStatus === 'is_set_in_page' ) {
-							$msg = sprintf(
-								__( 'This homepage\'s URI is matched by the rule you have in the "Page Options", thus %s is not loaded on that page and no CSS/JS are to be managed. If you wish to view the CSS/JS manager, please uncheck the option and reload this page.',
-									'wp-asset-clean-up'
-								), WPACU_PLUGIN_TITLE );
-						}
-
-						exit( $msg );
+                            $msg = sprintf(
+                                __('This homepage\'s URI is matched by the rule you have in the "Page Options", thus %s is not loaded on that page and no CSS/JS are to be managed. If you wish to view the CSS/JS manager, please uncheck the option and reload this page.',
+                                    'wp-asset-clean-up'
+                                ), WPACU_PLUGIN_TITLE);
+                            exit( $msg );
+                        }
 					}
 				} );
 			}
@@ -1477,3 +1590,4 @@ if ( ! function_exists('wpacuIsPluginActive') ) {
         return false;
     }
 }
+

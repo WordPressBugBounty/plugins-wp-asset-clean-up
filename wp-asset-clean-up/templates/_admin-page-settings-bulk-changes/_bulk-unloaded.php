@@ -282,21 +282,5 @@ if ($data['for'] === 'post_types') {
     </div>
 </form>
 <!-- Start Site-Wide Modal -->
-<div id="wpacu-add-bulk-rules-info" class="wpacu-modal">
-    <div class="wpacu-modal-content">
-        <span class="wpacu-close">&times;</span>
-        <h2><?php _e('Unloading CSS/JS site-wide or for a group of pages', 'wp-asset-clean-up'); ?></h2>
-        <p>This is an overview of all the assets that have bulk changes applied. Anything you see on this page is filled the moment you go to edit a page via the "CSS/JS Load Manager" (e.g. homepage or a post) and use options such as:</p>
-
-        <ul style="list-style: disc; margin-left: 20px;">
-            <li>Unload site-wide (everywhere)</strong></li>
-            <li>Unload on All Pages of `product` post type</li>
-            <li>Unload on All Pages of `product_cat` taxonomy type etc.</li>
-            <li>Unload on this `[custom post type name here]` post type archive page</li>
-            <li>Unload on this page type (any 404 Not Found URL), etc.</li>
-        </ul>
-
-        <p>A bulk change is considered anything that is applied once, and it has effect on multiple pages of the same kind or site-wide.</p>
-    </div>
-</div>
+<?php require WPACU_PLUGIN_DIR . '/templates/_common/modals/bulk-unloaded-info.php'; ?>
 <!-- End Site-Wide Modal -->

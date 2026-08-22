@@ -1,5 +1,7 @@
 <?php
 // Exit if accessed directly
+use WpAssetCleanUp\Main;
+
 if (! defined('WPACU_PLUGIN_CLASSES_PATH')) {
     exit;
 }
@@ -7,30 +9,45 @@ if (! defined('WPACU_PLUGIN_CLASSES_PATH')) {
 // Autoload Classes
 function includeWpAssetCleanUpClassesAutoload($class)
 {
-	if ( ! (
-		( function_exists( 'str_starts_with' ) && str_starts_with( $class, 'WpAssetCleanUp' ) ) ||
-		( strncmp($class, 'WpAssetCleanUp', 14) === 0 )
-	) ) {
-		return;
-	}
-
-	// Reference Namespace
-    if (strpos($class, '\\') === 14) {
-	    $namespace = 'WpAssetCleanUp';
+    if (strncmp($class, 'WpAssetCleanUp', 14) !== 0) {
+        return;
     }
 
-	$classFilter = strtr($class, array(
-		$namespace . '\\' => '',
-		'\\'              => '/' // Can be directories such as "OptimiseAssets"
-	));
+    static $autoloadMap = null;
 
-	if ($namespace === 'WpAssetCleanUp') {
-		include_once WPACU_PLUGIN_CLASSES_PATH . $classFilter . '.php';
-	}
+    if ($autoloadMap === null) {
+        $autoloadMap = array(
+            'WpAssetCleanUp' => WPACU_PLUGIN_CLASSES_PATH
+        );
 
+        $autoloadMap = apply_filters('wpacu_internal_autoload_namespaces', $autoloadMap);
     }
+
+	foreach ($autoloadMap as $namespace => $basePath) {
+        $namespacePrefix = $namespace . '\\';
+
+        if (strncmp($class, $namespacePrefix, strlen($namespacePrefix)) !== 0) {
+            continue;
+        }
+
+        $classFilter = strtr($class, array(
+            $namespacePrefix => '',
+            '\\'             => '/'
+        ));
+
+        $filePath = rtrim($basePath, '/\\') . '/' . $classFilter . '.php';
+
+        if (is_file($filePath)) {
+            include_once $filePath;
+        }
+
+        return;
+    }
+}
 
 spl_autoload_register('includeWpAssetCleanUpClassesAutoload');
+
+do_action('wpacu_internal_register_edition_hooks');
 
 \WpAssetCleanUp\ObjectCache::wpacu_cache_init();
 
@@ -42,6 +59,9 @@ if (isset($GLOBALS['wpacu_object_cache'])) {
 add_action('init', function() {
     if (is_admin()) {
         new \WpAssetCleanUp\Menu;
+
+        new \WpAssetCleanUp\Admin\Overview;
+        new \WpAssetCleanUp\Admin\OverviewEdit;
     }
 });
 
@@ -75,31 +95,39 @@ if (is_admin()) {
 
     $wpacuSettingsAdminOnlyForAdminClass = new \WpAssetCleanUp\Admin\SettingsAdminOnlyForAdmin();
     $wpacuSettingsAdminOnlyForAdminClass->init();
+
+    new \WpAssetCleanUp\Admin\OptimiseAssets\ResourceLoadingAdmin();
 }
 
 // The following are only relevant when you're logged in
 add_action('init', function() {
-	if (\WpAssetCleanUp\Menu::userCanAccessPlugin()) {
-		\WpAssetCleanUp\AssetsManager::instance();
+    if ( ! is_user_logged_in() ) {
+        return; // stop here; only logged-in users with special permissions can access the plugin
+    }
 
-        $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache = is_admin() ||
-            (\WpAssetCleanUp\AssetsManager::instance()->frontendShow() || \WpAssetCleanUp\OwnAssets::isPluginClearCacheLinkAccessible());
+    if ( ! \WpAssetCleanUp\Menu::userCanAccessPlugin() ) {
+        return;
+    }
 
-		if ( $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache ) {
-            $wpacuOwnAssets = new \WpAssetCleanUp\OwnAssets;
-            $wpacuOwnAssets->init();
+    \WpAssetCleanUp\AssetsManager::instance();
 
-			// Add / Update / Remove Settings
-			$wpacuUpdate = new \WpAssetCleanUp\Update;
-			$wpacuUpdate->init();
+    $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache = is_admin() ||
+        (Main::showAssetsManagerInFrontend() || Main::isPluginClearCacheLinkAccessible());
 
-            // Relevant for the admin area or when the admin is using the CSS/JS manager in the front-end
-            if (is_admin() || \WpAssetCleanUp\AssetsManager::instance()->frontendShow()) {
-                // Initialize information (irrelevant for the guest visitor)
-                new \WpAssetCleanUp\Admin\Info();
-            }
-		}
-	}
+    if ( $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache ) {
+        $wpacuOwnAssets = new \WpAssetCleanUp\OwnAssets;
+        $wpacuOwnAssets->init();
+
+        // Add / Update / Remove Settings
+        $wpacuUpdate = new \WpAssetCleanUp\Update;
+        $wpacuUpdate->init();
+
+        // Relevant for the admin area or when the admin is using the CSS/JS manager in the front-end
+        if (is_admin() || Main::showAssetsManagerInFrontend()) {
+            // Initialize information (irrelevant for the guest visitor)
+            new \WpAssetCleanUp\Admin\Info();
+        }
+    }
 });
 
 if ( ! is_admin() ) {
@@ -123,12 +151,7 @@ add_action('init', function() {
 });
 
 // Any debug?
-if (isset($_GET['wpacu_debug']) ||
-    isset($_GET['wpacu_get_cache_dir_size']) ||
-	isset($_GET['wpacu_get_already_minified']) ||
-    isset($_GET['wpacu_remove_already_minified']) ||
-    isset($_GET['wpacu_limit_already_minified'])
-) {
+if (assetCleanUpIsDebugQueryString()) {
 	new \WpAssetCleanUp\Debug();
 }
 
@@ -178,11 +201,38 @@ if (is_admin()) {
 	/*
 	 * Trigger only in the front-end view (e.g. Homepage URL, /contact/, /about/ etc.)
 	 */
-	$wpacuCleanUp = new \WpAssetCleanUp\CleanUp();
-	$wpacuCleanUp->init();
+
+    add_action('init', function() {
+        $worthTriggerHtmlSourceCleanUp =
+            \WpAssetCleanUp\Main::instance()->settings['remove_rsd_link']          ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_wlw_link']          ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_rest_api_link']     ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_shortlink']         ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_posts_rel_links']   ||
+
+            \WpAssetCleanUp\Main::instance()->settings['remove_wp_version']        ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_generator_tag']     ||
+
+            \WpAssetCleanUp\Main::instance()->settings['remove_main_feed_link']    ||
+            \WpAssetCleanUp\Main::instance()->settings['remove_comment_feed_link'] ||
+
+            \WpAssetCleanUp\Main::instance()->settings['disable_rss_feed']         ||
+            in_array(
+                \WpAssetCleanUp\Main::instance()->settings['disable_xmlrpc'],
+                array('disable_all', 'disable_pingback'), true)              ||
+
+            \WpAssetCleanUp\Main::instance()->settings['remove_html_comments'];
+
+        if ($worthTriggerHtmlSourceCleanUp) {
+            $wpacuCleanUp = new \WpAssetCleanUp\CleanUp();
+            $wpacuCleanUp->init();
+        }
+    }, 12);
 
 	add_action('init', function() {
-		$loadFontsLocalClass = ! (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')
+        $isLocalFontPreloadScanRequest = \WpAssetCleanUp\OptimiseAssets\FontsLocalPreloadScanner::isActiveRequest();
+
+		$loadFontsLocalClass = $isLocalFontPreloadScanRequest || ! (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')
             || ( ! is_admin() && \WpAssetCleanUp\OptimiseAssets\OptimizeCommon::preventAnyFrontendOptimization() )
             || ( ! \WpAssetCleanUp\Main::instance()->settings['local_fonts_display'] && ! trim(\WpAssetCleanUp\Main::instance()->settings['local_fonts_preload_files']) ) );
 
@@ -192,7 +242,10 @@ if (is_admin()) {
 		}
 	}, 11);
 
-    if ( \WpAssetCleanUp\Main::instance()->settings['google_fonts_combine'] ||
+    $isGoogleFontPreloadScanRequest = \WpAssetCleanUp\OptimiseAssets\FontsGooglePreloadScanner::isActiveRequest();
+
+    if ( $isGoogleFontPreloadScanRequest ||
+         \WpAssetCleanUp\Main::instance()->settings['google_fonts_combine'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_display'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_preconnect'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_preload_files'] ||

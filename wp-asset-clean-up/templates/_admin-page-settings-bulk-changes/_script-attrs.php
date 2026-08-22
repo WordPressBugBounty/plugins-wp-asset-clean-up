@@ -1,9 +1,5 @@
 <?php
-/*
- * No direct access to this file
- */
-if (! isset($data)) {
-	exit;
-}
-?>
-<p>This is the list of all the JavaScript files (<code>&lt;script&gt;</code> tags) that have "async" and "defer" attributes applied site-wide (everywhere). This feature is available only in the<img style="opacity: 0.6;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-lock.svg" valign="top" alt="" /> <a href="<?php echo apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=plugin_bulk_changes&utm_medium=script_attrs'); ?>"> Pro version</a>.</p>
+$wpacuBulkPreviewTitle = __('Site-wide async and defer attributes', 'wp-asset-clean-up');
+$wpacuBulkPreviewDescription = __('Review JavaScript files whose <code>&lt;script&gt;</code> tags use async or defer site-wide.', 'wp-asset-clean-up');
+$wpacuBulkPreviewMedium = 'script_attrs';
+require WPACU_PLUGIN_DIR . '/templates/_admin-page-settings-bulk-changes/_pro-feature-preview.php';

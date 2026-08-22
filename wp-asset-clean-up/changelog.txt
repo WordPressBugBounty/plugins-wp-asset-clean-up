@@ -221,13 +221,13 @@ This is the archive of the changelogs. For the most recent entries, check the re
 * WP Rocket 3.7+ compatibility fix: "Minify HTML" is removed (read more: https://github.com/wp-media/wp-rocket/issues/2682), thus, make sure this gets verified (for compatibility reasons) as well in Asset CleanUp
 * Shorten the file name of the combined CSS/JS to avoid possible duplicates
 * Fix possible errors (400 Bad Request) when AJAX calls are made by Asset CleanUp
-* Check if Cloudflare is used and notify the user about whether it's needed to enable "CDN: Rewrite assets URLs" (read more: https://assetcleanup.com/docs/?p=957)
+* Check if Cloudflare is used and notify the user about whether it's needed to enable "CDN: Rewrite assets URLs" (read more: https://www.assetcleanup.com/docs/?p=957)
 
 = 1.3.6.9 =
 * Improvement: Save resources and do not check anything for optimization when the feed URL (e.g. /feed/) is loaded (the plugin should be inactive for these kinds of requests)
 * Improvement: Do not trigger the plugin when WooCommerce makes AJAX calls (no point in using extra resources from Asset CleanUp)
 * Improvement: When Google Fonts are marked for removal, nullify other related settings, leading to the usage of fewer resources
-* The strings "/cart/" and "/checkout/" are added to the exclusion list where Asset CleanUp is not triggered if the pattern is matched (read more: https://assetcleanup.com/docs/?p=488); These kinds of pages usually do not need optimization and if the admin decides to do some, he/she can remove the exclusion
+* The strings "/cart/" and "/checkout/" are added to the exclusion list where Asset CleanUp is not triggered if the pattern is matched (read more: https://www.assetcleanup.com/docs/?p=488); These kinds of pages usually do not need optimization and if the admin decides to do some, he/she can remove the exclusion
 * Fix (writing files to cache directory): If the handle name contained forward-slash (/), make sure that the final file name gets sanitized (including slash removal) to avoid errors related to file_put_contents() such as trying to write to directories that are non-existent
 * Fix (unnecessary cached files): The plugin was caching CSS/JS files that did not need to be cached (e.g. already minified JS), leading to unnecessary extra disk space
 * "WP-Optimize" minify is not triggering anymore when /?wpacu_clean_load is used for debugging purposes (viewing all files loading from their original location)
@@ -282,7 +282,7 @@ This is the archive of the changelogs. For the most recent entries, check the re
 
 = 1.3.6.3 =
 * New Feature in the CSS/JS Manager: The handle rows can be contracted/expanded (their status is saved when the form is submitted); This is useful to make the whole area smaller (less scrolling) as there will likely be CSS/JS files that you know you will never edit for a long time (if ever) and it's better to have them contracted
-* New Option in "Settings" - "Plugin Usage Preferences": Hide Dashboard's "Asset CleanUp" menu from the left sidebar in case you don't use the plugin too often or wish to have a cleaner sidebar (read more: https://assetcleanup.com/docs/?p=584)
+* New Option in "Settings" - "Plugin Usage Preferences": Hide Dashboard's "Asset CleanUp" menu from the left sidebar in case you don't use the plugin too often or wish to have a cleaner sidebar (read more: https://www.assetcleanup.com/docs/?p=584)
 * Compatibility with Ronneby Theme: Alter the style/script tag later (e.g. by appending plugin markers) after plugins such as "Ronneby Core" alter it (in this case it prevents the URLs from the LINK tags to be stripped)
 * When listing dependencies in the CSS JS managing list (e.g. the "children" of a "parent"), show the unloaded ones in the red font; Dependency handles are linked as anchors for easier navigation between them
 * "WP Rocket" compatibility: Make sure HTML changes made by Asset CleanUp are always applied (via "rocket_buffer" filter hook) before WP Rocket saves the HTML content to the cached file

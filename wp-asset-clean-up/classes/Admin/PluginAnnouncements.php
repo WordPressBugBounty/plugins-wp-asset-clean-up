@@ -2,7 +2,7 @@
 namespace WpAssetCleanUp\Admin;
 
 use WpAssetCleanUp\Menu;
-use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\MiscArray;
 use WpAssetCleanUp\Settings;
 
 /**
@@ -30,6 +30,20 @@ class PluginAnnouncements
      * @var int
      */
     private $transientTime = 12 * HOUR_IN_SECONDS;
+
+    /**
+     * How long to suppress repeated requests after a feed failure.
+     *
+     * @var int
+     */
+    private $failureTransientTime = 10 * MINUTE_IN_SECONDS;
+
+    /**
+     * Maximum number of feed entries sanitized during one request.
+     *
+     * @var int
+     */
+    private $maxAnnouncementsToProcess = 50;
 
     /**
      * Snooze duration for "Remind me later" feature (for the currently shown annoucement)
@@ -136,9 +150,9 @@ class PluginAnnouncements
     private function getFeedUrl()
     {
         if (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up') {
-            $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json';
+            $feedUrl = 'https://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json';
         } elseif (WPACU_PLUGIN_SLUG === 'wp-asset-clean-up-pro') {
-            $feedUrl = 'http://drm6aghn7w1h8.cloudfront.net/_wpacu-pro-announcements.json';
+            $feedUrl = 'https://drm6aghn7w1h8.cloudfront.net/_wpacu-pro-announcements.json';
         } else {
             return ''; // something's funny
         }
@@ -160,6 +174,14 @@ class PluginAnnouncements
     private function getAnnIdQuery()
     {
         return $this->getAnnPrefix() . '_announcement_id';
+    }
+
+    /**
+     * @return string
+     */
+    private function getFallbackNonceAction()
+    {
+        return Plugin::getConfig('id') . '_announcements_fallback_action';
     }
 
     /**
@@ -194,13 +216,6 @@ class PluginAnnouncements
             // Regular way fallback (page reload); This will always load regarding the value of {closeAnnouncementWay} because even if AJAX is used, a fallback is always needed
             add_action('admin_init', array($this, 'handleFallbackActions'));
 
-            // Mostly for debugging
-            // Handle cache clearing via query string
-            add_action('admin_init', array($this, 'handleCacheClearingOnRequest'));
-
-            // Handle settings clearing via query string
-            add_action('admin_init', array($this, 'handleSettingsClearingOnRequest'));
-
             if ($this->showAnnouncementWay === 'ajax') {
                 // Show announcements (via AJAX)
                 add_action('wp_ajax_' . Plugin::getConfig('id') . '_fill_announcement_container', array($this, 'fillAnnouncementContainerAjax'));
@@ -222,12 +237,16 @@ class PluginAnnouncements
      */
     public static function isShowAnnouncementsEnabled()
     {
-        // Check if in the announcements' settings there's "never_show_any" set
         $settingsAdmin         = new SettingsAdmin();
         $announcementsSettings = $settingsAdmin->getOption('announcements');
 
-        // The reference 'global' refers to the fact that it affects all announcements
-        if ( isset($announcementsSettings['global']['never_show_any']) && $announcementsSettings['global']['never_show_any'] ) {
+        // Missing settings are intentionally treated as no consent. The legacy
+        // "never_show_any" flag remains authoritative for existing opt-outs.
+        if ( ! isset($announcementsSettings['global']['enabled']) || (int)$announcementsSettings['global']['enabled'] !== 1 ) {
+            return false;
+        }
+
+        if ( ! empty($announcementsSettings['global']['never_show_any']) ) {
             return false;
         }
 
@@ -377,6 +396,13 @@ class PluginAnnouncements
      */
     public function getAnnouncementsFromTheFeed()
     {
+        // This is the central consent boundary. Keep it here even when callers
+        // already check the setting so future code cannot fetch the remote feed
+        // before an administrator has explicitly opted in.
+        if ( ! self::isShowAnnouncementsEnabled() ) {
+            return array();
+        }
+
         $announcements = get_transient( $this->getTransientKey() );
 
         // Already in the cache? Make sure it's read correctly
@@ -391,28 +417,26 @@ class PluginAnnouncements
                 $maybeArrayFromJson = json_decode( $announcements, true );
 
                 if ( is_array( $maybeArrayFromJson ) && ! empty($maybeArrayFromJson) ) {
-                    set_transient( $this->getTransientKey(), $maybeArrayFromJson, $this->transientTime );
-                    return $this->sanitizeAnnouncements( $maybeArrayFromJson );
+                    return $this->sanitizeAnnouncements($maybeArrayFromJson);
                 }
 
                 // Try to recover if it's serialized
                 $maybeUnserialized = maybe_unserialize($announcements);
 
                 if ( is_array( $maybeUnserialized ) && ! empty( $maybeUnserialized ) ) {
-                    set_transient( $this->getTransientKey(), $maybeUnserialized, $this->transientTime );
-                    return $this->sanitizeAnnouncements( $maybeUnserialized );
+                    return $this->sanitizeAnnouncements($maybeUnserialized);
                 }
             }
 
             // Nothing usable -> wipe the transient and move on
-            delete_transient( $this->transientKey );
-
-            return array();
+            delete_transient( $this->getTransientKey() );
         }
 
         $fetchUrl = add_query_arg( $this->getAnnPrefix(), wp_rand(), $this->getFeedUrl() );
 
-        $response = wp_remote_get( $fetchUrl, array(
+        $response = wp_safe_remote_get( $fetchUrl, array(
+            'timeout'             => 8,
+            'limit_response_size' => 262144,
             'headers' => array(
                 'User-Agent'    => 'WordPress-Plugin',
                 'Cache-Control' => 'no-cache',
@@ -421,19 +445,41 @@ class PluginAnnouncements
         ) );
 
         if ( is_wp_error( $response ) ) {
+            $this->cacheFeedFailure();
+            return array();
+        }
+
+        $responseCode = (int)wp_remote_retrieve_response_code($response);
+
+        if ($responseCode < 200 || $responseCode >= 300) {
+            $this->cacheFeedFailure();
             return array();
         }
 
         $body          = wp_remote_retrieve_body( $response );
         $announcements = json_decode( $body, true );
 
-        if ( ! is_array( $announcements ) ) {
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array( $announcements )) {
+            $this->cacheFeedFailure();
             return array();
         }
 
-        set_transient( $this->getTransientKey(), $announcements, $this->transientTime );
+        $announcements = $this->sanitizeAnnouncements($announcements);
 
-        return $this->sanitizeAnnouncements($announcements);
+        set_transient($this->getTransientKey(), $announcements, $this->transientTime);
+
+        return $announcements;
+    }
+
+    /**
+     * Cache an empty result briefly so an unavailable or invalid feed does not
+     * delay every eligible Dashboard request.
+     *
+     * @return void
+     */
+    private function cacheFeedFailure()
+    {
+        set_transient($this->getTransientKey(), array(), $this->failureTransientTime);
     }
 
     /**
@@ -444,24 +490,104 @@ class PluginAnnouncements
      */
     private function sanitizeAnnouncements($announcements)
     {
-        if (empty($announcements)) {
+        if ( ! is_array($announcements) || empty($announcements)) {
             return array();
         }
 
-        // Ensure each announcement has a valid priority, default to 'low' if missing or invalid
-        foreach ($announcements as $annId => $ann) {
+        $sanitizedAnnouncements = array();
+        $usedIds = array();
+
+        $announcements = array_slice($announcements, 0, $this->maxAnnouncementsToProcess);
+
+        foreach ($announcements as $ann) {
             if ( ! is_array($ann) ) {
                 continue;
             }
 
-            if ( ! isset($ann['priority']) || ! array_key_exists(strtolower($ann['priority']), $this->priorityLevels) ) {
-                $announcements[$annId]['priority'] = 'low';
-            } else {
-                $announcements[$annId]['priority'] = strtolower($ann['priority']);
+            if ( ! isset($ann['id']) || ! is_scalar($ann['id'])) {
+                continue;
             }
+
+            $id = $this->limitAnnouncementString(sanitize_text_field((string)$ann['id']), 191);
+            if ($id === '' || isset($usedIds[$id])) {
+                continue;
+            }
+
+            $startTime = isset($ann['start_date']) ? $this->parseAnnouncementDate($ann['start_date']) : false;
+            $endTime = isset($ann['end_date']) ? $this->parseAnnouncementDate($ann['end_date']) : false;
+            if ($startTime === false || $endTime === false || $endTime < $startTime) {
+                continue;
+            }
+
+            $title = isset($ann['title']) && is_string($ann['title']) ? force_balance_tags(wp_kses($this->limitAnnouncementString($ann['title'], 500), $this->allowedTitleHtmlTags)) : '';
+            $message = isset($ann['message']) && is_string($ann['message']) ? force_balance_tags(wp_kses($this->limitAnnouncementString($ann['message'], 20000), $this->allowedMessageHtmlTags)) : '';
+            if (trim(wp_strip_all_tags($title)) === '' && trim(wp_strip_all_tags($message)) === '') {
+                continue;
+            }
+
+            $priority = isset($ann['priority']) && is_string($ann['priority']) ? strtolower(trim($ann['priority'])) : 'low';
+            $priority = isset($this->priorityLevels[$priority]) ? $priority : 'low';
+            $sanitized = array(
+                'id' => $id,
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
+                'start_date' => gmdate('Y-m-d H:i:s', $startTime),
+                'end_date' => gmdate('Y-m-d H:i:s', $endTime),
+                'start_time_unix' => $startTime,
+                'end_time_unix' => $endTime,
+            );
+
+            if (isset($ann['link']) && is_string($ann['link'])) {
+                $link = esc_url_raw($this->limitAnnouncementString(trim($ann['link']), 2048));
+                if ($link !== '') {
+                    $sanitized['link'] = $link;
+                }
+            }
+            if (array_key_exists('conditions', $ann)) {
+                if ( ! is_array($ann['conditions'])) {
+                    continue;
+                }
+
+                $operator = isset($ann['conditions']['operator']) && is_string($ann['conditions']['operator'])
+                    ? strtolower(trim($ann['conditions']['operator']))
+                    : '';
+                $rules = array();
+
+                if (in_array($operator, array('and', 'or'), true) && isset($ann['conditions']['rules']) && is_array($ann['conditions']['rules'])) {
+                    foreach ($ann['conditions']['rules'] as $ruleKey => $ruleValue) {
+                        if (is_string($ruleKey) && is_scalar($ruleValue) && is_numeric($ruleValue)) {
+                            $rules[sanitize_key($ruleKey)] = (int)$ruleValue;
+                        }
+                    }
+                }
+
+                if ( ! in_array($operator, array('and', 'or'), true) || empty($rules)) {
+                    continue;
+                }
+
+                $sanitized['conditions'] = array('operator' => $operator, 'rules' => $rules);
+            }
+
+            $usedIds[$id] = true;
+            $sanitizedAnnouncements[] = $sanitized;
         }
 
-        return $announcements;
+        return $sanitizedAnnouncements;
+    }
+
+    private function parseAnnouncementDate($value)
+    {
+        if ( ! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+            return false;
+        }
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $value, new \DateTimeZone('UTC'));
+        return $date && $date->format('Y-m-d H:i:s') === $value ? $date->getTimestamp() : false;
+    }
+
+    private function limitAnnouncementString($value, $maxLength)
+    {
+        return function_exists('mb_substr') ? mb_substr($value, 0, $maxLength, 'UTF-8') : substr($value, 0, $maxLength);
     }
 
     /**
@@ -482,19 +608,10 @@ class PluginAnnouncements
         $feedAnnouncements = $this->getAnnouncementsFromTheFeed();
 
         foreach ( $feedAnnouncements as $ann ) {
-            // The annoucements always need to have a start and end time
-            $startDate = isset($ann['start_date']) ? $ann['start_date'] : '';
-            $endDate   = isset($ann['end_date'])   ? $ann['end_date'] : '';
+            $startTime = isset($ann['start_time_unix']) ? (int)$ann['start_time_unix'] : 0;
+            $endTime   = isset($ann['end_time_unix']) ? (int)$ann['end_time_unix'] : 0;
 
-            if ( ! $startDate || ! $endDate) {
-                continue;
-            }
-
-            // Convert start/end dates to timestamps (returns false on failure)
-            $startTime = strtotime($startDate) ?: false;
-            $endTime   = strtotime($endDate)   ?: false;
-
-            if ( ! $startTime || ! $endTime) {
+            if ($startTime <= 0 || $endTime <= 0 || $endTime < $startTime) {
                 continue;
             }
 
@@ -534,43 +651,49 @@ class PluginAnnouncements
      * @param $feedUnix
      *
      * @return int
-     * @throws \DateInvalidTimeZoneException
-     * @throws \DateMalformedStringException
      */
     public static function feedUnixToWordPressUnix($feedUnix)
     {
-        if ( ! class_exists('\DateTime') || ! class_exists('\DateTimeZone') ) {
-            return $feedUnix;
+        $feedUnix = (int)$feedUnix;
+
+        if (function_exists('wp_timezone') && class_exists('\DateTimeImmutable')) {
+            $date = new \DateTimeImmutable('@' . $feedUnix);
+            return $feedUnix + wp_timezone()->getOffset($date);
         }
 
-        // Get the WordPress timezone setting
-        $timezoneString = get_option('timezone_string');
-
-        // If timezone_string is empty, fallback to GMT offset
-        if (empty($timezoneString)) {
-            $gmtOffset = get_option('gmt_offset'); // Offset in hours
-            $timezoneString = timezone_name_from_abbr('', $gmtOffset * 3600, 0);
-        }
-
-        // Create DateTime object from JSON timestamp (Assume it's UTC)
-        $date = new \DateTime('@' . $feedUnix, new \DateTimeZone('UTC')); // '@' forces UTC
-        $date->setTimezone(new \DateTimeZone($timezoneString)); // Convert to WP timezone
-
-        // Adjust the timestamp by the timezone offset (Manual correction)
-        $wpOffsetSeconds = $date->getOffset(); // Offset in seconds
-
-        // Get the Unix timestamp in WordPress timezone
-        return $feedUnix + $wpOffsetSeconds;
+        // WordPress versions older than 5.3 do not provide wp_timezone().
+        // Use the numeric offset directly; this also supports fractional offsets safely.
+        return $feedUnix + (int)round((float)get_option('gmt_offset') * HOUR_IN_SECONDS);
     }
 
     /**
-     * @param bool $isRegularCall
+     * Formats a UTC feed timestamp in the timezone configured for the WordPress site.
+     *
+     * @param string $format
+     * @param int    $feedUnix
+     *
+     * @return string
+     */
+    public static function formatFeedUnixForSite($format, $feedUnix)
+    {
+        $feedUnix = (int)$feedUnix;
+
+        if (function_exists('wp_date') && function_exists('wp_timezone')) {
+            return wp_date($format, $feedUnix, wp_timezone());
+        }
+
+        return date_i18n($format, self::feedUnixToWordPressUnix($feedUnix));
+    }
+
+    /**
+     * @param string $isCallType
+     * @param string $fallbackBaseUrl URL of the admin page to use for non-AJAX fallback links.
      *
      * Display only ONE highest priority unsnoozed and unseen announcement
      *
      * @return void
      */
-    public function displayOneAnnouncement($isCallType = 'regular')
+    public function displayOneAnnouncement($isCallType = 'regular', $fallbackBaseUrl = '')
     {
         // Get announcements
         $feedAnnouncements = $this->getAnnouncementsFromTheFeed();
@@ -612,26 +735,12 @@ class PluginAnnouncements
                 continue;
             }
 
-            // The annoucements always need to have a start and end time
-            $startDate = isset($ann['start_date']) ? $ann['start_date'] : '';
-            $endDate   = isset($ann['end_date'])   ? $ann['end_date'] : '';
+            $startTime = isset($ann['start_time_unix']) ? (int)$ann['start_time_unix'] : 0;
+            $endTime   = isset($ann['end_time_unix']) ? (int)$ann['end_time_unix'] : 0;
 
-            if ( ! $startDate || ! $endDate) {
+            if ($startTime <= 0 || $endTime <= 0 || $endTime < $startTime) {
                 continue;
             }
-
-            // Convert start/end dates to timestamps (returns false on failure)
-            $startTime = strtotime($startDate) ?: false;
-            $endTime   = strtotime($endDate)   ?: false;
-
-            if ( ! $startTime || ! $endTime) {
-                continue;
-            }
-
-            // e.g. useful to hide "Remind me later" if the ending time is closed for an announcement
-            // as it won't show up anyway later on and the admin could decide to mark it as "Seen"
-            $ann['start_time_unix'] = $startTime;
-            $ann['end_time_unix']   = $endTime;
 
             // It always has to be within the "start" and the "end" time
             $isWithinTheTimePeriod = $currentTime >= $startTime && $currentTime <= $endTime;
@@ -644,7 +753,7 @@ class PluginAnnouncements
             // e.g. at least a few days have to pass since plugin activation (first usage)
             $conditions = isset($ann['conditions']) && is_array($ann['conditions']) ? $ann['conditions'] : array();
 
-            $pluginUsageData = Plugin::getPluginUsageData($ann['conditions']);
+            $pluginUsageData = Plugin::getPluginUsageData($conditions);
 
             if ( ! self::isMatchForExtraConditions($conditions, $pluginUsageData) ) {
                 continue;
@@ -695,22 +804,51 @@ class PluginAnnouncements
                 $showRemindMeLaterAction = false;
             }
 
+            $queryStringAction = $this->getQueryStringAction();
+            $annIdQuery        = $this->getAnnIdQuery();
+            $fallbackNonce     = wp_create_nonce($this->getFallbackNonceAction());
+
+            // When the announcement HTML is generated through admin-ajax.php, add_query_arg()
+            // would otherwise use the AJAX endpoint itself as the link base. Passing the page
+            // URL explicitly keeps these links usable as true non-JavaScript/AJAX fallbacks.
+            $fallbackUrlBase = $fallbackBaseUrl !== '' ? $fallbackBaseUrl : false;
+
             if ($showRemindMeLaterAction) {
-                // /?{$queryStringAction}=snooze&pluginann_announcement_id={id}
-                $fallbackUrlRemindLater = add_query_arg( array( $this->getQueryStringAction() => 'snoozed', 'pluginann_announcement_id' => $annId ) );
+                // /?{$queryStringAction}=snoozed&{$annIdQuery}={id}&_wpnonce={nonce}
+                $fallbackUrlRemindLater = add_query_arg(
+                    array(
+                        $queryStringAction => 'snoozed',
+                        $annIdQuery        => $annId,
+                        '_wpnonce'         => $fallbackNonce,
+                    ),
+                    $fallbackUrlBase
+                );
             }
 
-            // /?{$queryStringAction}=seen&pluginann_announcement_id={id}
-            $fallbackUrlMarkAsSeen = add_query_arg( array( $this->getQueryStringAction() => 'seen', 'pluginann_announcement_id' => $annId ) );
+            // /?{$queryStringAction}=seen&{$annIdQuery}={id}&_wpnonce={nonce}
+            $fallbackUrlMarkAsSeen = add_query_arg(
+                array(
+                    $queryStringAction => 'seen',
+                    $annIdQuery        => $annId,
+                    '_wpnonce'         => $fallbackNonce,
+                ),
+                $fallbackUrlBase
+            );
 
-            // /?{$queryStringAction}=never_show_any&pluginann_announcement_id={id}
-            $fallbackUrlNeverShowAny = add_query_arg( array( $this->getQueryStringAction() => 'never_show_any' ) );
+            // /?{$queryStringAction}=never_show_any&_wpnonce={nonce}
+            $fallbackUrlNeverShowAny = add_query_arg(
+                array(
+                    $queryStringAction => 'never_show_any',
+                    '_wpnonce'         => $fallbackNonce,
+                ),
+                $fallbackUrlBase
+            );
             ?>
                     <?php if ($isCallType === 'regular') { ?>
                         <div id="pluginann-announcements-container">
                     <?php } ?>
                             <div class="notice notice-info is-dismissible pluginann-announcement"
-                                 data-pluginann-annoucement-priority="<?php echo $priority; ?>"
+                                 data-pluginann-annoucement-priority="<?php echo esc_attr($priority); ?>"
                                  data-pluginann-announcement-id="<?php echo esc_attr( $annId ); ?>">
 
                                 <?php
@@ -767,6 +905,12 @@ class PluginAnnouncements
      */
     public static function isMatchForExtraConditions($conditions, $pluginUsageData)
     {
+        // No conditions means that the announcement has no additional usage
+        // restrictions. A present but malformed block is rejected below.
+        if (empty($conditions)) {
+            return true;
+        }
+
         // Check if the condition format is valid
         if ( ! isset($conditions['operator'], $conditions['rules']) || ! is_array($conditions['rules']) ) {
             return false; // Invalid structure, return false
@@ -810,7 +954,7 @@ class PluginAnnouncements
     }
 
     /**
-     * @return array|void
+     * @return void
      */
     public function renderAnnouncementsContainer()
     {
@@ -826,7 +970,7 @@ class PluginAnnouncements
         }
 
         // Regular show? Output everything
-        echo $this->displayOneAnnouncement();
+        $this->displayOneAnnouncement();
     }
 
     /**
@@ -842,8 +986,44 @@ class PluginAnnouncements
             wp_send_json_error(['message' => 'No announcements available.']);
         }
 
+        $fallbackBaseUrl = isset($_POST['fallback_url'])
+            ? esc_url_raw(wp_unslash($_POST['fallback_url']))
+            : '';
+
+        if ($fallbackBaseUrl === '') {
+            $fallbackBaseUrl = wp_get_referer();
+        }
+
+        $adminBaseUrl    = self_admin_url();
+        $fallbackBaseUrl = wp_validate_redirect($fallbackBaseUrl, $adminBaseUrl);
+
+        // Keep the fallback on the same WordPress admin area even if another host was
+        // whitelisted through allowed_redirect_hosts.
+        $adminUrlParts    = wp_parse_url($adminBaseUrl);
+        $fallbackUrlParts = wp_parse_url($fallbackBaseUrl);
+        $adminHost        = isset($adminUrlParts['host']) ? strtolower($adminUrlParts['host']) : '';
+        $fallbackHost     = isset($fallbackUrlParts['host']) ? strtolower($fallbackUrlParts['host']) : '';
+        $adminPath        = isset($adminUrlParts['path']) ? trailingslashit($adminUrlParts['path']) : '';
+        $fallbackPath     = isset($fallbackUrlParts['path']) ? $fallbackUrlParts['path'] : '';
+
+        if ( $adminHost === ''
+            || $fallbackHost !== $adminHost
+            || ($adminPath !== '' && strpos($fallbackPath, $adminPath) !== 0)
+        ) {
+            $fallbackBaseUrl = $adminBaseUrl;
+        }
+
+        $fallbackBaseUrl = remove_query_arg(
+            array(
+                $this->getQueryStringAction(),
+                $this->getAnnIdQuery(),
+                '_wpnonce',
+            ),
+            $fallbackBaseUrl
+        );
+
         ob_start();
-        $this->displayOneAnnouncement('ajax');
+        $this->displayOneAnnouncement('ajax', $fallbackBaseUrl);
         $output = ob_get_clean();
 
         wp_send_json_success(array('html' => $output));
@@ -873,7 +1053,7 @@ class PluginAnnouncements
             unset($currentAnnouncements['list'][$announcementId]['snoozed']);
         }
 
-        $settingsAdminClass->updateOption('announcements', Misc::filterList($currentAnnouncements));
+        $settingsAdminClass->updateOption('announcements', MiscArray::filterList($currentAnnouncements));
     }
 
     /**
@@ -894,7 +1074,7 @@ class PluginAnnouncements
 
         $currentAnnouncements['global'][$settingName] = $settingValue;
 
-        $settingsAdminClass->updateOption('announcements', Misc::filterList($currentAnnouncements));
+        $settingsAdminClass->updateOption('announcements', MiscArray::filterList($currentAnnouncements));
     }
 
     /**
@@ -935,6 +1115,7 @@ class PluginAnnouncements
 
         // All announcements setting
         if ($actionType === 'never_show_any') {
+            $this->updateAnnouncementsSettings('enabled', 0);
             $this->updateAnnouncementsSettings('never_show_any', 1);
 
             if ($updateMode === 'ajax') {
@@ -989,65 +1170,47 @@ class PluginAnnouncements
      */
     public function handleFallbackActions()
     {
+        if ( ! Menu::userCanAccessPlugin() ) {
+            return;
+        }
+
         $queryStringAction = $this->getQueryStringAction();
-        $annIdQuery        = $this->getQueryStringAction() . '_announcement_id';
+        $annIdQuery        = $this->getAnnIdQuery();
 
-        $actionType     = isset($_GET[$queryStringAction]) ? sanitize_text_field($_GET[$queryStringAction]) : '';
-        $announcementId = isset($_GET[$annIdQuery])        ? sanitize_text_field($_GET[$annIdQuery])        : '';
+        $actionType = isset($_GET[$queryStringAction])
+            ? sanitize_key(wp_unslash($_GET[$queryStringAction]))
+            : '';
 
-        if ( empty($actionType) ) {
+        $announcementId = isset($_GET[$annIdQuery])
+            ? sanitize_text_field(wp_unslash($_GET[$annIdQuery]))
+            : '';
+
+        if ( ! in_array($actionType, array('seen', 'snoozed', 'never_show_any'), true) ) {
+            return;
+        }
+
+        $fallbackNonce = isset($_GET['_wpnonce'])
+            ? sanitize_text_field(wp_unslash($_GET['_wpnonce']))
+            : '';
+
+        if ( ! wp_verify_nonce($fallbackNonce, $this->getFallbackNonceAction()) ) {
             return;
         }
 
         self::updateAnnouncementsViaActionType($actionType, $announcementId);
 
-        // Redirect to the previous URL
-        // Clear any irrelevant query strings from the action fallback URL that might cause conflicts
+        // Redirect to the previous URL and remove all fallback-action arguments.
         wp_safe_redirect(
             remove_query_arg(
                 array(
+                    $queryStringAction,
                     $annIdQuery,
-                    $this->getAnnPrefix(true) . '_clear_announcements_cache',
-                    $this->getAnnPrefix(true) . '_clear_announcements_settings'
+                    '_wpnonce'
                 )
             )
         );
 
         exit();
-    }
-
-    /**
-     * @return void
-     */
-    public function handleCacheClearingOnRequest()
-    {
-        $query = $this->getAnnPrefix(true) . '_clear_announcements_cache';
-
-        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessPlugin();
-
-        if ( ! $proceed ) {
-            return;
-        }
-
-        // Delete the transient cache
-        delete_transient( $this->getTransientKey() );
-    }
-
-    /**
-     * @return void
-     */
-    public function handleSettingsClearingOnRequest()
-    {
-        $query = $this->getAnnPrefix(true) . '_clear_announcements_settings';
-
-        $proceed = isset( $_GET[$query] ) && Menu::userCanAccessPlugin();
-
-        if ( ! $proceed ) {
-            return;
-        }
-
-        $settingsAdmin = new SettingsAdmin();
-        $settingsAdmin->updateOption('announcements', array());
     }
 
     /**
@@ -1195,7 +1358,8 @@ class PluginAnnouncements
                             method: 'POST',
                             data: {
                                 action: '<?php echo Plugin::getConfig('id'); ?>_fill_announcement_container',
-                                nonce: nonce
+                                nonce: nonce,
+                                fallback_url: window.location.href
                             }
                         }).done(function(response) {
                             if (response.success && response.data.html) {

@@ -10,8 +10,7 @@ if (! isset($data)) {
 	<?php
 	$data['post_id'] = (isset($_GET['wpacu_post_id']) && $_GET['wpacu_post_id']) ? (int)$_GET['wpacu_post_id'] : false;
     ?>
-        <p style="margin-bottom: 0;">Post Type: 'post' (e.g. blog entries) &#10230; <a target="_blank" href="https://wordpress.org/support/article/writing-posts/"><?php _e('read more', 'wp-asset-clean-up'); ?></a></p>
-        <div style="margin: 15px 0 0;" class="clearfix"></div>
+        <p>Post Type: 'post' (e.g. blog entries) &#10230; <a target="_blank" href="https://wordpress.org/support/article/writing-posts/"><?php _e('read more', 'wp-asset-clean-up'); ?></a></p>
     <?php
     $data['dashboard_edit_not_allowed'] = false;
 

@@ -42,7 +42,7 @@ To avoid breaking admin bar's styling which relies on the WordPress Dashicons, a
 HTML;
 		// JavaScript list
 		$this->list['scripts']['wp-embed'] = <<<HTML
-To completely disable oEmbeds, you can use "Disable oEmbed (Embeds) Site-Wide" from plugin's "Settings" -&gt; "Site-Wide Common Unloads". It will also prevent this file from loading in the first place and hide it from this location.
+To completely disable oEmbeds, you can use "Disable oEmbed (Embeds) Site-Wide" from plugin's "Settings" -&gt; "Common Site-Wide Unloads". It will also prevent this file from loading in the first place and hide it from this location.
 HTML;
 		$this->list['scripts']['wc-cart-fragments'] = <<<HTML
 This is used to make an AJAX call to retrieve the latest WooCommerce cart information. If there is no mini cart area (e.g. in a sidebar or menu), you can safely unload this file.

@@ -36,7 +36,7 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
     require_once __DIR__ . '/_singular-page-search-form.php';
 }
 ?>
-<form id="wpacu_dash_assets_manager_form" method="post" action="<?php echo esc_url(admin_url($strAdminUrl)); ?>">
+<form id="wpacu_dash_assets_manager_form" style="margin: 10px 0 0;" method="post" action="<?php echo esc_url(admin_url($strAdminUrl)); ?>">
     <input type="hidden"
            id="wpacu_manage_singular_page_assets"
            name="wpacu_manage_singular_page_assets"
@@ -77,6 +77,7 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
         <strong><?php echo esc_html($pageUrlTitle); ?>:</strong> <a target="_blank" href="<?php echo esc_url($data['fetch_url']); ?>"><span><?php echo esc_url($data['fetch_url']); ?></span></a>
         | <strong><?php echo isset($postName) ? esc_html($postName) : ''; ?> Title:</strong> <?php echo get_the_title($data['post_id']); ?> | <strong>Post ID:</strong> <?php echo (int)$data['post_id']; ?>
     </div>
+    <div class="wpacu-redirected-fetch-url-reminder-slot"></div>
 
     <?php
     $wpacuNoLoadMatchesStatus = assetCleanUpHasNoLoadMatches($data['fetch_url'], true);
@@ -99,7 +100,10 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
 		    <?php
 	    }
 
-        $data['show_page_options'] = true;
+        $data['show_page_options'] = false;
+
+        $pageOptionsType = '';
+        $data['page_options'] = array();
 
         if ($data['post_id'] > 0) {
 	        $pageOptionsType = 'post';
@@ -107,7 +111,11 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
             $pageOptionsType = 'front_page';
         }
 
-        $data['page_options'] = MetaBoxes::getPageOptions($data['post_id'], $pageOptionsType);
+        if ($pageOptionsType) {
+            $data['show_page_options'] = true;
+            $data['page_options']      = MetaBoxes::getPageOptions($data['post_id'], $pageOptionsType);
+        }
+
         $data['page_options_with_assets_manager_no_load'] = true;
 
         include dirname(__DIR__).'/meta-box-loaded-assets/_page-options.php';
@@ -146,10 +154,5 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
 
     wp_nonce_field($data['nonce_action'], $data['nonce_name']);
     ?>
-    <div id="wpacu-update-button-area" class="no-left-margin">
-        <p class="submit"><input type="submit" name="submit" class="button button-primary <?php if ( ! $wpacuNoLoadInTargetPage ) { ?> hidden <?php } ?>" value="<?php esc_attr_e('Update', 'wp-asset-clean-up'); ?>"></p>
-        <div id="wpacu-updating-settings" style="margin-left: 100px;">
-            <img src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" align="top" width="20" height="20" alt="" />
-        </div>
-    </div>
+    <?php include __DIR__ . '/_save-dock.php'; ?>
 </form>

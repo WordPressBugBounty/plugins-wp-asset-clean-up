@@ -72,6 +72,12 @@ if ($data['show_on_front'] === 'page' && $data['page_on_front']) {
         ?>
 
         <p><span class="dashicons dashicons-admin-home"></span> <?php _e('Here you can unload files loaded on the home page. "Front page displays" (from "Settings" &#187; "Reading") is set to either "Your latest posts" (in "Settings" &#187; "Reading") OR a special layout (from a theme or plugin) was enabled.', 'wp-asset-clean-up'); ?> <?php echo sprintf(__('Changes will also apply to pages such as %s etc. in case the latest blog posts are paginated.', 'wp-asset-clean-up'), '<code>/page/2</code> <code>page/3</code>'); ?></p>
+        <div class="wpacu_verified">
+            <strong><?php esc_html_e('Homepage URL', 'wp-asset-clean-up'); ?>:</strong>
+            <a target="_blank" href="<?php echo esc_url($data['site_url']); ?>"><span><?php echo esc_url($data['site_url']); ?></span></a>
+        </div>
+        <div class="wpacu-redirected-fetch-url-reminder-slot"></div>
+
         <?php
         $wpacuNoLoadMatchesStatus = assetCleanUpHasNoLoadMatches($data['site_url'], true);
         if ($wpacuNoLoadInTargetPage = in_array($wpacuNoLoadMatchesStatus, array('is_set_in_settings', 'is_set_in_page'))) {
@@ -147,14 +153,7 @@ if ($data['show_on_front'] === 'page' && $data['page_on_front']) {
 
         wp_nonce_field($data['nonce_action'], $data['nonce_name']);
         ?>
-        <div id="wpacu-update-button-area" class="no-left-margin">
-            <p class="submit">
-                <input type="submit" name="submit" class="button button-primary <?php if ( ! $wpacuNoLoadInTargetPage ) { ?> hidden <?php } ?>" value="<?php esc_attr_e('Update', 'wp-asset-clean-up'); ?>">
-            </p>
-            <div id="wpacu-updating-settings" style="margin-left: 100px;">
-                <img src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" align="top" width="20" height="20" alt="" />
-            </div>
-        </div>
+        <?php include __DIR__ . '/_save-dock.php'; ?>
     </form>
 <?php
 }

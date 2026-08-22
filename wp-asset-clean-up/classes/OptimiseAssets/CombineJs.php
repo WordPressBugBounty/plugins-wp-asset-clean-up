@@ -8,6 +8,7 @@ use WpAssetCleanUp\MainFront;
 use WpAssetCleanUp\FileSystem;
 use WpAssetCleanUp\Misc;
 use WpAssetCleanUp\ObjectCache;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class CombineJs
@@ -18,7 +19,7 @@ class CombineJs
 	/**
 	 * @var string
 	 */
-	public static $jsonStorageFile = 'js-combined{maybe-extra-info}.json';
+	public static $jsonStorageFile = 'js-combined-v2{maybe-extra-info}.json';
 
 	/**
 	 * @param $htmlSource
@@ -120,15 +121,30 @@ class CombineJs
 
 					$scriptNotCombinable = false; // default (usually, most of the SCRIPT tags can be optimized)
 
+                    $scriptType = isset($scriptAttributes['type']) ? $scriptAttributes['type'] : '';
+
+                    // Combining would convert modules to classic scripts and would drop nomodule semantics.
+                    if ( ! Misc::isClassicScriptType($scriptType) || isset($scriptAttributes['nomodule']) ) {
+                        $scriptNotCombinable = true;
+                    }
+
+                    // The combined tag does not retain per-file security/request attributes.
+                    foreach (array('integrity', 'nonce', 'crossorigin', 'referrerpolicy') as $attributeToPreserve) {
+                        if (isset($scriptAttributes[$attributeToPreserve])) {
+                            $scriptNotCombinable = true;
+                            break;
+                        }
+                    }
+
 					// Check if the CSS file has any 'data-wpacu-skip' attribute; if it does, do not alter it
-					if (isset($scriptAttributes['data-wpacu-skip'])
-                    ) {
+					if (isset($scriptAttributes['data-wpacu-skip']) || apply_filters('wpacu_internal_combine_js_skip_script_tag', false, $scriptAttributes)) {
 						$scriptNotCombinable = true;
 					}
 
 					$handleToCheck  = isset($scriptAttributes['data-wpacu-script-handle']) ? $scriptAttributes['data-wpacu-script-handle'] : ''; // Maybe: JS Inline (Before, After)
-					$hasSrc         = isset($scriptAttributes['src']) && trim($scriptAttributes['src']); // No valid SRC attribute? It's not combinable (e.g. an inline tag)
-					$isPluginScript = isset($scriptAttributes['data-wpacu-plugin-script']); // Only of the user is logged-in (skip it as it belongs to the Asset CleanUp (Pro) plugin)
+                    $hasSrc         = isset($scriptAttributes['src']) && trim($scriptAttributes['src']); // No valid SRC attribute? It's not combinable (e.g. an inline tag)
+                    $src            = $hasSrc ? (string)$scriptAttributes['src'] : '';
+                    $isPluginScript = isset($scriptAttributes['data-wpacu-plugin-script']); // Only of the user is logged-in (skip it as it belongs to the Asset CleanUp (Pro) plugin)
 
 					if (! $scriptNotCombinable && (! $hasSrc || $isPluginScript)) {
 						// Inline tag? Skip it in the BODY
@@ -173,8 +189,6 @@ class CombineJs
 
 					// Has SRC and $isPluginScript is set to false OR it does not have "data-wpacu-skip" attribute
 					if (! $scriptNotCombinable) {
-						$src = (string)$scriptAttributes['src'];
-
 						if (self::skipCombine($src, $handleToCheck)) {
 							$scriptNotCombinable = true;
 						}
@@ -470,6 +484,8 @@ class CombineJs
 		// and there is at least one combined deferred tag
 
 		if ( ! empty($finalCacheList['body']) && Main::instance()->settings['combine_loaded_js_defer_body'] ) {
+            $htmlAfterFirstCombinedDeferScript = ''; // default
+
 			// CACHE RE-BUILT
 			if ($isDeferAppliedOnBodyCombineGroupNo > 0 && $domTag = ObjectCache::wpacu_cache_get('wpacu_html_dom_body_tag_for_js')) {
 				$strPart = "id='wpacu-combined-js-body-group-".$isDeferAppliedOnBodyCombineGroupNo."' ";
@@ -504,8 +520,8 @@ class CombineJs
 					$htmlAfterFirstCombinedDeferScriptMaybeChanged = $htmlAfterFirstCombinedDeferScript;
 				}
 
-				// It means to combine took place for any reason (e.g. only one JS file loaded in the HEAD and one in the BODY)
-				if (! isset($htmlAfterFirstCombinedDeferScript)) {
+				// e.g. only one JS file loaded in the HEAD and one in the BODY
+				if ( ! $htmlAfterFirstCombinedDeferScript ) {
 					return $htmlSource;
 				}
 
@@ -553,6 +569,13 @@ class CombineJs
 					continue;
 				}
 
+                $scriptType = isset($scriptAttributes['type']) ? $scriptAttributes['type'] : '';
+
+                // Do not rewrite module/import-map/speculation tags or nomodule fallbacks.
+                if ( ! Misc::isClassicScriptType($scriptType) || isset($scriptAttributes['nomodule']) ) {
+                    continue;
+                }
+
 				// Has "src" attribute and "defer" is not applied? Add it
 				if ($htmlAfterFirstCombinedDeferScriptMaybeChanged !== false) {
 					$htmlAfterFirstCombinedDeferScriptMaybeChanged = trim( preg_replace(
@@ -581,45 +604,32 @@ class CombineJs
 	 * @return bool
      * @noinspection ParameterDefaultValueIsNotNullInspection
      */
-	public static function skipCombine($src, $handle = '')
-	{
-		// In case the handle was appended
-		if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('scripts'))) {
-			return true;
-		}
+    public static function skipCombine($src, $handle = '')
+    {
+        $src = trim((string)$src);
 
-		$regExps = array(
-			'#/wp-content/bs-booster-cache/#'
-		);
+        if ($src === '') {
+            return false;
+        }
 
-		if (Main::instance()->settings['combine_loaded_js_exceptions'] !== '') {
-			$loadedJsExceptionsPatterns = trim(Main::instance()->settings['combine_loaded_js_exceptions']);
+        // In case the handle was appended
+        if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('scripts'))) {
+            return true;
+        }
 
-			if (strpos($loadedJsExceptionsPatterns, "\n") !== false) {
-				// Multiple values (one per line)
-				foreach (explode("\n", $loadedJsExceptionsPatterns) as $loadedJsExceptionsPattern) {
-					$regExps[] = '#'.trim($loadedJsExceptionsPattern).'#';
-				}
-			} else {
-				// Only one value?
-				$regExps[] = '#'.trim($loadedJsExceptionsPatterns).'#';
-			}
-		}
+        $rules = array(
+            '/wp-content/bs-booster-cache/'
+        );
 
-		// No exceptions set? Do not skip combination
-		if (empty($regExps)) {
-			return false;
-		}
+        if (Main::instance()->settings['combine_loaded_js_exceptions'] !== '') {
+            $rules = array_merge(
+                $rules,
+                Regex::splitRules(Main::instance()->settings['combine_loaded_js_exceptions'])
+            );
+        }
 
-		foreach ($regExps as $regExp) {
-			if ( @preg_match( $regExp, $src ) || ( strpos($src, $regExp) !== false ) ) {
-				// Skip combination
-				return true;
-			}
-		}
-
-		return false;
-	}
+        return Regex::matchesAnyRule($rules, $src);
+    }
 
 	/**
 	 * @param $localAssetsPaths

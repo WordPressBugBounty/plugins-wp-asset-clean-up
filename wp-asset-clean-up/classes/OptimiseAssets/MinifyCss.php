@@ -8,6 +8,7 @@ use WpAssetCleanUp\MainFront;
 use WpAssetCleanUp\Menu;
 use WpAssetCleanUp\MetaBoxes;
 use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class MinifyCss
@@ -133,79 +134,68 @@ class MinifyCss
 	 *
 	 * @return bool
 	 */
-	public static function skipMinify($href, $handle = '')
-	{
-		// Things like WP Fastest Cache Toolbar CSS shouldn't be minified and take up space on the server
-		if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('styles'))) {
-			return true;
-		}
+    public static function skipMinify($href, $handle = '')
+    {
+        $href = trim((string)$href);
 
-		// Some of these files (e.g. from Oxygen, WooCommerce) are already minified
-		$regExps = array(
-			'#/wp-content/plugins/wp-asset-clean-up(.*?).min.css#',
+        if ($href === '') {
+            return false;
+        }
 
-			// Formidable Forms
-			'#/wp-content/plugins/formidable/css/formidableforms.css#',
+        // Things like WP Fastest Cache Toolbar CSS shouldn't be minified and take up space on the server
+        if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('styles'))) {
+            return true;
+        }
 
-			// Oxygen
-			//'#/wp-content/plugins/oxygen/component-framework/oxygen.css#',
+        // Some of these files (e.g. from Oxygen, WooCommerce) are already minified
+        $rules = array(
+            '#/wp-content/plugins/wp-asset-clean-up(.*?)\.min\.css#',
 
-			// WooCommerce
-			'#/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css#',
-			'#/wp-content/plugins/woocommerce/assets/css/woocommerce.css#',
-			'#/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css#',
-			'#/wp-content/plugins/woocommerce/assets/css/blocks/style.css#',
+            // Formidable Forms
+            '#/wp-content/plugins/formidable/css/formidableforms\.css#',
 
-			// All the files from the "build" directory are already minified
-			'#/woocommerce/packages/woocommerce-blocks/build/#',
+            // WooCommerce
+            '#/wp-content/plugins/woocommerce/assets/css/woocommerce-layout\.css#',
+            '#/wp-content/plugins/woocommerce/assets/css/woocommerce\.css#',
+            '#/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen\.css#',
+            '#/wp-content/plugins/woocommerce/assets/css/blocks/style\.css#',
 
-			// Google Site Kit: the files are already optimized
-			'#/wp-content/plugins/google-site-kit/#',
+            // All the files from the "build" directory are already minified
+            '#/woocommerce/packages/woocommerce-blocks/build/#',
 
-			// GiveWP: the files are already optimized
-			'#/wp-content/plugins/give/assets/dist/css/#',
+            // Google Site Kit: the files are already optimized
+            '#/wp-content/plugins/google-site-kit/#',
 
-			// Other libraries from the core that end in .min.css
-			'#/wp-includes/css/(.*?).min.css#',
+            // GiveWP: the files are already optimized
+            '#/wp-content/plugins/give/assets/dist/css/#',
 
-			// Files within /wp-content/uploads/ or /wp-content/cache/
-			// Could belong to plugins such as "Elementor", "Oxygen" etc.
-			'#/wp-content/uploads/elementor/(.*?).css#',
-			'#/wp-content/uploads/oxygen/css/(.*?)-(.*?).css#',
-			'#/wp-content/cache/(.*?).css#',
+            // Other libraries from the core that end in .min.css
+            '#/wp-includes/css/(.*?)\.min\.css#',
 
-			// Already minified, and it also has a random name making the cache folder make bigger
-			'#/wp-content/bs-booster-cache/#',
+            // Files within /wp-content/uploads/ or /wp-content/cache/
+            // Could belong to plugins such as "Elementor", "Oxygen" etc.
+            '#/wp-content/uploads/elementor/(.*?)\.css#',
+            '#/wp-content/uploads/oxygen/css/(.*?)-(.*?)\.css#',
+            '#/wp-content/cache/(.*?)\.css#',
 
-			// Query Monitor
-			'#/plugins/query-monitor/assets/query-monitor.css#'
+            // Already minified, and it also has a random name making the cache folder make bigger
+            '#/wp-content/bs-booster-cache/#',
 
-			);
+            // Query Monitor
+            '#/plugins/query-monitor/assets/query-monitor\.css#'
+        );
 
-		$regExps = Misc::replaceRelPluginPath($regExps);
+        $rules = Misc::replaceRelPluginPath($rules);
 
-		if (Main::instance()->settings['minify_loaded_css_exceptions'] !== '') {
-			$loadedCssExceptionsPatterns = trim(Main::instance()->settings['minify_loaded_css_exceptions']);
+        if (Main::instance()->settings['minify_loaded_css_exceptions'] !== '') {
+            $rules = array_merge(
+                $rules,
+                Regex::splitRules(Main::instance()->settings['minify_loaded_css_exceptions'])
+            );
+        }
 
-			if (strpos($loadedCssExceptionsPatterns, "\n") !== false) {
-				// Multiple values (one per line)
-				foreach (explode("\n", $loadedCssExceptionsPatterns) as $loadedCssExceptionPattern) {
-					$regExps[] = '#'.trim($loadedCssExceptionPattern).'#';
-				}
-			} else {
-				// Only one value?
-				$regExps[] = '#'.trim($loadedCssExceptionsPatterns).'#';
-			}
-		}
-
-		foreach ($regExps as $regExp) {
-			if ( preg_match( $regExp, $href ) || ( strpos($href, $regExp) !== false ) ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
+        return Regex::matchesAnyRule($rules, $href);
+    }
 
 	/**
 	 * @param $htmlSource
@@ -218,7 +208,7 @@ class MinifyCss
 			return $htmlSource; // no STYLE tags
 		}
 
-		$skipTagsContaining = array(
+		$skipTagsContaining = apply_filters('wpacu_internal_minify_css_inline_style_skip_tags_containing', array(
 			'data-wpacu-skip',
 			'astra-theme-css-inline-css',
 			'astra-edd-inline-css',
@@ -230,7 +220,7 @@ class MinifyCss
 			// Only shown to the admin, irrelevant for any optimization (save resources)
 			'data-wpacu-inline-css-file'
 			// already minified/optimized since the INLINE was generated from the cached file
-		);
+		));
 
 		$fetchType = 'regex';
 

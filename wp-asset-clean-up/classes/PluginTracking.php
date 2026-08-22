@@ -14,6 +14,13 @@ use WpAssetCleanUp\Admin\SettingsAdmin;
 class PluginTracking
 {
 	/**
+	 * Whether the tracking notice was rendered during the current request.
+	 *
+	 * @var bool
+	 */
+	private $trackingNoticeRendered = false;
+
+	/**
 	 * The data to send to the Asset CleanUp site
 	 *
 	 * @access private
@@ -29,11 +36,8 @@ class PluginTracking
 		add_action('wp',   array($this, 'scheduleEvents' ));
 		add_action('init', array($this, 'scheduleSend' ));
 
-		// Triggers when Buttons from the Top Notice are clicked and the page is reloaded (non-AJAX call)
-        // This is a fallback in case there are JS errors and the AJAX call is not triggering
-        if (isset($_GET['wpacu_is_page_reload']) && $_GET['wpacu_is_page_reload']) {
-	        add_action('admin_init', array($this, 'optInOut' ));
-        }
+		// Secure non-JavaScript fallback for the tracking notice controls.
+		add_action('admin_post_' . WPACU_PLUGIN_ID . '_update_tracking_consent', array($this, 'handleTrackingConsentPost'));
 
 		// Before "Settings" are saved in the database, right after form submit
         // Check "Allow Usage Tracking" value and take action if it's enabled
@@ -50,39 +54,65 @@ class PluginTracking
 	}
 
 	/**
-     * @param bool $isAjaxCall
 	 * @return bool|string|void
 	 */
-	public function optInOut($isAjaxCall = false)
+	public function optInOut()
 	{
-	    if ( ! isset($_REQUEST['wpacu_action']) ) {
+	    if ( ! isset($_POST['wpacu_action']) ) {
 	        return false;
         }
 
 		$response = '';
-		$redirect = true;
+	    $wpacuAction = sanitize_key(wp_unslash($_POST['wpacu_action']));
 
-	    if ($isAjaxCall) {
-	        $redirect = false;
-        }
-
-	    $wpacuAction = $_REQUEST['wpacu_action'];
-
-	    if ($wpacuAction === 'wpacu_opt_into_tracking') {
+	    if (in_array($wpacuAction, array('opt_in', 'wpacu_opt_into_tracking'), true)) {
 		    $response = $this->checkForOptIn();
 	    }
 
-	    if ($wpacuAction === 'wpacu_opt_out_of_tracking') {
+	    if (in_array($wpacuAction, array('opt_out', 'wpacu_opt_out_of_tracking'), true)) {
             $response = $this->checkForOptOut();
-
-            if ($redirect) {
-	            // Reload the same page without the Asset CleanUp query action
-	            wp_redirect(remove_query_arg(array('wpacu_action', 'wpacu_is_page_reload')));
-	            exit();
-            }
         }
 
         return $response;
+	}
+
+	/**
+	 * Handles the non-JavaScript tracking consent fallback.
+	 *
+	 * @return void
+	 */
+	public function handleTrackingConsentPost()
+	{
+		if ( ! isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+			wp_die(esc_html__('Invalid request method.', 'wp-asset-clean-up'), '', array('response' => 405));
+		}
+
+		if ( ! Menu::userCanAccessPlugin() ) {
+			wp_die(esc_html__('You are not allowed to change this setting.', 'wp-asset-clean-up'), '', array('response' => 403));
+		}
+
+		check_admin_referer('wpacu_update_tracking_consent');
+
+		$trackingConsent = isset($_POST['wpacu_tracking_consent'])
+			? sanitize_key(wp_unslash($_POST['wpacu_tracking_consent']))
+			: '';
+
+		if ($trackingConsent === 'opt_in') {
+			$this->checkForOptIn();
+		} elseif ($trackingConsent === 'opt_out') {
+			$this->checkForOptOut();
+		} else {
+			wp_die(esc_html__('Invalid tracking consent value.', 'wp-asset-clean-up'), '', array('response' => 400));
+		}
+
+		$redirectUrl = wp_get_referer();
+
+		if ( ! $redirectUrl ) {
+			$redirectUrl = admin_url('admin.php?page=wpassetcleanup_settings&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-analytics');
+		}
+
+		wp_safe_redirect(remove_query_arg(array('wpacu_action', 'wpacu_is_page_reload', '_wpnonce'), $redirectUrl));
+		exit();
 	}
 
 	/**
@@ -176,7 +206,7 @@ class PluginTracking
 	 * @param  bool $override If we should override the tracking setting.
 	 * @param  bool $ignoreLastCheckIn If we should ignore when the last check in was.
 	 *
-	 * @return bool
+	 * @return bool|string
 	 */
 	public function sendCheckIn($override = false, $ignoreLastCheckIn = false)
 	{
@@ -200,23 +230,41 @@ class PluginTracking
 
 		$response = wp_remote_post('https://www.assetcleanup.com/tracking/?wpacu_action=checkin', array(
 			'method'      => 'POST',
-			'timeout'     => 8,
+			'timeout'     => 5,
 			'redirection' => 5,
 			'httpversion' => '1.1',
-			'blocking'    => false,
+			'blocking'    => true,
 			'body'        => $this->data,
-			'user-agent'  => 'WPACU/' . WPACU_PLUGIN_VERSION . '; ' . get_bloginfo('url')
+			'user-agent'  => 'WP-Asset-CleanUp/' . WPACU_PLUGIN_VERSION . '; WordPress/' . get_bloginfo('version')
 		));
+
+		if (is_wp_error($response)) {
+			return false;
+		}
+
+		$responseCode = (int)wp_remote_retrieve_response_code($response);
+
+		if ($responseCode < 200 || $responseCode >= 300) {
+			return false;
+		}
 
 		Misc::addUpdateOption(WPACU_PLUGIN_ID.'_tracking_last_send', time());
 
 		return wp_remote_retrieve_body($response);
 	}
 
+    /**
+     * @return void
+     */
+    public function sendScheduledCheckIn()
+    {
+        $this->sendCheckIn();
+    }
+
 	/**
 	 * @param $savedSettings
 	 *
-	 * @return array
+	 * @return void
 	 */
 	public function checkForSettingsOptIn($savedSettings)
 	{
@@ -224,8 +272,6 @@ class PluginTracking
 		if (isset($savedSettings['allow_usage_tracking']) && $savedSettings['allow_usage_tracking'] == 1) {
 			$this->sendCheckIn( true );
 		}
-
-		return $savedSettings;
 	}
 
 	/**
@@ -292,7 +338,7 @@ class PluginTracking
 	public function scheduleSend()
 	{
 		if (Misc::doingCron()) {
-			add_action('wpacu_weekly_scheduled_events', array($this, 'sendCheckIn' ));
+			add_action('wpacu_weekly_scheduled_events', array($this, 'sendScheduledCheckIn'));
 		}
 	}
 
@@ -344,6 +390,10 @@ class PluginTracking
 	{
 		check_ajax_referer('wpacu_plugin_tracking_nonce', 'wpacu_security');
 
+		if ( ! Menu::userCanAccessPlugin() ) {
+			wp_send_json_error(array('message' => __('You are not allowed to change this setting.', 'wp-asset-clean-up')), 403);
+		}
+
 		$action = isset($_POST['action']) ? $_POST['action'] : false;
 
 		if ($action !== WPACU_PLUGIN_ID . '_close_tracking_notice' || ! $action) {
@@ -352,15 +402,24 @@ class PluginTracking
 
 		$wpacuAction = isset($_POST['wpacu_action']) ? $_POST['wpacu_action'] : false;
 
-		if (! $wpacuAction) {
-			exit('Invalid Asset CleanUp Action');
+		$wpacuAction = is_string($wpacuAction) ? sanitize_key(wp_unslash($wpacuAction)) : '';
+
+		if ( ! in_array($wpacuAction, array('opt_in', 'wpacu_opt_into_tracking', 'opt_out', 'wpacu_opt_out_of_tracking'), true)) {
+			wp_send_json_error(array('message' => __('The requested tracking preference is invalid.', 'wp-asset-clean-up')), 400);
 		}
 
 		// Allow to Disallow (depending on the action chosen)
-		$response = $this->optInOut(true);
-		echo esc_html($response);
+		$this->optInOut();
 
-		exit();
+		$trackingEnabled = (new SettingsAdmin())->getOption('allow_usage_tracking');
+		$isOptIn = in_array($wpacuAction, array('opt_in', 'wpacu_opt_into_tracking'), true);
+		$preferenceSaved = $isOptIn ? (int)$trackingEnabled === 1 : empty($trackingEnabled);
+
+		if ( ! $preferenceSaved) {
+			wp_send_json_error(array('message' => __('The tracking preference could not be saved. Please try again.', 'wp-asset-clean-up')), 500);
+		}
+
+		wp_send_json_success(array('message' => __('The tracking preference was saved.', 'wp-asset-clean-up')));
 	}
 
 	/**
@@ -383,6 +442,17 @@ class PluginTracking
 
             .wpacu-tracking-notice .wpacu-action-links {
                 margin: 0 0 8px;
+            }
+
+            .wpacu-tracking-notice.wpacu-tracking-notice-saving .wpacu-action-links {
+                opacity: 0.55;
+            }
+
+            .wpacu-tracking-status {
+                display: none;
+                margin: 10px 0 0;
+                color: #b32d2e;
+                font-weight: 600;
             }
 
             .wpacu-tracking-notice .wpacu-action-links ul {
@@ -438,7 +508,7 @@ class PluginTracking
 	 */
 	public function noticeScripts()
 	{
-        if ( ! $this->showTrackingNotice() ) {
+        if ( ! $this->trackingNoticeRendered ) {
             return;
         }
 		?>
@@ -457,28 +527,62 @@ class PluginTracking
                     }
                 });
 
-                // 'x' click from the top right of the notice
-                $(document).on('click', '.wpacu-tracking-notice .notice-dismiss', function(event) {
-                    $('[data-wpacu-close-action="wpacu_opt_out_of_tracking"]').trigger('click');
-                });
+                // Intercept the top-right dismiss action before WordPress removes the notice.
+                document.addEventListener('click', function(event) {
+					if ( ! $(event.target).closest('.wpacu-tracking-notice .notice-dismiss').length) {
+						return;
+					}
+
+					event.preventDefault();
+					event.stopImmediatePropagation();
+                    $('[data-wpacu-close-action="opt_out"]').trigger('click');
+                }, true);
 
                 // button click
                 $('.wpacu-close-tracking-notice').on('click', function(e) {
                     e.preventDefault();
 
-                    $('.wpacu-tracking-notice').fadeOut('fast');
-
-                    var wpacuXhr = new XMLHttpRequest(),
+					var $trackingNotice = $('.wpacu-tracking-notice'),
+						$trackingButtons = $trackingNotice.find('.wpacu-close-tracking-notice, .notice-dismiss'),
+						$trackingStatus = $trackingNotice.find('.wpacu-tracking-status'),
+						wpacuXhr = new XMLHttpRequest(),
                         wpacuCloseAction = $(this).attr('data-wpacu-close-action'),
                         wpacuSecurityNonce = '<?php echo wp_create_nonce('wpacu_plugin_tracking_nonce'); ?>';
 
+					if ($trackingNotice.hasClass('wpacu-tracking-notice-saving')) {
+						return;
+					}
+
+					$trackingNotice.addClass('wpacu-tracking-notice-saving');
+					$trackingButtons.prop('disabled', true).attr('aria-disabled', 'true');
+					$trackingStatus.hide().text('');
+
                     wpacuXhr.open('POST', '<?php echo esc_url(admin_url('admin-ajax.php')); ?>');
+					wpacuXhr.timeout = 15000;
                     wpacuXhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                     wpacuXhr.onload = function () {
-                        if (wpacuXhr.status === 200) {
-                            } else if (wpacuXhr.status !== 200) {
+						var response = null;
+
+						try {
+							response = JSON.parse(wpacuXhr.responseText);
+						} catch (error) {}
+
+						if (wpacuXhr.status === 200 && response && response.success === true) {
+							$trackingNotice.fadeOut('fast');
+                            } else {
+							wpacuRestoreTrackingNotice(response && response.data && response.data.message ? response.data.message : '<?php echo esc_js(__('The tracking preference could not be saved. Please try again.', 'wp-asset-clean-up')); ?>');
                             }
                     };
+					wpacuXhr.onerror = function() {
+						wpacuRestoreTrackingNotice('<?php echo esc_js(__('The tracking preference could not be saved. Please check your connection and try again.', 'wp-asset-clean-up')); ?>');
+					};
+					wpacuXhr.ontimeout = wpacuXhr.onerror;
+
+					function wpacuRestoreTrackingNotice(message) {
+						$trackingNotice.removeClass('wpacu-tracking-notice-saving').show();
+						$trackingButtons.prop('disabled', false).removeAttr('aria-disabled');
+						$trackingStatus.text(message).show();
+					}
 
                     wpacuXhr.send(encodeURI('action=<?php echo WPACU_PLUGIN_ID . '_close_tracking_notice'; ?>&wpacu_action=' + wpacuCloseAction + '&wpacu_security='+ wpacuSecurityNonce));
                 });
@@ -500,23 +604,28 @@ class PluginTracking
 
 		$this->setupData();
 
-		$optin_url  = add_query_arg(array('wpacu_action' => 'wpacu_opt_into_tracking',   'wpacu_is_page_reload' => true));
-		$optout_url = add_query_arg(array('wpacu_action' => 'wpacu_opt_out_of_tracking', 'wpacu_is_page_reload' => true));
-
 		?>
 		<div class="wpacu-tracking-notice notice is-dismissible">
-			<p><?php _e('Allow Asset CleanUp to anonymously track plugin usage in order to help us make the plugin better? No sensitive or personal data is collected.', 'wp-asset-clean-up'); ?></p>
+			<p><?php _e('Allow Asset CleanUp to send periodic technical usage data to help us improve the plugin? The site URL is not added as an installation identifier or request header, and the administrator name and email are not added as tracking fields.', 'wp-asset-clean-up'); ?></p>
+			<p class="wpacu-tracking-status" role="alert" aria-live="polite"></p>
 			<div class="wpacu-action-links">
 				<ul>
 					<li class="wpacu-optin">
-                        <a href="<?php echo esc_url($optin_url); ?>"
-                           data-wpacu-close-action="wpacu_opt_into_tracking"
-                           class="wpacu-close-tracking-notice button-primary"><img style="vertical-align: sub;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-check-white.svg" alt="" />&nbsp;<?php _e('Allow, I\'m happy to help', 'easy-digital-downloads'); ?></a>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <input type="hidden" name="action" value="<?php echo esc_attr(WPACU_PLUGIN_ID . '_update_tracking_consent'); ?>" />
+                            <input type="hidden" name="wpacu_tracking_consent" value="opt_in" />
+                            <?php wp_nonce_field('wpacu_update_tracking_consent'); ?>
+                            <button type="submit" data-wpacu-close-action="opt_in" class="wpacu-close-tracking-notice button-primary"><img style="vertical-align: sub;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-check-white.svg" alt="" />&nbsp;<?php _e('Allow, I\'m happy to help', 'wp-asset-clean-up'); ?></button>
+                        </form>
                     </li>
 					<li class="wpacu-optout">
-                        <a href="<?php echo esc_url($optout_url); ?>"
-                           data-wpacu-close-action="wpacu_opt_out_of_tracking"
-                           class="wpacu-close-tracking-notice button-secondary"><img style="vertical-align: sub; margin-right: 2px;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-block.svg" alt="" />&nbsp;<?php _e('No, do not allow', 'easy-digital-downloads'); ?></a></li>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <input type="hidden" name="action" value="<?php echo esc_attr(WPACU_PLUGIN_ID . '_update_tracking_consent'); ?>" />
+                            <input type="hidden" name="wpacu_tracking_consent" value="opt_out" />
+                            <?php wp_nonce_field('wpacu_update_tracking_consent'); ?>
+                            <button type="submit" data-wpacu-close-action="opt_out" class="wpacu-close-tracking-notice button-secondary"><img style="vertical-align: sub; margin-right: 2px;" width="16" height="16" src="<?php echo WPACU_PLUGIN_URL; ?>/assets/icons/icon-block.svg" alt="" />&nbsp;<?php _e('No, do not allow', 'wp-asset-clean-up'); ?></button>
+                        </form>
+                    </li>
 			        <li class="wpacu-more-info"><span style="color: #004567;" class="dashicons dashicons-info"></span> <a id="wpacu-show-tracked-data" href="#">What kind of data will be sent for the tracking?</a></li>
 				</ul>
 				<div style="clear: both;"></div>
@@ -528,6 +637,7 @@ class PluginTracking
 			</div>
 		</div>
 		<?php
+		$this->trackingNoticeRendered = true;
         MainAdmin::instance()->setTopAdminNoticeDisplayed();
 	}
 

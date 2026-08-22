@@ -6,9 +6,13 @@ if ( ! isset( $data, $criticalCssConfig ) ) {
 	exit;
 }
 
+$inputStyle = \WpAssetCleanUp\Settings::getInputStyle($data['wpacu_settings']);
+
 // Nothing to update here; Just information about how to implement "wpacu_critical_css" hook for custom pages
 ?>
-<div id="wpacu-critical-css-custom-pages" class="wpacu-wrap <?php if ($data['wpacu_settings']['input_style'] !== 'standard') { ?>wpacu-switch-enhanced<?php } else { ?>wpacu-switch-standard<?php } ?>">
+<div id="wpacu-critical-css-custom-pages"
+     class="wpacu-wrap <?php echo esc_attr(\WpAssetCleanUp\Settings::getInputStyleCssClasses($inputStyle)); ?>"
+     data-wpacu-input-style="<?php echo esc_attr($inputStyle); ?>">
     <div class="wpacu-alert alert-warning"><p>At this time, if you want to implement critical CSS to a custom page, you need to use the "wpacu_critical_css" hook which requires editing functions.php from your theme (ideally the Child theme if you have one available) or create a custom plugin containing the code and activate it. <span class="dashicons dashicons-welcome-learn-more"></span> <a target="_blank" href="https://www.assetcleanup.com/docs/?p=608#wpacu-how-to-use-hook">Click here for a tutorial</a> explaining how to do the implementation.</p></div>
     <p>Here's an example of the hook in action! Here, critical CSS is loaded if the visited page has the ID equal with 10. To find out the ID of the page for which you want to implement custom critical CSS, you can get the ID from the request URI (anytime you want to edit the post/page) which is something like: <code>/wp-admin/post.php?post=<strong>PAGE_ID_HERE</strong>&action=edit</code></p>
 

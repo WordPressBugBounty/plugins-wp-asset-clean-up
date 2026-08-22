@@ -4,7 +4,6 @@
 namespace WpAssetCleanUp\Admin;
 
 use WpAssetCleanUp\AssetsManager;
-use WpAssetCleanUp\HardcodedAssets;
 use WpAssetCleanUp\Main;
 use WpAssetCleanUp\MainFront;
 use WpAssetCleanUp\Menu;
@@ -81,6 +80,12 @@ class MainAdmin
 	    add_action( 'init', array( $this, 'triggersAfterInit' ), 11);
 
         if (Main::instance()->isGetAssetsCall) {
+            add_action('send_headers', static function() {
+                if ( ! headers_sent()) {
+                    header('X-WPACU-Fetched-Url: '.rawurlencode(Misc::getCurrentPageUrl()));
+                }
+            }, PHP_INT_MAX);
+
             $currentTheme = strtolower(wp_get_theme());
             $noRocketInit = true;
 
@@ -232,16 +237,11 @@ class MainAdmin
 			return;
 		}
 
-		echo 'POST DATA: '.print_r($_POST, true)."\n\n";
-
-		echo '- Downloading from WordPress.org'."\n\n";
-
 		$activePluginsIcons = MiscAdmin::fetchActiveFreePluginsIconsFromWordPressOrg();
 
-		if (is_array($activePluginsIcons) && ! empty($activePluginsIcons)) {
-			echo print_r($activePluginsIcons, true)."\n";
-			exit;
-		}
+		wp_send_json_success(array(
+			'icons_count' => is_array($activePluginsIcons) ? count($activePluginsIcons) : 0
+		));
 	}
 
     /**
@@ -264,7 +264,12 @@ class MainAdmin
 
 		$forcePluginIconsDownload = isset($_GET['wpacu_force_plugin_icons_fetch']);
 
-		$triggerPluginIconsDownload = $forcePluginIconsDownload || ! get_transient(WPACU_PLUGIN_ID . '_active_plugins_icons');
+		if ($forcePluginIconsDownload) {
+			delete_transient(WPACU_PLUGIN_ID . '_active_plugins_icons');
+			delete_transient(WPACU_PLUGIN_ID . '_active_plugins_icons_fetch_lock');
+		}
+
+		$triggerPluginIconsDownload = $forcePluginIconsDownload || MiscAdmin::shouldFetchActiveFreePluginsIcons();
 
 		if (! $triggerPluginIconsDownload) {
 			return;
@@ -277,9 +282,7 @@ class MainAdmin
                     'wpacu_nonce': '<?php echo wp_create_nonce('wpacu_fetch_active_plugins_icons'); ?>'
                 };
 
-                $.post(ajaxurl, wpacuDataToSend, function(response) {
-                    console.log(response);
-                });
+                $.post(ajaxurl, wpacuDataToSend);
             });
 		</script>
 		<?php
@@ -325,82 +328,6 @@ class MainAdmin
         }
 
         }
-
-    /**
-     *
-     */
-    public static function initBufferingForAjaxCallFromTheDashboard()
-    {
-        ob_start();
-
-        add_action('shutdown', static function() {
-            if (ob_get_level() > 1) {
-                ob_end_flush();
-            }
-
-            $htmlSource = '';
-
-            // We'll need to get the number of ob levels we're in, so that we can iterate over each, collecting
-            // that buffer's output into the final output.
-            $htmlSourceLevel = ob_get_level();
-
-            for ($wpacuI = 0; $wpacuI < $htmlSourceLevel; $wpacuI++) {
-                $htmlSource .= ob_get_clean();
-            }
-
-            $anyHardCodedAssets = HardcodedAssets::getAll($htmlSource, false); // Fetch all for this type of request
-            if ( ! empty($anyHardCodedAssets) && Main::instance()->isAjaxCall ) {
-                HardcodedAssets::attachExternalHardcodedAssetsUrlsToCurrentExternalUrlsList($anyHardCodedAssets);
-            }
-
-            $reps = array('{wpacu_hardcoded_assets}' => base64_encode( wp_json_encode( $anyHardCodedAssets ) ));
-
-            if ( isset($_GET['wpacu_print']) ) {
-                $anyHardCodedAssetsPrinted = print_r($anyHardCodedAssets, true);
-                $reps['{wpacu_hardcoded_assets_printed}'] = $anyHardCodedAssetsPrinted;
-            }
-
-            echo str_replace(array_keys($reps), array_values($reps), $htmlSource);
-        }, 0);
-    }
-
-    /**
-     * @return bool
-     */
-    public static function useBufferingForEditFrontEndView()
-    {
-        // The logged-in admin needs to be outside the Dashboard (in the front-end view)
-        // "Manage in the Front-end" is enabled in "Settings" -> "Plugin Usage Preferences"
-        return ! is_admin() && ! Main::instance()->isGetAssetsCall && Menu::userCanAccessPlugin() && AssetsManager::instance()->frontendShow();
-    }
-
-    /**
-     *
-     */
-    public static function initBufferingForFrontendManagement()
-    {
-        // Used to print the hardcoded CSS/JS
-        ob_start();
-
-        add_action('shutdown', static function() {
-            if (ob_get_level() > 1) {
-                ob_end_flush();
-            }
-
-            $htmlSource = '';
-
-            // We'll need to get the number of ob levels we're in, so that we can iterate over each, collecting
-            // that buffer's output into the final output.
-            $htmlSourceLevel = ob_get_level();
-
-            for ($wpacuI = 0; $wpacuI < $htmlSourceLevel; $wpacuI++) {
-                $htmlSource .= ob_get_clean();
-            }
-
-            echo OptimizeCommon::alterHtmlSource($htmlSource);
-
-            }, 0);
-    }
 
     /**
      * @param $allAssets
@@ -469,6 +396,8 @@ class MainAdmin
                     }
                 }
 
+                $obj = apply_filters('wpacu_internal_get_position_new', $obj, 'styles');
+
                 if (Sorting::matchesWpCoreCriteria($obj, 'styles')) {
                     $obj->wp                    = true;
                     $data['core_styles_loaded'] = true;
@@ -518,6 +447,8 @@ class MainAdmin
                         $obj->position = 'head';
                     }
                 }
+
+                $obj = apply_filters('wpacu_internal_get_position_new', $obj, 'scripts');
 
                 if (isset($obj->src) && $obj->src) {
                     $localSrc = Misc::getLocalSrcIfExist($obj->src);
@@ -644,11 +575,15 @@ class MainAdmin
     public function printScriptsStyles()
     {
         // Not for WordPress AJAX calls
-        if (Main::$domGetType === 'direct' && defined('DOING_AJAX') && DOING_AJAX) {
+        $isDoingAjax = function_exists('wp_doing_ajax')
+            ? wp_doing_ajax()
+            : (defined('DOING_AJAX') && DOING_AJAX);
+
+        if (Main::$domGetType === 'direct' && $isDoingAjax) {
             return;
         }
 
-        $isFrontEndEditView = Main::instance()->isFrontendEditView;
+        $isFrontEndEditView  = Main::instance()->isFrontendEditView;
         $isDashboardEditView = (! $isFrontEndEditView && Main::instance()->isGetAssetsCall);
 
         if (! $isFrontEndEditView && ! $isDashboardEditView) {
@@ -671,7 +606,7 @@ class MainAdmin
         // located in Main::instance()->wpScripts and Main::instance()->wpStyles
         // We will add it to the list as they will be marked
 
-        $stylesBeforeUnload = Main::instance()->wpAllStyles;
+        $stylesBeforeUnload  = Main::instance()->wpAllStyles;
         $scriptsBeforeUnload = Main::instance()->wpAllScripts;
 
         global $wp_scripts, $wp_styles;
@@ -823,13 +758,9 @@ class MainAdmin
             Update::updateHandlesInfo( $list );
         }
 
-        // [wpacu_lite]
-        if ( $isFrontEndEditView && ! Main::instance()->isUpdateable ) {
-            $this->parseTemplate('__lite/settings-frontend-lite-locked', array(), true);
-            /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
+        if (apply_filters('wpacu_internal_should_stop_frontend_edit_view_output', false, $isFrontEndEditView, $wpacuTimingName, $this)) {
             return;
         }
-        // [/wpacu_lite]
 
         // Front-end View while admin is logged in
         if ($isFrontEndEditView) {
@@ -841,7 +772,7 @@ class MainAdmin
                 'bulk_unloaded'               => array( 'post_type' => array() ),
                 'plugin_settings'             => $wpacuSettings->getAll(),
                 'current_unloaded_all'        => $currentUnloadedAll,
-                'current_unloaded_page_level' => Main::instance()->getAssetsUnloadedPageLevel( Main::instance()->getCurrentPostId(), true )
+                'current_unloaded_page_level' => Main::instance()->getAssetsUnloadedPageLevel( Main::instance()->getCurrentPostId(), 'front', true )
             );
 
             $data['wpacu_frontend_assets_manager_just_updated'] = false;
@@ -894,6 +825,8 @@ class MainAdmin
                 $type = 'post';
             }
 
+            $type = apply_filters('wpacu_internal_get_assets_type', $type, Main::instance()->getCurrentPostId());
+
             $data['wpacu_type'] = $type;
 
             $data['load_exceptions_per_page'] = Main::instance()->getLoadExceptionsPageLevel($type, Main::instance()->getCurrentPostId());
@@ -943,6 +876,10 @@ class MainAdmin
                 $data = self::instance()->setPageTemplate($data);
             }
 
+            else {
+                $data = apply_filters('wpacu_internal_data_for_non_singular_asset_management', $data);
+            }
+
             $data['total_styles']  = ! empty($data['all']['styles'])  ? count($data['all']['styles'])  : false;
             $data['total_scripts'] = ! empty($data['all']['scripts']) ? count($data['all']['scripts']) : false;
 
@@ -963,6 +900,9 @@ class MainAdmin
             $data['ignore_child'] = Main::instance()->getIgnoreChildren();
 
             $data['external_srcs_ref'] = AssetsManager::setExternalSrcsRef($data['all']);
+
+            // Any extra edition-specific rules to pass to the template?
+            $data = apply_filters('wpacu_internal_data_var_template', $data);
 
             switch (assetCleanUpHasNoLoadMatches($data['fetch_url'])) {
                 case 'is_set_in_settings':
@@ -1006,6 +946,7 @@ class MainAdmin
             $list['styles']  = $data['all']['styles'];
             $list['scripts'] = $data['all']['scripts'];
 
+            $list = apply_filters('wpacu_internal_filter_list_on_dashboard_ajax_call', $list);
             if ( (Main::$domGetType === 'direct' && Main::instance()->isAjaxCall) || Main::$domGetType === 'wp_remote_post' ) {
                 $list['external_srcs_ref'] = AssetsManager::setExternalSrcsRef($data['all']);
             }
@@ -1014,6 +955,16 @@ class MainAdmin
             $list['current_unloaded_all'] = isset(Main::instance()->allUnloadedAssets)
                 ? Main::instance()->allUnloadedAssets
                 : array('styles' => array(), 'scripts' => array());
+
+            // Keep the effective page URL inside the payload. Browser and
+            // server HTTP clients do not always expose the final redirect URL,
+            // while this value is produced by the page that actually answered.
+            $list['wpacu_fetched_url'] = Misc::getCurrentPageUrl();
+            $list['wpacu_fetched_context_is_homepage'] = is_front_page() || is_home();
+
+            if ( ! headers_sent()) {
+                header('X-WPACU-Fetched-Url: '.rawurlencode($list['wpacu_fetched_url']));
+            }
 
             if ( isset($_GET['wpacu_print']) ) {
                 echo '<!-- Enqueued List: '."\n".print_r($list, true)."\n".' -->';
@@ -1053,18 +1004,67 @@ class MainAdmin
      */
 	public function ajaxGetJsonListCallback()
 	{
-		if ( ! isset($_POST['wpacu_nonce']) ) {
+		if ( ! isset($_POST['wpacu_nonce']) || ! is_string($_POST['wpacu_nonce']) ) {
 			echo 'Error: The security nonce was not sent for verification. Location: '.__METHOD__;
-			return;
+            exit();
 		}
 
-		if ( ! wp_verify_nonce($_POST['wpacu_nonce'], 'wpacu_ajax_get_loaded_assets_nonce') ) {
+		if ( ! wp_verify_nonce(wp_unslash($_POST['wpacu_nonce']), 'wpacu_ajax_get_loaded_assets_nonce') ) {
 			echo 'Error: The nonce security check has failed. Location: '.__METHOD__;
-			return;
+            exit();
 		}
 
-		$postId  = (int)Misc::getVar('post', 'post_id'); // if any (could be home page for instance)
-		$pageUrl = Misc::getVar('post', 'page_url'); // post, page, custom post type, home page etc.
+        if ( ! Menu::userCanAccessPlugin() ) {
+            echo 'Error: Not enough privileges to perform this action. Location: '.__METHOD__;
+            exit();
+        }
+
+        $pageType = sanitize_key(Misc::getVar('post', 'page_type'));
+
+		$postId = (int)Misc::getVar('post', 'post_id'); // if any (could be home page for instance)
+
+        $pageUrl = isset($_POST['page_url']) && is_string($_POST['page_url'])
+            ? esc_url_raw(wp_unslash($_POST['page_url']))
+            : ''; // post, page, custom post type, home page etc.
+
+        $redirectedToUrl = isset($_POST['redirected_to_url']) && is_string($_POST['redirected_to_url'])
+            ? esc_url_raw(wp_unslash($_POST['redirected_to_url']))
+            : '';
+
+        if ( ! self::isAllowedAjaxFetchUrl($pageUrl) ) {
+            echo '<div class="wpacu-ajax-error" data-wpacu-ajax-error="1">';
+                echo '<p><span class="dashicons dashicons-warning"></span> ';
+                    echo esc_html__('The requested page URL is not allowed.', 'wp-asset-clean-up');
+                echo '</p>';
+           	echo '</div>';
+
+           	exit();
+        }
+
+        if ($redirectedToUrl !== '' && ! self::isAllowedAjaxFetchUrl($redirectedToUrl)) {
+            echo '<div class="wpacu-ajax-error" data-wpacu-ajax-error="1">';
+                echo '<p><span class="dashicons dashicons-warning"></span> ';
+                    echo esc_html__('The redirected page URL is not allowed.', 'wp-asset-clean-up');
+                echo '</p>';
+            echo '</div>';
+
+            exit();
+        }
+
+        $selectedContextIsHomePage = null;
+
+        if ($redirectedToUrl !== '') {
+            $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
+
+            if (self::urlRepresentsHomePage($redirectedToUrl) && ! $selectedContextIsHomePage) {
+                self::printDashboardFetchRedirectNotice($pageUrl, $redirectedToUrl, false);
+                exit();
+            }
+        }
+
+        $fetchUrl = $redirectedToUrl !== '' ? $redirectedToUrl : $pageUrl;
+
+        $emptyAssetsList = array('styles' => array(), 'scripts' => array());
 
 		$postStatus = $postId > 0 ? get_post_status($postId) : false;
 
@@ -1075,16 +1075,20 @@ class MainAdmin
 		}
 
 		if ($postId > 0) {
-			$type = 'post';
-		}
-
-        elseif ($postId == 0) {
-			$type = 'front_page';
-		}
+			$type = 'post'; // Post, Page, Media Attachment, Custom Post Type
+		} elseif (self::isLatestPostsHomePage($postId, $pageType)) {
+			$type = 'front_page'; // Homepage (latest posts)
+		} else {
+            $type = apply_filters('wpacu_internal_is_dashboard_ajax_call_for_specific_page_type', '');
+        }
 
 		$wpacuListE = $wpacuListH = '';
 
 		$settings = new Settings();
+
+        $data = array(
+            'is_dashboard_view' => true
+        );
 
 		// If the post status is 'private' only direct method can be used to fetch the assets
 		// as the remote post one will return a 404 error since the page is accessed as a guest visitor
@@ -1092,37 +1096,84 @@ class MainAdmin
 			$wpacuListE = Misc::getVar('post', 'wpacu_list_e');
 			$wpacuListH = Misc::getVar('post', 'wpacu_list_h');
 		} elseif (Main::$domGetType === 'wp_remote_post') {
-			$wpRemotePost = wp_remote_post($pageUrl, array(
+            /*
+             * wp_safe_remote_post() validates the requested URL. Inspect the
+             * first redirect before allowing WordPress to follow a harmless
+             * canonical redirect through its normal HTTP handling.
+             */
+			$requestArgs = array(
 				'body' => array(
 					WPACU_LOAD_ASSETS_REQ_KEY => 1
-				)
-				));
+				),
+                // Inspect the first response before WordPress follows it. Some
+                // HTTP transports do not expose the effective URL afterwards.
+                'redirection' => 0
+			);
+
+			$wpRemotePost = wp_safe_remote_post($fetchUrl, $requestArgs);
+
+            $redirectLocation = wp_remote_retrieve_header($wpRemotePost, 'location');
+            $redirectUrl      = is_string($redirectLocation) && $redirectLocation !== ''
+                ? \WP_Http::make_absolute_url($redirectLocation, $fetchUrl)
+                : '';
+
+            if (
+                $redirectUrl !== ''
+                && self::fetchedUrlRedirectedToDifferentLocation($fetchUrl, $redirectUrl)
+            ) {
+                if ($selectedContextIsHomePage === null) {
+                    $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
+                }
+
+                self::printDashboardFetchRedirectNotice($fetchUrl, $redirectUrl, $selectedContextIsHomePage);
+                exit();
+            }
+
+            // Follow harmless canonical redirects (for example, an added
+            // trailing slash) and retain the existing final-URL safeguard for
+            // any meaningful redirect occurring later in the chain.
+            if ($redirectUrl !== '') {
+                unset($requestArgs['redirection']);
+                $wpRemotePost = wp_safe_remote_post($fetchUrl, $requestArgs);
+            }
+
+            $finalUrl = self::getWpRemoteFinalUrl($wpRemotePost);
+
+            if (
+                $finalUrl !== ''
+                && self::fetchedUrlRedirectedToDifferentLocation($fetchUrl, $finalUrl)
+            ) {
+                if ($selectedContextIsHomePage === null) {
+                    $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
+                }
+
+                self::printDashboardFetchRedirectNotice($fetchUrl, $finalUrl, $selectedContextIsHomePage);
+                exit();
+            }
 
 			$contents = (is_array($wpRemotePost) && isset($wpRemotePost['body']) && (! is_wp_error($wpRemotePost))) ? $wpRemotePost['body'] : '';
 
-			// Enqueued List
-			if ($contents
-			    && ( strpos($contents, Main::START_DEL_ENQUEUED) !== false)
-			    && ( strpos($contents, Main::END_DEL_ENQUEUED) !== false)) {
-				// Enqueued CSS/JS (most of them or all)
-				$wpacuListE = Misc::extractBetween(
-					$contents,
-					Main::START_DEL_ENQUEUED,
-					Main::END_DEL_ENQUEUED
-				);
-			}
+            if ($contents) {
+                // Enqueued List
+                if (strpos($contents, Main::START_DEL_ENQUEUED) !== false && strpos($contents, Main::END_DEL_ENQUEUED) !== false) {
+                    // Enqueued CSS/JS (most of them or all)
+                    $wpacuListE = Misc::extractBetween(
+                        $contents,
+                        Main::START_DEL_ENQUEUED,
+                        Main::END_DEL_ENQUEUED
+                    );
+                }
 
-			// Hardcoded List
-			if ($contents
-			    && ( strpos($contents, Main::START_DEL_HARDCODED) !== false)
-			    && ( strpos($contents, Main::END_DEL_HARDCODED) !== false)) {
-				// Hardcoded (if any)
-				$wpacuListH = Misc::extractBetween(
-					$contents,
-					Main::START_DEL_HARDCODED,
-					Main::END_DEL_HARDCODED
-				);
-			}
+                // Hardcoded List
+                if (strpos($contents, Main::START_DEL_HARDCODED) !== false && strpos($contents, Main::END_DEL_HARDCODED) !== false) {
+                    // Hardcoded (if any)
+                    $wpacuListH = Misc::extractBetween(
+                        $contents,
+                        Main::START_DEL_HARDCODED,
+                        Main::END_DEL_HARDCODED
+                    );
+                }
+            }
 
 			// The list of assets COULD NOT be retrieved via "WP Remote POST" for this server
 			// EITHER the enqueued or hardcoded list of assets HAS TO BE RETRIEVED
@@ -1146,13 +1197,11 @@ class MainAdmin
                     }
                 }
 
-				$data = array(
-					'is_dashboard_view' => true,
-					'plugin_settings'   => $settings->getAll(),
-					'wp_remote_post'    => $wpRemotePost
-				);
+                $data['plugin_settings'] = $settings->getAll();
+                $data['is_wp_error']     = true;
+                $data['wp_remote_post']  = $wpRemotePost;
 
-				if (isset($type) && $type) {
+				if ($type && in_array($type, array('post', 'front_page'))) {
 					$data['page_options'] = MetaBoxes::getPageOptions( $postId, $type );
 				}
 
@@ -1161,25 +1210,54 @@ class MainAdmin
 			}
 		}
 
-		$data = array(
-			'is_dashboard_view' => true,
-			'post_id'           => $postId,
-			'plugin_settings'   => $settings->getAll()
-		);
+        $data['post_id']           = $postId;
+        $data['page_type']         = $pageType;
+        $data['plugin_settings']   = $settings->getAll();
+        $data['redirected_to_url'] = $redirectedToUrl;
+
+        if ( Main::$domGetType === 'wp_remote_post' ) {
+            $data['wp_remote_post'] = $wpRemotePost;
+        }
 
 		// [START] Enqueued CSS/JS (most of them or all)
 		$jsonE = base64_decode($wpacuListE);
 		$data['all'] = (array) json_decode($jsonE);
 
-        // Make sure if there are no STYLES enqueued, the list will be empty to avoid any notice errors
-		if ( ! isset($data['all']['styles']) ) {
-			$data['all']['styles'] = array();
-		}
+        $fetchedUrlFromPayload = isset($data['all']['wpacu_fetched_url'])
+            ? esc_url_raw((string)$data['all']['wpacu_fetched_url'])
+            : '';
 
-		// Make sure if there are no SCRIPTS enqueued, the list will be empty to avoid any notice errors
-		if ( ! isset($data['all']['scripts']) ) {
-			$data['all']['scripts'] = array();
-		}
+        $fetchedContextIsHomePage = ! empty($data['all']['wpacu_fetched_context_is_homepage']);
+
+        if ($fetchedContextIsHomePage) {
+            if ($selectedContextIsHomePage === null) {
+                $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
+            }
+
+            if ( ! $selectedContextIsHomePage) {
+                self::printDashboardFetchRedirectNotice($fetchUrl, home_url('/'), false);
+                exit();
+            }
+        }
+
+        if (
+            $fetchedUrlFromPayload !== ''
+            && self::fetchedUrlRedirectedToDifferentLocation($fetchUrl, $fetchedUrlFromPayload)
+        ) {
+            if ($selectedContextIsHomePage === null) {
+                $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
+            }
+
+            self::printDashboardFetchRedirectNotice($fetchUrl, $fetchedUrlFromPayload, $selectedContextIsHomePage);
+            exit();
+        }
+
+        // Make sure if there are no STYLES/SCRIPTS enqueued, the list will be empty to avoid any notice errors
+        foreach (array('styles', 'scripts') as $assetType) {
+            if ( ! isset($data['all'][$assetType]) ) {
+                $data['all'][$assetType] = array();
+            }
+        }
 		// [END] Enqueued CSS/JS (most of them or all)
 
 		// [START] Hardcoded (if any)
@@ -1194,10 +1272,12 @@ class MainAdmin
 		}
 		// [END] Hardcoded (if any)
 
-		$data['current_unloaded_page_level'] = Main::instance()->getAssetsUnloadedPageLevel( $postId, true );
+		$data['current_unloaded_page_level'] = Main::instance()->getAssetsUnloadedPageLevel( $postId, 'dash', true );
 
-		// e.g. for "Loaded" and "Unloaded" statuses
-		$data['current_unloaded_all'] = isset($data['all']['current_unloaded_all']) ? (array)$data['all']['current_unloaded_all'] : array('styles' => array(), 'scripts' => array());
+        // e.g. for "Loaded" and "Unloaded" statuses
+		$data['current_unloaded_all'] = isset($data['all']['current_unloaded_all'])
+                ? (array)$data['all']['current_unloaded_all']
+                : $emptyAssetsList;
 
         $data['external_srcs_ref'] = '';
 
@@ -1212,12 +1292,12 @@ class MainAdmin
 			$data['all'] = Sorting::sortListByAlpha($data['all']);
 		}
 
-        $data['fetch_url'] = $pageUrl;
+        $data['fetch_url'] = $fetchUrl;
 		$data['global_unload'] = Main::instance()->getGlobalUnload();
 
-		$data['is_bulk_unloadable'] = $data['bulk_unloaded_type'] = false;
+        $data['is_bulk_unloadable'] = $data['bulk_unloaded_type'] = false;
 
-		$data['bulk_unloaded']['post_type'] = array('styles' => array(), 'scripts' => array());
+		$data['bulk_unloaded']['post_type'] = $emptyAssetsList;
 
 		// Post Information
 		if ($postId > 0) {
@@ -1246,6 +1326,8 @@ class MainAdmin
 		$data['load_exceptions_per_page']  = Main::instance()->getLoadExceptionsPageLevel($type, $postId);
 		$data['load_exceptions_post_type'] = ($type === 'post' && $data['post_type']) ? Main::instance()->getLoadExceptionsPostType($data['post_type']) : array();
 
+		$data = apply_filters('wpacu_internal_data_var_template', $data);
+
 		$data['handle_rows_contracted'] = AssetsManager::getHandleRowStatus();
 
 		$data['total_styles']  = ! empty($data['all']['styles'])  ? count($data['all']['styles'])  : 0;
@@ -1258,9 +1340,8 @@ class MainAdmin
 		$data['handle_load_logged_in'] = Main::instance()->getHandleLoadLoggedIn();
 
 		$data['handle_notes'] = AssetsManager::getHandleNotes();
-		$data['ignore_child'] = Main::instance()->getIgnoreChildren();
 
-		$data['is_for_singular'] = (Misc::getVar('post', 'is_for_singular') === 'true');
+		$data['ignore_child'] = Main::instance()->getIgnoreChildren();
 
 		$data['page_options'] = array();
 		$data['show_page_options'] = false;
@@ -1274,18 +1355,498 @@ class MainAdmin
 		exit();
 	}
 
+    /**
+     * Retrieves the final URL after WP HTTP API redirects were followed.
+     *
+     * @param array|\WP_Error $response
+     *
+     * @return string
+     */
+    private static function getWpRemoteFinalUrl($response)
+    {
+        if (is_wp_error($response) || ! is_array($response)) {
+            return '';
+        }
+
+        if (
+            ! isset($response['http_response'])
+            || ! is_object($response['http_response'])
+            || ! method_exists($response['http_response'], 'get_response_object')
+        ) {
+            return '';
+        }
+
+        $responseObject = $response['http_response']->get_response_object();
+
+        if (is_object($responseObject) && isset($responseObject->url)) {
+            return esc_url_raw((string)$responseObject->url);
+        }
+
+        return '';
+    }
+
+    /**
+     * Checks whether a request ended at a genuinely different URL.
+     * Scheme, www/non-www, default-port and trailing slash canonicalisations
+     * are ignored.
+     *
+     * @param string $requestedUrl
+     * @param string $finalUrl
+     *
+     * @return bool
+     */
+    private static function fetchedUrlRedirectedToDifferentLocation($requestedUrl, $finalUrl)
+    {
+        if ($requestedUrl === '' || $finalUrl === '') {
+            return false;
+        }
+
+        $requestedParts = wp_parse_url($requestedUrl);
+        $finalParts     = wp_parse_url($finalUrl);
+
+        if (! is_array($requestedParts) || ! is_array($finalParts)) {
+            return false;
+        }
+
+        $normalizeHost = static function ($host) {
+            $host = strtolower((string)$host);
+
+            return strpos($host, 'www.') === 0 ? substr($host, 4) : $host;
+        };
+
+        $requestedHost = $normalizeHost(isset($requestedParts['host']) ? $requestedParts['host'] : '');
+        $finalHost     = $normalizeHost(isset($finalParts['host']) ? $finalParts['host'] : '');
+
+        if ($requestedHost !== $finalHost) {
+            return true;
+        }
+
+        $getEffectivePort = static function ($urlParts) {
+            if (isset($urlParts['port'])) {
+                return (int)$urlParts['port'];
+            }
+
+            return isset($urlParts['scheme']) && strtolower($urlParts['scheme']) === 'https' ? 443 : 80;
+        };
+
+        $usesDefaultPort = static function ($urlParts) {
+            if ( ! isset($urlParts['port']) ) {
+                return true;
+            }
+
+            $scheme = isset($urlParts['scheme']) ? strtolower($urlParts['scheme']) : '';
+            $port   = (int)$urlParts['port'];
+
+            return ($scheme === 'http' && $port === 80) || ($scheme === 'https' && $port === 443);
+        };
+
+        $requestedPort = $getEffectivePort($requestedParts);
+        $finalPort     = $getEffectivePort($finalParts);
+
+        if (
+            $requestedPort !== $finalPort
+            && ! ($usesDefaultPort($requestedParts) && $usesDefaultPort($finalParts))
+        ) {
+            return true;
+        }
+
+        $normalizePath = static function ($path) {
+            $path = rawurldecode((string)$path);
+            $path = untrailingslashit($path);
+
+            return $path !== '' ? $path : '/';
+        };
+
+        $requestedPath = $normalizePath(isset($requestedParts['path']) ? $requestedParts['path'] : '/');
+        $finalPath     = $normalizePath(isset($finalParts['path']) ? $finalParts['path'] : '/');
+
+        if ($requestedPath !== $finalPath) {
+            return true;
+        }
+
+        $requestedQuery = array();
+        $finalQuery     = array();
+
+        if (isset($requestedParts['query'])) {
+            parse_str($requestedParts['query'], $requestedQuery);
+        }
+
+        if (isset($finalParts['query'])) {
+            parse_str($finalParts['query'], $finalQuery);
+        }
+
+        foreach (self::getRedirectComparisonIgnoredQueryArgs() as $queryArg) {
+            unset($requestedQuery[$queryArg], $finalQuery[$queryArg]);
+        }
+
+        ksort($requestedQuery);
+        ksort($finalQuery);
+
+        return $requestedQuery !== $finalQuery;
+    }
+
+    /**
+     * Returns query arguments that do not identify a different page context.
+     * This keeps redirect comparisons aligned with homepage detection settings.
+     *
+     * @return string[]
+     */
+    private static function getRedirectComparisonIgnoredQueryArgs()
+    {
+        $queryArgs = self::getRedirectFetchQueryArgsToStrip();
+
+        $predefinedQueryArgs = wpacuGetQueryStringsToBeIgnoredPredefinedList();
+
+        if (is_array($predefinedQueryArgs)) {
+            $queryArgs = array_merge($queryArgs, $predefinedQueryArgs);
+        }
+
+        $extraQueryArgs = isset(Main::instance()->settings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
+            ? trim((string)Main::instance()->settings['plugins_manager_front_homepage_detect_extra_ignore_query_string_list'])
+            : '';
+
+        if ($extraQueryArgs !== '') {
+            foreach (preg_split('/\r\n|\r|\n/', $extraQueryArgs) as $queryArg) {
+                $queryArg = trim($queryArg);
+
+                if ($queryArg !== '') {
+                    $queryArgs[] = $queryArg;
+                }
+            }
+        }
+
+        return array_values(array_unique($queryArgs));
+    }
+
+    /**
+     * Returns only technical query arguments that Asset CleanUp adds while
+     * fetching assets. Unlike redirect-comparison exclusions, removing these
+     * arguments cannot select a different representation of the destination.
+     *
+     * @return string[]
+     */
+    private static function getRedirectFetchQueryArgsToStrip()
+    {
+        return array(
+            WPACU_LOAD_ASSETS_REQ_KEY,
+            'wpacu_time_r',
+            '_', // jQuery cache-busting parameter
+            'wpacu_cache_cleared',
+            'wpacu_manage_dash',
+            'force_manage_dash'
+        );
+    }
+
+    /**
+     * @param int    $postId
+     * @param string $pageType
+     *
+     * @return bool
+     */
+    private static function isLatestPostsHomePage($postId, $pageType)
+    {
+        return (int)$postId === 0
+               && in_array($pageType, array('', 'home', 'homepage', 'front_page'), true)
+               && get_option('show_on_front') === 'posts';
+    }
+
+    /**
+     * Checks whether the page selected in the Dashboard represents the site homepage.
+     *
+     * @param string $pageType
+     * @param int    $postId
+     * @param string $pageUrl
+     *
+     * @return bool
+     */
+    private static function selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl)
+    {
+        if (in_array($pageType, array('home', 'homepage', 'front_page'), true)) {
+            return true;
+        }
+
+        if ( $postId > 0
+            && get_option('show_on_front') === 'page'
+            && (int)get_option('page_on_front') === (int)$postId ) {
+            return true;
+        }
+
+        if ($postId > 0 || $pageType !== '') {
+            return false;
+        }
+
+        // Legacy requests did not always include page_type. In that case, fall
+        // back to the validated URL that was selected in the Dashboard.
+        return self::urlRepresentsHomePage($pageUrl);
+    }
+
+    /**
+     * Prints the Dashboard CSS/JS Manager notice used when the requested URL redirected elsewhere.
+     *
+     * @param string $requestedUrl
+     * @param string $finalUrl
+     * @param bool   $selectedContextIsHomePage
+     *
+     * @return void
+     */
+    private static function printDashboardFetchRedirectNotice($requestedUrl, $finalUrl, $selectedContextIsHomePage = false)
+    {
+        // A direct browser fetch can carry WPACU-only query arguments through the redirect.
+        // Do not show or reuse those arguments as part of the destination page URL.
+        $redirectedFetchUrl = remove_query_arg(self::getRedirectFetchQueryArgsToStrip(), $finalUrl);
+
+        $redirectedUrlIsAllowed = self::isAllowedAjaxFetchUrl($redirectedFetchUrl);
+
+        $redirectedToHomePageFromDifferentContext = $redirectedUrlIsAllowed
+                                                    && self::urlRepresentsHomePage($redirectedFetchUrl)
+                                                    && ! $selectedContextIsHomePage;
+
+        $canFetchRedirectedUrl = $redirectedUrlIsAllowed && ! $redirectedToHomePageFromDifferentContext;
+        ?>
+        <div class="wpacu-ajax-error" data-wpacu-ajax-error="1" data-wpacu-fetch-redirect-detected="1">
+            <p>
+                <span class="dashicons dashicons-warning"></span>
+                <strong><?php esc_html_e('The selected page redirects to a different URL.', 'wp-asset-clean-up'); ?></strong>
+            </p>
+            <p>
+                <?php esc_html_e('Asset CleanUp stopped the fetch because the destination may load a different set of CSS/JS files.', 'wp-asset-clean-up'); ?>
+            </p>
+            <p>
+                <strong><?php esc_html_e('Requested URL:', 'wp-asset-clean-up'); ?></strong><br />
+                <code><?php echo esc_html($requestedUrl); ?></code>
+            </p>
+            <p>
+                <strong><?php esc_html_e('Redirected to:', 'wp-asset-clean-up'); ?></strong><br />
+                <code><?php echo esc_html($redirectedFetchUrl); ?></code>
+            </p>
+            <?php if ($redirectedToHomePageFromDifferentContext) { ?>
+                <p>
+                    <?php esc_html_e('The redirected URL is the homepage. To prevent homepage assets from being managed by mistake, the bypass option is not available for this redirect.', 'wp-asset-clean-up'); ?>
+                </p>
+            <?php } elseif ($canFetchRedirectedUrl) { ?>
+                <p>
+                    <?php esc_html_e('If the redirect is expected and both URLs represent the same page (for example, a multilingual plugin added a language prefix), you can continue using the redirected URL.', 'wp-asset-clean-up'); ?>
+                </p>
+                <p>
+                    <button type="button"
+                            class="button button-primary wpacu-manage-redirected-fetch-url"
+                            data-wpacu-redirected-fetch-url="<?php echo esc_url($redirectedFetchUrl); ?>">
+                        <span class="dashicons dashicons-migrate"></span>
+                        <?php esc_html_e('Manage assets from the redirected URL', 'wp-asset-clean-up'); ?>
+                    </button>
+                    <span class="spinner" style="float: none; margin: 0 0 0 6px;"></span>
+                </p>
+                <p>
+                    <small><?php esc_html_e('Continue only if the redirected URL represents the page you intended to manage.', 'wp-asset-clean-up'); ?></small>
+                </p>
+            <?php } else { ?>
+                <p>
+                    <?php esc_html_e('The redirected URL is outside the allowed site hosts and cannot be fetched from this area.', 'wp-asset-clean-up'); ?>
+                </p>
+            <?php } ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Checks whether an allowed site URL points to the WordPress homepage.
+     *
+     * wpacuIsHomePageUrl() expects a request URI rather than a full URL.
+     * Canonical path and tracking-query comparisons are kept as a fallback for
+     * authenticated admin AJAX requests, where the general helper intentionally
+     * has extra restrictions.
+     *
+     * @param string $pageUrl
+     *
+     * @return bool
+     */
+    private static function urlRepresentsHomePage($pageUrl)
+    {
+        if ( ! self::isAllowedAjaxFetchUrl($pageUrl) ) {
+            return false;
+        }
+
+        $pageUrlParts = wp_parse_url($pageUrl);
+        $homeUrlParts = wp_parse_url(home_url('/'));
+
+        if ( ! is_array($pageUrlParts) || ! is_array($homeUrlParts) ) {
+            return false;
+        }
+
+        $pagePath = isset($pageUrlParts['path']) ? (string)$pageUrlParts['path'] : '/';
+        $pagePath = $pagePath !== '' ? $pagePath : '/';
+
+        $requestUri = $pagePath;
+
+        if (isset($pageUrlParts['query']) && $pageUrlParts['query'] !== '') {
+            $requestUri .= '?' . $pageUrlParts['query'];
+        }
+
+        if (wpacuIsHomePageUrl($requestUri)) {
+            return true;
+        }
+
+        $normalizePath = static function ($path) {
+            $path = rawurldecode((string)$path);
+            $path = untrailingslashit($path);
+
+            return $path !== '' ? $path : '/';
+        };
+
+        $homePath = isset($homeUrlParts['path']) ? $homeUrlParts['path'] : '/';
+
+        $pageQuery = isset($pageUrlParts['query']) ? (string)$pageUrlParts['query'] : '';
+
+        // wpacuIsHomePageUrl() intentionally rejects regular AJAX requests.
+        // For this authenticated admin endpoint, repeat the safe query check so
+        // tracking-only query strings such as utm_source or fbclid are still
+        // recognised as part of the homepage URL.
+        if (
+            $pageQuery !== ''
+            && ! wpacuUriHasOnlyCommonQueryStrings(
+                $pageQuery,
+                wpacuGetQueryStringsToBeIgnoredPredefinedList()
+            )
+        ) {
+            return false;
+        }
+
+        $possiblePagePaths = array($pagePath);
+
+        if (
+            ! wpacuIsDefinedConstant('WPACU_NO_HOMEPAGE_CHECK_FOR_PLUGIN_RULES_WPML')
+            && function_exists('wpmlRemoveLangTagFromUri')
+        ) {
+            $possiblePagePaths[] = wpmlRemoveLangTagFromUri($pagePath);
+        }
+
+        foreach (array_unique($possiblePagePaths) as $possiblePagePath) {
+            if ($normalizePath($possiblePagePath) === $normalizePath($homePath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks whether a Dashboard asset-fetch URL is safe and belongs to an
+     * explicitly allowed site host and port.
+     *
+     * @param string $pageUrl
+     *
+     * @return bool
+     */
+    public static function isAllowedAjaxFetchUrl($pageUrl)
+    {
+        if ( ! is_string($pageUrl) || trim($pageUrl) === '' ) {
+            return false;
+        }
+
+        $pageUrlParts = wp_parse_url($pageUrl);
+        $homeUrlParts = wp_parse_url(home_url('/'));
+
+        if (
+            ! is_array($pageUrlParts)
+            || ! is_array($homeUrlParts)
+            || empty($pageUrlParts['scheme'])
+            || empty($pageUrlParts['host'])
+            || empty($homeUrlParts['scheme'])
+            || empty($homeUrlParts['host'])
+        ) {
+            return false;
+        }
+
+        $pageScheme = strtolower($pageUrlParts['scheme']);
+
+        if ( ! in_array($pageScheme, array('http', 'https'), true) ) {
+            return false;
+        }
+
+        if (isset($pageUrlParts['user']) || isset($pageUrlParts['pass'])) {
+            return false;
+        }
+
+        $allowedHosts = array(strtolower($homeUrlParts['host']));
+        $allowedHosts = apply_filters('wpacu_allowed_ajax_fetch_url_hosts', $allowedHosts, $pageUrl);
+
+        if ( ! is_array($allowedHosts) ) {
+            return false;
+        }
+
+        $normalizedAllowedHosts = array();
+
+        foreach ($allowedHosts as $allowedHost) {
+            if ( ! is_string($allowedHost) ) {
+                continue;
+            }
+
+            $allowedHost = strtolower(trim($allowedHost));
+
+            if ($allowedHost !== '') {
+                $normalizedAllowedHosts[] = $allowedHost;
+            }
+        }
+
+        if ( ! in_array(strtolower($pageUrlParts['host']), $normalizedAllowedHosts, true) ) {
+            return false;
+        }
+
+        $pagePort = isset($pageUrlParts['port'])
+            ? (int)$pageUrlParts['port']
+            : ($pageScheme === 'https' ? 443 : 80);
+
+        if (isset($homeUrlParts['port'])) {
+            $allowedPorts = array((int)$homeUrlParts['port']);
+        } else {
+            // Permit normal HTTP/HTTPS canonicalisation, but not arbitrary
+            // services such as port 8080 on an otherwise standard site.
+            $allowedPorts = array(80, 443);
+        }
+
+        $allowedPorts = apply_filters('wpacu_allowed_ajax_fetch_url_ports', $allowedPorts, $pageUrl);
+
+        if ( ! is_array($allowedPorts) ) {
+            return false;
+        }
+
+        $allowedPorts = array_map('intval', $allowedPorts);
+
+        if ( ! in_array($pagePort, $allowedPorts, true) ) {
+            return false;
+        }
+
+        return wp_http_validate_url($pageUrl) !== false;
+    }
+
 	/**
 	 *
      * @noinspection NestedAssignmentsUsageInspection
      */
 	public function ajaxLoadRestrictedPageAreaCallback()
 	{
+        if ( ! Menu::userCanAccessPlugin() ) {
+            wp_die('Error: You are not allowed to access this area.');
+        }
+
 		if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_ajax_load_page_restricted_area_nonce' ) ) {
 			echo 'Error: The security nonce is not valid.';
 			exit();
 		}
 
-		$postId = (int)Misc::getVar('post', 'post_id'); // if any (could be home page for instance)
+		if ( ! isset($_POST['post_id']) ) {
+			wp_die('Error: The requested post ID is missing.');
+		}
+
+		$postId   = (int)Misc::getVar('post', 'post_id'); // Zero is valid for the latest-posts homepage.
+        $pageType = sanitize_key(Misc::getVar('post', 'page_type'));
+
+        // A zero post ID is valid only for the non-singular homepage that lists the latest posts.
+        $isLatestPostsHomePage = self::isLatestPostsHomePage($postId, $pageType);
+
+        if ($postId <= 0 && ! $isLatestPostsHomePage) {
+            wp_die('Error: The requested post ID is not valid.');
+        }
 
 		$data = array();
 
@@ -1293,16 +1854,28 @@ class MainAdmin
 		$data['fetch_url'] = Misc::getPageUrl($postId);
 
 		$data['show_page_options'] = true;
-		$data['page_options']      = MetaBoxes::getPageOptions($postId);
 
-		$post = get_post($postId);
+        if ($isLatestPostsHomePage) {
+            $data['wpacu_type']          = 'front_page';
+            $data['page_options']        = MetaBoxes::getPageOptions(0, 'front_page');
+            $data['bulk_unloaded_type']  = false;
+            $data['is_bulk_unloadable']  = false;
+        } else {
+            $data['page_options'] = MetaBoxes::getPageOptions($postId, 'post');
 
-		// Current Post Type
-		$data['post_type']          = $post->post_type;
-		$data['bulk_unloaded_type'] = 'post_type';
-		$data['is_bulk_unloadable'] = true;
+            $post = get_post($postId);
 
-		$data = self::instance()->setPageTemplate($data);
+            if ( ! is_object($post) || empty($post->post_type) ) {
+                wp_die('Error: The requested post could not be found.');
+            }
+
+		    // Current Post Type
+		    $data['post_type']          = $post->post_type;
+		    $data['bulk_unloaded_type'] = 'post_type';
+		    $data['is_bulk_unloadable'] = true;
+
+		    $data = self::instance()->setPageTemplate($data);
+        }
 
 		switch (assetCleanUpHasNoLoadMatches($data['fetch_url'])) {
 			case 'is_set_in_settings':
@@ -1339,16 +1912,16 @@ class MainAdmin
 
 			if (Main::instance()->settings['test_mode']) {
 				$consoleMessage = sprintf(esc_html__('%s: "TEST MODE" ENABLED (any settings or unloads will be visible ONLY to you, the logged-in administrator)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
-				$testModeNotice = esc_html__('"Test Mode" is ENABLED. Any settings or unloads will be visible ONLY to you, the logged-in administrator.', 'wp-asset-clean-up');
+				$testModeNotice = __('"Test Mode" is ENABLED. Any settings or unloads will be visible ONLY to you, the logged-in administrator.', 'wp-asset-clean-up');
 			} else {
 				$consoleMessage = sprintf(esc_html__('%s: "LIVE MODE" (test mode is not enabled, thus, all the plugin changes are visible for everyone: you, the logged-in administrator and the regular visitors)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
-				$testModeNotice = esc_html__('The website is in LIVE MODE as "Test Mode" is not enabled. All the plugin changes are visible for everyone: logged-in administrators and regular visitors.', 'wp-asset-clean-up');
+				$testModeNotice = __('The website is in LIVE MODE as "Test Mode" is not enabled. All the plugin changes are visible for everyone: logged-in administrators and regular visitors.', 'wp-asset-clean-up');
 			}
 			?>
             <!--
             <?php echo sprintf(esc_html__('NOTE: These "%s: Page Speed Booster" messages are only shown to you, the HTML comment is not visible for the regular visitor.', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE); ?>
 
-            <?php echo esc_html__($testModeNotice); ?>
+            <?php echo esc_html($testModeNotice); ?>
             -->
             <script <?php echo Misc::getScriptTypeAttribute(); ?> data-wpacu-own-inline-script="true">
                 console.log('<?php echo esc_js($consoleMessage); ?>');
@@ -1366,7 +1939,12 @@ class MainAdmin
      */
     public function parseTemplate($name, $data = array(), $echo = false, $returnData = false)
     {
-        $pathToTemplateFile = WPACU_PLUGIN_DIR . '/templates/' . $name . '.php';
+        $pathToTemplateFile = apply_filters(
+            'wpacu_internal_template_file_path',
+            WPACU_PLUGIN_DIR . '/templates/' . $name . '.php',
+            $name,
+            $data
+        );
 
         $templateFile = apply_filters(
             'wpacu_template_file', // tag

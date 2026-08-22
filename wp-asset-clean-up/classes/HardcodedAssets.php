@@ -42,6 +42,7 @@ class HardcodedAssets
 	 * @param $htmlSource
      * @param $encodeIt bool - if set to "false", it's mostly for fetching for the CSS/JS manager
 	 * @params string $purpose ("fetch" - show the list in the CSS/JS manager or retrieve it all for alteration, "alter" - Fetch specific data)
+     * @params array $toFetch (all possible values: 'wpacu_hardcoded_links', 'wpacu_hardcoded_styles', 'wpacu_hardcoded_scripts_src', 'wpacu_hardcoded_scripts_noscripts_inline')
      * @params array $anyHardCodedRules - useful to fetch only what's needed to save resources (usually when "alter" is used as the $purpose, unless debugging is done)
      *
 	 * @return string|array
@@ -49,8 +50,8 @@ class HardcodedAssets
      * @noinspection NestedAssignmentsUsageInspection
      * @noinspection ParameterDefaultValueIsNotNullInspection
      */
-	public static function getAll($htmlSource, $encodeIt = true, $purpose = 'fetch', $toFetch = array()
-    ) {
+	public static function getAll($htmlSource, $encodeIt = true, $purpose = 'fetch', $toFetch = array(), $anyHardCodedRules = array())
+    {
         $stickToRegEx = true;
 
         // Default
@@ -58,9 +59,17 @@ class HardcodedAssets
             $toFetch = array('wpacu_hardcoded_links', 'wpacu_hardcoded_styles', 'wpacu_hardcoded_scripts_src', 'wpacu_hardcoded_scripts_noscripts_inline');
         }
 
-        if ( $purpose === 'fetch' ) {
-            $collectLinkStyles = $collectScripts = true; // fetch only what's needed
-        }
+        $collectLinkStyles = $collectScripts = true; // default: fetch everything; Pro can narrow this down when altering
+
+        $collectionConfig = apply_filters('wpacu_internal_hardcoded_assets_collection_config', array(
+            'to_fetch'            => $toFetch,
+            'collect_link_styles' => $collectLinkStyles,
+            'collect_scripts'     => $collectScripts,
+        ), $anyHardCodedRules, $purpose);
+
+        $toFetch           = isset($collectionConfig['to_fetch']) ? $collectionConfig['to_fetch'] : $toFetch;
+        $collectLinkStyles = isset($collectionConfig['collect_link_styles']) ? $collectionConfig['collect_link_styles'] : $collectLinkStyles;
+        $collectScripts    = isset($collectionConfig['collect_scripts']) ? $collectionConfig['collect_scripts'] : $collectScripts;
 
         $htmlSourceAlt = $htmlSource;
 
@@ -1092,6 +1101,8 @@ class HardcodedAssets
         $dataHH['row']['asset_type'] = $assetType;
 
         $dataHH['row']['is_hardcoded'] = true;
+
+        $dataHH = apply_filters('wpacu_internal_hardcoded_asset_data', $dataHH);
 
         return $dataHH;
     }

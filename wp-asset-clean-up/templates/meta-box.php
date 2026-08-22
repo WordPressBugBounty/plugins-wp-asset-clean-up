@@ -56,7 +56,7 @@ if ($data['is_list_fetchable']) {
         <?php
     } elseif ($data['status'] === 2) {
 	    echo '<p>'.esc_html__('In order to manage the CSS/JS files here, you need to have "Manage in the Dashboard?" enabled within the plugin\'s settings ("Plugin Usage Preferences" tab).', 'wp-asset-clean-up').'</p>';
-	    echo '<p style="margin-bottom: 0;">'.esc_html__('If you prefer to manage the assets within the front-end view and wish to hide this meta box, you can click on "Screen Options" at the top of this page and deselect "Asset CleanUp Pro: CSS &amp; JavaScript Manager".').'</p>';
+	    echo '<p style="margin-bottom: 0;">'.esc_html__('If you prefer to manage the assets within the front-end view and wish to hide this meta box, you can click on "Screen Options" at the top of this page and deselect "Asset CleanUp: CSS & JavaScript Manager".', 'wp-asset-clean-up').'</p>';
     } elseif ($data['status'] === 3) {
         _e('The styles and scripts will be available for unload once this post/page is <strong>public</strong> and <strong>publish</strong>ed as the whole page needs to be scanned for all the loaded assets.', 'wp-asset-clean-up');
         ?>
@@ -67,7 +67,11 @@ if ($data['is_list_fetchable']) {
             <p style="margin-bottom: 0;">
                 <span class="dashicons dashicons-info"></span>
                 <?php
-                _e('There are no CSS/JS to manage as the permalink for this attachment redirects to the attachment itself because <em>"Redirect attachment URLs to the attachment itself?"</em> is set to <em>"Yes"</em> in <em>"Search Appearance - Yoast SEO" - "Media"</em> tab).', 'wp-asset-clean-up');
+                esc_html_e('There are no CSS/JS assets to manage because this attachment does not have a separate public attachment page.', 'wp-asset-clean-up');
+
+                if (! empty($data['media_permalink_deactivation_info']['reason'])) {
+                    echo ' ' . wp_kses_post($data['media_permalink_deactivation_info']['reason']);
+                }
 
                 echo ' '.sprintf(
 		                esc_html__('As a result, the "%s" side meta box is not shown as it is irrelevant in this situation.', 'wp-asset-clean-up'),

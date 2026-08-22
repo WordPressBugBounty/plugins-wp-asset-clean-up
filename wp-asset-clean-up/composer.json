@@ -4,7 +4,7 @@
   "description": "Front-end optimization plugin for WordPress",
   "keywords": ["minify", "minifier", "css", "js", "javascript", "dequeue", "speed"],
   "homepage": "https://wordpress.org/plugins/wp-asset-clean-up/",
-  "license": "GPL-2.0-or-later",
+  "license": "GPLv3",
   "authors": [
     {
       "name": "Gabriel Livan",

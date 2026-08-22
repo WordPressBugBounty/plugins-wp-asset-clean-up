@@ -18,6 +18,8 @@ class FontsLocal
         add_filter('wpacu_local_fonts_display_css_output',   array($this, 'updateCssOutputFontDisplay'), 10, 2);
         add_filter('wpacu_local_fonts_display_style_inline', array($this, 'updateInlineCssOutputFontDisplay'), 10, 2); // alters $htmlSource
 
+        FontsLocalPreloadScanner::maybeInitFrontendCollector();
+
         add_action('wp_head', array($this, 'preloadFontFiles'), 1);
 	}
 
@@ -57,6 +59,12 @@ class FontsLocal
 	 */
 	public function preloadFontFiles()
 	{
+        // During the legacy checker request, let the browser reveal which fonts
+        // the page requests naturally, without these manual WPACU preload tags.
+        if (FontsLocalPreloadScanner::isActiveRequest()) {
+            return;
+        }
+
         // Don't apply any changes if not in the front-end view (e.g. Dashboard view)
         // or test mode is enabled, and a guest user is accessing the page
         if ( OptimizeCommon::preventAnyFrontendOptimization() ) {

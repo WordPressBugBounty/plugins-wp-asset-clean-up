@@ -3,18 +3,19 @@
 
 namespace WpAssetCleanUp\OptimiseAssets;
 
-use WpAssetCleanUp\Admin\MainAdmin;
 use WpAssetCleanUp\Admin\MiscAdmin;
 use WpAssetCleanUp\Admin\Plugin;
 use WpAssetCleanUp\Admin\Tools;
 use WpAssetCleanUp\CleanUp;
 use WpAssetCleanUp\Debug;
 use WpAssetCleanUp\FileSystem;
+use WpAssetCleanUp\HardcodedAssets;
 use WpAssetCleanUp\Main;
 use WpAssetCleanUp\MainFront;
 use WpAssetCleanUp\Menu;
 use WpAssetCleanUp\MetaBoxes;
 use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\MiscArray;
 use WpAssetCleanUp\Settings;
 
 /**
@@ -54,6 +55,82 @@ class OptimizeCommon
 	);
 
     /**
+     *
+     */
+    public static function initBufferingForAjaxCallFromTheDashboard()
+    {
+        ob_start();
+
+        add_action('shutdown', static function () {
+            if (ob_get_level() > 1) {
+                ob_end_flush();
+            }
+
+            $htmlSource = '';
+
+            // We'll need to get the number of ob levels we're in, so that we can iterate over each, collecting
+            // that buffer's output into the final output.
+            $htmlSourceLevel = ob_get_level();
+
+            for ($wpacuI = 0; $wpacuI < $htmlSourceLevel; $wpacuI++) {
+                $htmlSource .= ob_get_clean();
+            }
+
+            $anyHardCodedAssets = HardcodedAssets::getAll($htmlSource, false); // Fetch all for this type of request
+            if ( ! empty($anyHardCodedAssets) && Main::instance()->isAjaxCall ) {
+                HardcodedAssets::attachExternalHardcodedAssetsUrlsToCurrentExternalUrlsList($anyHardCodedAssets);
+            }
+
+            $reps = array('{wpacu_hardcoded_assets}' => base64_encode(wp_json_encode($anyHardCodedAssets)));
+
+            if (isset($_GET['wpacu_print'])) {
+                $anyHardCodedAssetsPrinted                = print_r($anyHardCodedAssets, true);
+                $reps['{wpacu_hardcoded_assets_printed}'] = $anyHardCodedAssetsPrinted;
+            }
+
+            echo str_replace(array_keys($reps), array_values($reps), $htmlSource);
+        }, 0);
+    }
+
+    /**
+     *
+     */
+    public static function initBufferingForFrontendManagement()
+    {
+        // Used to print the hardcoded CSS/JS
+        ob_start();
+
+        add_action('shutdown', static function () {
+            if (ob_get_level() > 1) {
+                ob_end_flush();
+            }
+
+            $htmlSource = '';
+
+            // We'll need to get the number of ob levels we're in, so that we can iterate over each, collecting
+            // that buffer's output into the final output.
+            $htmlSourceLevel = ob_get_level();
+
+            for ($wpacuI = 0; $wpacuI < $htmlSourceLevel; $wpacuI++) {
+                $htmlSource .= ob_get_clean();
+            }
+
+            echo OptimizeCommon::alterHtmlSource($htmlSource);
+
+            }, 0);
+    }
+
+    /**
+     * @return bool
+     */
+    public static function useBufferingForEditFrontEndView()
+    {
+        // The logged-in admin needs to be outside the Dashboard (in the front-end view)
+        // "Manage in the Front-end" is enabled in "Settings" -> "Plugin Usage Preferences"
+        return ! is_admin() && is_user_logged_in() && ! Main::instance()->isGetAssetsCall && Menu::userCanAccessPlugin() && Main::showAssetsManagerInFrontend();
+    }
+
+    /**
 	 *
      * @noinspection PhpUndefinedConstantInspection
      */
@@ -64,21 +141,38 @@ class OptimizeCommon
 		add_action('switch_theme',       function() { set_transient(WPACU_PLUGIN_ID.'_clear_assets_cache', true); });
 		add_action('after_switch_theme', function() { set_transient(WPACU_PLUGIN_ID.'_clear_assets_cache', true); });
 
-		// Is WP Rocket's page cache cleared? Clear Asset CleanUp's CSS cache files too
-		if ( isset($_GET['action']) && $_GET['action'] === 'purge_cache' ) {
-			// Leave its default parameters, no redirect needed
-			add_action('init', static function() {
-                if ( ! Menu::userCanAccessPlugin() ) {
-                    return; // in this case, only the admin can clear the cache
-                }
-
-				OptimizeCommon::clearCache();
-			}, PHP_INT_MAX);
-		}
+		// WP Rocket fires this action only after its purge request has passed
+		// the plugin's own nonce and capability checks.
+		add_action('rocket_purge_cache', static function() {
+			OptimizeCommon::clearCache();
+		}, PHP_INT_MAX);
 
 		add_action('admin_post_assetcleanup_clear_assets_cache', static function() {
+			if ( ! isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+				wp_die(esc_html__('Invalid request method.', 'wp-asset-clean-up'), '', array('response' => 405));
+			}
+
+			if ( ! Menu::userCanAccessPlugin() ) {
+				wp_die(esc_html__('You are not allowed to clear the Asset CleanUp cache.', 'wp-asset-clean-up'), '', array('response' => 403));
+			}
+
+			check_admin_referer('assetcleanup_clear_assets_cache');
+
 			set_transient(WPACU_PLUGIN_ID . '_clear_assets_cache_via_link', true);
-			self::clearCache(true);
+			self::clearCache();
+
+			if ( ! empty($_POST['wpacu_dash_area']) ) {
+				set_transient(WPACU_PLUGIN_ID . '_cache_just_cleared_via_link_dash_area', true);
+			}
+
+			$redirectUrl = wp_get_referer();
+
+			if ( ! $redirectUrl ) {
+				$redirectUrl = admin_url();
+			}
+
+			wp_safe_redirect(add_query_arg(array('wpacu_cache_cleared' => 1), $redirectUrl));
+			exit();
 		});
 
 		// In the admin area, show a notice that the caching has been cleared along with the clearing date and time
@@ -218,11 +312,18 @@ class OptimizeCommon
 		add_action( 'init', static function() {
 			if (Main::instance()->isGetAssetsCall) {
 				// Case 1: An AJAX call is made from the Dashboard
-				MainAdmin::initBufferingForAjaxCallFromTheDashboard();
-			} elseif (MainAdmin::useBufferingForEditFrontEndView()) {
-				// Case 2: The logged-in admin manages the assets from the front-end view
-				MainAdmin::initBufferingForFrontendManagement();
+				self::initBufferingForAjaxCallFromTheDashboard();
+                return;
 			}
+
+            if (self::useBufferingForEditFrontEndView()) {
+				// Case 2: The logged-in admin manages the assets from the front-end view
+				self::initBufferingForFrontendManagement();
+                return;
+			}
+
+            do_action('wpacu_internal_optimize_common_maybe_init_different_html_alteration_for_frontend_view');
+            do_action('wpacu_pro_optimize_common_maybe_init_different_html_alteration_for_frontend_view'); // legacy fallback
 		});
 		// [END] Initiate Hardcoded Assets
 	}
@@ -431,14 +532,12 @@ class OptimizeCommon
             return $GLOBALS['wpacu_optimize_css_is_worth_checking_for_optimization'];
         }
 
-        $userCanManageAssets = Menu::userCanAccessPlugin();
-
-        if (isset($_GET['wpacu_css_minify']) && $userCanManageAssets) {
+        if (isset($_GET['wpacu_css_minify']) && Menu::userCanAccessPlugin()) {
             $isMinifyCssEnabled = true;
         } elseif ( isset($_REQUEST['wpacu_no_css_minify']) || // not on query string request (debugging purposes)
                 is_admin() || // not for Dashboard view
                 ( ! Main::instance()->settings['minify_loaded_css'] ) || // Minify CSS has to be Enabled
-                ( Main::instance()->settings['test_mode'] && ! $userCanManageAssets ) ) { // Does not trigger if "Test Mode" is Enabled
+                ( Main::instance()->settings['test_mode'] && ! Menu::userCanAccessPlugin() ) ) { // Does not trigger if "Test Mode" is Enabled
             $isMinifyCssEnabled = false;
         } else {
             $isMinifyCssEnabled = MinifyCss::isMinifyCssEnabled(); // finally, call it
@@ -446,6 +545,7 @@ class OptimizeCommon
 
         $GLOBALS['wpacu_optimize_css_is_worth_checking_for_optimization'] =
             Main::instance()->settings['cache_dynamic_loaded_css'] ||
+            Main::instance()->settings['combine_loaded_css'] ||
             Main::instance()->settings['local_fonts_display'] ||
             Main::instance()->settings['google_fonts_display'] ||
             Main::instance()->settings['google_fonts_remove'] ||
@@ -465,14 +565,12 @@ class OptimizeCommon
             return $GLOBALS['wpacu_optimize_js_is_worth_checking_for_optimization'];
         }
 
-        $userCanManageAssets = Menu::userCanAccessPlugin();
-
-        if (isset($_GET['wpacu_js_minify']) && $userCanManageAssets) {
+        if (isset($_GET['wpacu_js_minify']) && Menu::userCanAccessPlugin()) {
             $isMinifyJsEnabled = true;
         } elseif ( isset($_REQUEST['wpacu_no_js_minify']) || // not on query string request (debugging purposes)
                    is_admin() || // not for Dashboard view
                    ( ! Main::instance()->settings['minify_loaded_js'] ) || // Minify JS has to be Enabled
-                   ( Main::instance()->settings['test_mode'] && ! $userCanManageAssets ) ) { // Does not trigger if "Test Mode" is Enabled
+                   ( Main::instance()->settings['test_mode'] && ! Menu::userCanAccessPlugin() ) ) { // Does not trigger if "Test Mode" is Enabled
             $isMinifyJsEnabled = false;
         } else {
             $isMinifyJsEnabled = MinifyJs::isMinifyJsEnabled(); // finally, call it
@@ -480,6 +578,7 @@ class OptimizeCommon
 
         $GLOBALS['wpacu_optimize_js_is_worth_checking_for_optimization'] =
             Main::instance()->settings['cache_dynamic_loaded_js'] ||
+            Main::instance()->settings['combine_loaded_js'] ||
             Main::instance()->settings['google_fonts_display'] ||
             Main::instance()->settings['google_fonts_remove'] ||
             $isMinifyJsEnabled;
@@ -505,6 +604,26 @@ class OptimizeCommon
 		<?php
 	}
 
+    /**
+     * @return bool
+     */
+    public static function triggerDifferentHtmlAlterationForFrontendView()
+    {
+        $triggerDifferentHtmlAlterationForFrontendView = apply_filters(
+            'wpacu_internal_optimize_common_trigger_different_html_alteration_for_frontend_view',
+            false
+        );
+
+        if ( ! $triggerDifferentHtmlAlterationForFrontendView ) {
+            $triggerDifferentHtmlAlterationForFrontendView = apply_filters(
+                'wpacu_pro_optimize_common_trigger_different_html_alteration_for_frontend_view',
+                false
+            ); // legacy fallback
+        }
+
+        return (bool)$triggerDifferentHtmlAlterationForFrontendView;
+    }
+
 	/**
 	 *
 	 */
@@ -523,23 +642,28 @@ class OptimizeCommon
 		/*
 		 * The admin is logged in and manages the assets in the front-end view
 		 * */
-		if (MainAdmin::useBufferingForEditFrontEndView()) {
+		if (self::useBufferingForEditFrontEndView()) {
 			// Alter the HTML via "shutdown" action hook to catch hardcoded CSS/JS that is added via output buffering such as the ones in "Smart Slider 3"
 			// via HardcodedAssets.php
 			return;
 		}
 
+        if (self::triggerDifferentHtmlAlterationForFrontendView()) {
+            return; // it will be called within the 'init' action mentioned above in this class
+        }
+
 		/*
 		 * The visitor is just a guest (most common), OR the admin is logged in, but "Manage in the front-end" is deactivated
 		 * */
 		ob_start(static function($htmlSource) {
-			// Do not do any optimization if "Test Mode" is Enabled
-			if ( ! Menu::userCanAccessPlugin() && Main::instance()->settings['test_mode'] ) {
-				return $htmlSource;
-			}
+            // Do not do any optimization if "Test Mode" is Enabled
+                if ( Main::instance()->settings['test_mode'] && ! Menu::userCanAccessPlugin() ) {
+                    return $htmlSource;
+                }
 
-            return self::alterHtmlSource($htmlSource);
-		});
+                return self::alterHtmlSource($htmlSource);
+
+            });
 	}
 
     /**
@@ -550,7 +674,7 @@ class OptimizeCommon
         /*
          * The admin is logged in and manages the assets in the front-end view
          * */
-        if (MainAdmin::useBufferingForEditFrontEndView()) {
+        if (self::useBufferingForEditFrontEndView()) {
             // Alter the HTML via "shutdown" action hook to catch hardcoded CSS/JS that is added via output buffering such as the ones in "Smart Slider 3"
             // via HardcodedAssets.php
             return;
@@ -575,7 +699,7 @@ class OptimizeCommon
 	 * @param $htmlSource
 	 * @param $triggerOnlyOnce bool
 	 *
-	 * @return mixed|string|string[]|void|null
+	 * @return string
 	 */
 	public static function alterHtmlSource($htmlSource, $triggerOnlyOnce = false)
 	{
@@ -624,6 +748,9 @@ class OptimizeCommon
 
 		$htmlSource = apply_filters( 'wpacu_html_source_before_optimization', $htmlSource );
 
+        $htmlSource = apply_filters('wpacu_internal_optimize_common_alter_html_source_for_hardcoded_assets', $htmlSource);
+        $htmlSource = apply_filters('wpacu_pro_optimize_common_alter_html_source_for_hardcoded_assets', $htmlSource); // legacy fallback
+
         /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_strip_any_references_for_unloaded_assets'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
         $htmlSource = self::stripAnyReferencesForUnloadedAssets($htmlSource);
         /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
@@ -632,7 +759,17 @@ class OptimizeCommon
 		$htmlSource = OptimizeJs::alterHtmlSource( $htmlSource );
 
         /* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_resource_loading'); /* [/wpacu_timing] */
-        $htmlSource = ResourceLoading::alterHtmlSource($htmlSource);
+        if (isset(Main::instance()->settings['resource_loading']['_enabled']) && Main::instance()->settings['resource_loading']['_enabled']) {
+            $resourceLoadingImagesAttrEnabled = isset(Main::instance()->settings['resource_loading']['images']['attr']['_enabled'])
+                    ? Main::instance()->settings['resource_loading']['images']['attr']['_enabled'] : false;
+
+            $resourceLoadingImagesLazyLoadEnabled = isset(Main::instance()->settings['resource_loading']['images']['lazy_load']['_enabled']) ?
+                    Main::instance()->settings['resource_loading']['images']['lazy_load']['_enabled'] : false;
+
+            if ($resourceLoadingImagesAttrEnabled || $resourceLoadingImagesLazyLoadEnabled) {
+                $htmlSource = ResourceLoading::alterHtmlSource($htmlSource);
+            }
+        }
         /* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_resource_loading', 'end'); /* [/wpacu_timing] */
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer( 'alter_html_source_cleanup' ); /* [/wpacu_timing] */
@@ -1186,18 +1323,10 @@ class OptimizeCommon
 
 		$parseUrl = parse_url($pathToAssetDir);
 
-		if (isset($parseUrl['scheme']) && $parseUrl['scheme'] !== '') {
-			$pathToAssetDir = str_replace(
-				array('http://'.$parseUrl['host'], 'https://'.$parseUrl['host']),
-				'',
-				$pathToAssetDir
-			);
-		} elseif (strncmp($pathToAssetDir, '//', 2) === 0) {
-			$pathToAssetDir = str_replace(
-				array('//'.$parseUrl['host'], '//'.$parseUrl['host']),
-				'',
-				$pathToAssetDir
-			);
+		if ((isset($parseUrl['scheme']) && $parseUrl['scheme'] !== '') || strncmp($pathToAssetDir, '//', 2) === 0) {
+			// Use the parsed path instead of stripping only the host. The latter leaves the
+			// port behind (e.g. ":8888/path") and corrupts relative URLs in optimized CSS.
+			$pathToAssetDir = isset($parseUrl['path']) ? $parseUrl['path'] : '';
 		}
 
 		return $pathToAssetDir;
@@ -1282,43 +1411,88 @@ class OptimizeCommon
 	 */
 	public static function isSourceFromSameHost($href)
 	{
-		// Check the host name
-		$siteDbUrl   = get_option('siteurl');
-		$siteUrlHost = strtolower(parse_url($siteDbUrl, PHP_URL_HOST));
-
-		$cdnUrls = self::getAnyCdnUrls();
-
-		// Are there any CDN urls set? Check them out
-		if (! empty($cdnUrls)) {
-			$hrefAlt = $href;
-
-			foreach ($cdnUrls as $cdnUrl) {
-				$hrefCleanedArray = self::getCleanHrefAfterCdnStrip(trim($cdnUrl), $hrefAlt);
-				$cdnNoPrefix = $hrefCleanedArray['cdn_no_prefix'];
-				$hrefAlt = $hrefCleanedArray['rel_href'];
-
-				if ($hrefAlt !== $href && stripos($href, '//'.$cdnNoPrefix) !== false) {
-					return $href;
-				}
-			}
-		}
-
-		if (strncmp($href, '//', 2) === 0) {
-			list ($urlPrefix) = explode('//', $siteDbUrl);
-			$href = $urlPrefix . $href;
-		}
-
-		/*
-		 * Validate it first
-		 */
-		$assetHost = strtolower(parse_url($href, PHP_URL_HOST));
-
-		if (preg_match('#'.$assetHost.'#si', implode('', self::$wellKnownExternalHosts))) {
+		if (! is_string($href) || trim($href) === '') {
 			return false;
 		}
 
-		// Different host name (most likely 3rd party one such as fonts.googleapis.com or an external CDN)
-		// Do not add it to the combine list
+		$href      = trim($href);
+		$siteDbUrl = (string) get_option('siteurl');
+		$siteParts = wp_parse_url($siteDbUrl);
+
+		if (! is_array($siteParts) || empty($siteParts['host'])) {
+			return false;
+		}
+
+		if (strncmp($href, '//', 2) === 0) {
+			$siteScheme = isset($siteParts['scheme']) && in_array(strtolower($siteParts['scheme']), array('http', 'https'), true)
+				? strtolower($siteParts['scheme'])
+				: 'https';
+			$href = $siteScheme . ':' . $href;
+		}
+
+		$assetParts = wp_parse_url($href);
+
+		if (! is_array($assetParts) || empty($assetParts['scheme']) || empty($assetParts['host'])) {
+			return false;
+		}
+
+		$assetScheme = strtolower($assetParts['scheme']);
+		$assetHost   = strtolower(rtrim($assetParts['host'], '.'));
+
+		if (! in_array($assetScheme, array('http', 'https'), true) || isset($assetParts['user']) || isset($assetParts['pass'])) {
+			return false;
+		}
+
+		// Configured CDN URLs are trusted origins, but the host (and any configured
+		// path prefix) must match structurally. A substring in a path or query is
+		// not enough to classify an unrelated URL as local.
+		foreach (self::getAnyCdnUrls() as $cdnUrl) {
+			$cdnUrl = trim($cdnUrl);
+
+			if ($cdnUrl === '') {
+				continue;
+			}
+
+			if (strncmp($cdnUrl, '//', 2) === 0) {
+				$cdnUrl = $assetScheme . ':' . $cdnUrl;
+			} elseif (strpos($cdnUrl, '://') === false) {
+				$cdnUrl = $assetScheme . '://' . ltrim($cdnUrl, '/');
+			}
+
+			$cdnParts = wp_parse_url($cdnUrl);
+
+			if (! is_array($cdnParts) || empty($cdnParts['host'])) {
+				continue;
+			}
+
+			$cdnHost = strtolower(rtrim($cdnParts['host'], '.'));
+
+			if ($assetHost !== $cdnHost) {
+				continue;
+			}
+
+			$cdnPath   = isset($cdnParts['path']) ? '/' . trim($cdnParts['path'], '/') : '';
+			$assetPath = isset($assetParts['path']) ? '/' . ltrim($assetParts['path'], '/') : '/';
+
+			if ($cdnPath !== '' && $assetPath !== $cdnPath && strpos($assetPath, trailingslashit($cdnPath)) !== 0) {
+				continue;
+			}
+
+			return $href;
+		}
+
+		foreach (self::$wellKnownExternalHosts as $knownExternalHost) {
+			$knownExternalHost = strtolower(trim($knownExternalHost, '.'));
+
+			if ($assetHost === $knownExternalHost || substr($assetHost, -strlen('.' . $knownExternalHost)) === '.' . $knownExternalHost) {
+				return false;
+			}
+		}
+
+		$siteUrlHost = strtolower(rtrim($siteParts['host'], '.'));
+
+		// Different host name (most likely a third-party host such as fonts.googleapis.com)
+		// must not be treated as a local source.
 		if ($assetHost !== $siteUrlHost) {
 			return false;
 		}
@@ -1697,9 +1871,10 @@ class OptimizeCommon
 
 		$isUriRequest = isset($_GET['wpacu_clear_cache_print']);
 		$isAjaxCallOrUriRequest = (isset($_REQUEST['action']) && $_REQUEST['action'] === WPACU_PLUGIN_ID . '_clear_cache' && is_admin()) || $isUriRequest;
-		$clearedOutput = $keptOutput = array();
 
-		/*
+        $clearedOutput = array();
+
+        /*
 		 * STEP 1: Clear all JSON/TEXT & all assets (.css & .js) files older than $clearFilesOlderThan days
 		 * Clear any transients from the database and the disk
 		 */
@@ -1853,16 +2028,7 @@ class OptimizeCommon
 				}
 			}
 
-			if (! empty($keptOutput)) {
-				echo "\n".'The following files have been kept:'."\n";
-				if ($isUriRequest) { echo '<br />'; }
-
-				foreach ($keptOutput as $keptInfo) {
-					echo esc_html($keptInfo)."\n";
-					if ($isUriRequest) { echo '<br />'; }
-				}
-			}
-		}
+            }
 
         set_transient(WPACU_PLUGIN_ID . '_last_clear_cache', time());
 
@@ -1905,18 +2071,7 @@ class OptimizeCommon
 	 */
 	public static function generateClearCachingUrl()
     {
-	    $clearAssetsCachePath  = 'admin-post.php?action=assetcleanup_clear_assets_cache';
-
-	    if ( is_admin() ) {
-		    // If the admin clears the cache within the Dashboard
-		    // Use the query string below as a way to trigger an admin notice
-		    // that the caching has been cleared
-		    $clearAssetsCachePath .= '&wpacu_dash_area';
-	    }
-
-	    $clearAssetsCachePath .= '&_wp_http_referer=' . urlencode( wp_unslash( $_SERVER['REQUEST_URI'] ) );
-
-        return wp_nonce_url( admin_url( $clearAssetsCachePath ), 'assetcleanup_clear_assets_cache' );
+		return admin_url('admin-post.php');
     }
 
 	/**
@@ -1967,7 +2122,7 @@ class OptimizeCommon
 	}
 
 	/**
-	 * Alias for clearCache() - some developers might have implemented the old clearAllCache()
+	 * Legacy: Alias for clearCache() - some developers might have implemented the old clearAllCache()
 	 *
 	 * @param bool $redirectAfter
 	 */
@@ -2160,17 +2315,21 @@ class OptimizeCommon
 	 */
 	public static function filterWpContentUrl($anyCdnUrl = '')
 	{
-		$wpContentUrl = WP_CONTENT_URL;
+        $wpContentUrl    = content_url();
 
-		$parseContentUrl = parse_url($wpContentUrl);
-		$parseBaseUrl = parse_url(site_url());
+        $parseContentUrl = parse_url($wpContentUrl);
+        $parseBaseUrl    = parse_url(site_url());
 
-		// Perhaps WPML plugin is used and the content URL is different from the current domain which might be for a different language
-		if ( ($parseContentUrl['host'] !== $parseBaseUrl['host']) &&
-		     (isset($_SERVER['HTTP_HOST'], $parseContentUrl['path']) && $_SERVER['HTTP_HOST'] !== $parseContentUrl['host']) &&
-			 is_dir(rtrim(ABSPATH, '/') . $parseContentUrl['path']) ) {
-			$wpContentUrl = str_replace($parseContentUrl['host'], $parseBaseUrl['host'], $wpContentUrl);
-		}
+        $contentUrlHost = is_array($parseContentUrl) && isset($parseContentUrl['host']) ? $parseContentUrl['host'] : '';
+        $baseUrlHost    = is_array($parseBaseUrl) && isset($parseBaseUrl['host']) ? $parseBaseUrl['host'] : '';
+        $contentUrlPath = is_array($parseContentUrl) && isset($parseContentUrl['path']) ? $parseContentUrl['path'] : '';
+
+        if ( $contentUrlHost && $baseUrlHost &&
+             ($contentUrlHost !== $baseUrlHost) &&
+             (isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== $contentUrlHost) &&
+             ($contentUrlPath !== '' && is_dir(rtrim(ABSPATH, '/') . $contentUrlPath)) ) {
+            $wpContentUrl = str_replace($contentUrlHost, $baseUrlHost, $wpContentUrl);
+        }
 
 		// Is the page loaded via SSL, but the site url from the database starts with 'http://'
 		// Then use '//' in front of CSS/JS generated via Asset CleanUp
@@ -2251,6 +2410,14 @@ class OptimizeCommon
 			'wpacu_debug',
 			'wpacu_preload',
 			'wpacu_skip_test_mode',
+
+            // Local-font legacy preload checker: preserve the same optimized
+            // CSS/JS output that a normal visit would receive.
+            'wpacu_local_font_preload_scan',
+            'wpacu_local_font_preload_scan_view',
+            'wpacu_font_scan_cb',
+            'wpacu_font_scan_task',
+            'wpacu_no_frontend_show',
 		);
 
 		$queryStringsToIgnoreFromTheURIForOptimizingAssets = array(
@@ -2651,7 +2818,7 @@ class OptimizeCommon
 			$existingList[$assetType]['already_minified'] = array_slice($existingList[$assetType]['already_minified'], 0, 100);
 		}
 
-		update_option($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		update_option($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
 	// [START] For debugging purposes
@@ -2704,7 +2871,7 @@ class OptimizeCommon
 			unset($existingList['scripts']['already_minified']);
 		}
 
-		update_option($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		update_option($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
 	/**
@@ -2731,7 +2898,7 @@ class OptimizeCommon
 			}
 		}
 
-		update_option($optionToUpdate, wp_json_encode(Misc::filterList($existingList)));
+		update_option($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 	// [END] For debugging purposes
 

@@ -8,6 +8,7 @@ use WpAssetCleanUp\MainFront;
 use WpAssetCleanUp\Menu;
 use WpAssetCleanUp\MetaBoxes;
 use WpAssetCleanUp\Misc;
+use WpAssetCleanUp\Regex;
 
 /**
  * Class MinifyJs
@@ -69,78 +70,68 @@ class MinifyJs
 	 *
 	 * @return bool
 	 */
-	public static function skipMinify($src, $handle = '')
-	{
-		// Things like WP Fastest Cache Toolbar JS shouldn't be minified and take up space on the server
-		if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('scripts'))) {
-			return true;
-		}
+    public static function skipMinify($src, $handle = '')
+    {
+        $src = trim((string)$src);
 
-		$regExps = array(
-			'#/wp-content/plugins/wp-asset-clean-up(.*?).js#',
+        if ($src === '') {
+            return false;
+        }
 
-			// Other libraries from the core that end in .min.js
-			'#/wp-includes/(.*?).min.js#',
+        // Things like WP Fastest Cache Toolbar JS shouldn't be minified and take up space on the server
+        if ($handle !== '' && in_array($handle, MainFront::instance()->getSkipAssets('scripts'))) {
+            return true;
+        }
 
-			// jQuery & jQuery Migrate
-			'#/wp-includes/js/jquery/jquery.js#',
-			'#/wp-includes/js/jquery/jquery-migrate.js#',
+        $rules = array(
+            '#/wp-content/plugins/wp-asset-clean-up(.*?)\.js#',
 
-			// Files within /wp-content/uploads/
-			// Files within /wp-content/uploads/ or /wp-content/cache/
-			// Could belong to plugins such as "Elementor, "Oxygen" etc.
-			//'#/wp-content/uploads/(.*?).js#',
-			'#/wp-content/cache/(.*?).js#',
+            // Other libraries from the core that end in .min.js
+            '#/wp-includes/(.*?).min\.js#',
 
-			// Already minified, and it also has a random name making the cache folder make bigger
-			'#/wp-content/bs-booster-cache/#',
+            // jQuery & jQuery Migrate
+            '#/wp-includes/js/jquery/jquery\.js#',
+            '#/wp-includes/js/jquery/jquery-migrate\.js#',
 
-			// Elementor .min.js
-			'#/wp-content/plugins/elementor/assets/(.*?).min.js#',
+            // Files within /wp-content/cache/
+            // Could belong to plugins such as "Elementor", "Oxygen" etc.
+            '#/wp-content/cache/(.*?)\.js#',
 
-			// WooCommerce Assets
-			'#/wp-content/plugins/woocommerce/assets/js/(.*?).min.js#',
+            // Already minified, and it also has a random name making the cache folder make bigger
+            '#/wp-content/bs-booster-cache/#',
 
-			// Google Site Kit
-			// The files are already optimized (they just have comments once in a while)
-			// Minifying them causes some errors, so better to leave them load as they are
-			'#/wp-content/plugins/google-site-kit/#',
+            // Elementor .min.js
+            '#/wp-content/plugins/elementor/assets/(.*?)\.min\.js#',
 
-			// GiveWP: the files are already optimized (they just have comments once in a while)
-			'#/wp-content/plugins/give/assets/dist/js/#',
+            // WooCommerce Assets
+            '#/wp-content/plugins/woocommerce/assets/js/(.*?)\.min\.js#',
+
+            // Google Site Kit
+            // The files are already optimized (they just have comments once in a while)
+            // Minifying them causes some errors, so better to leave them load as they are
+            '#/wp-content/plugins/google-site-kit/#',
+
+            // GiveWP: the files are already optimized (they just have comments once in a while)
+            '#/wp-content/plugins/give/assets/dist/js/#',
 
             // TranslatePress Multilingual
-            '#/translatepress-multilingual/assets/js/trp-editor.js#',
+            '#/translatepress-multilingual/assets/js/trp-editor\.js#',
 
-			// Query Monitor
-			'#/query-monitor/assets/query-monitor.js#'
+            // Query Monitor
+            '#/query-monitor/assets/query-monitor\.js#'
+        );
 
-			);
+        $rules = Misc::replaceRelPluginPath($rules);
 
-		$regExps = Misc::replaceRelPluginPath($regExps);
+        if (Main::instance()->settings['minify_loaded_js_exceptions'] !== '') {
+            $rules = array_merge(
+                $rules,
+                Regex::splitRules(Main::instance()->settings['minify_loaded_js_exceptions'])
+            );
+        }
 
-		if (Main::instance()->settings['minify_loaded_js_exceptions'] !== '') {
-			$loadedJsExceptionsPatterns = trim(Main::instance()->settings['minify_loaded_js_exceptions']);
-
-			if (strpos($loadedJsExceptionsPatterns, "\n") !== false) {
-				// Multiple values (one per line)
-				foreach (explode("\n", $loadedJsExceptionsPatterns) as $loadedJsExceptionPattern) {
-					$regExps[] = '#'.trim($loadedJsExceptionPattern).'#';
-				}
-			} else {
-				// Only one value?
-				$regExps[] = '#'.trim($loadedJsExceptionsPatterns).'#';
-			}
-		}
-
-		foreach ($regExps as $regExp) {
-			if ( preg_match( $regExp, $src ) || ( strpos($src, $regExp) !== false ) ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
+        return Regex::matchesAnyRule($rules, $src);
+    }
 
 	/**
      * This is for minifying the inline tag and/or alter it in case the following options were enabled:
@@ -159,9 +150,7 @@ class MinifyJs
 
         $doMinifyInlineTag = in_array(Main::instance()->settings['minify_loaded_js_for'], array('inline', 'all')) && self::isMinifyJsEnabled();
 
-		$skipTagsContaining = array_map( static function ( $toMatch ) {
-			return preg_quote($toMatch, '/');
-		}, array(
+		$skipTagsContaining = apply_filters('wpacu_internal_minify_js_inline_script_skip_tags_containing', array(
 			'data-wpacu-skip',
 			'/* <![CDATA[ */', // added via wp_localize_script()
 			'wpacu-google-fonts-async-load',
@@ -172,6 +161,10 @@ class MinifyJs
 			'b[c] += ( window.postMessage && request ? \' \' : \' no-\' ) + cs;', // WP Core
 			'data-wpacu-own-inline-script' // Only shown to the admin, irrelevant for any optimization (save resources)
 		));
+
+		$skipTagsContaining = array_map( static function ( $toMatch ) {
+			return preg_quote($toMatch, '/');
+		}, $skipTagsContaining);
 
 		// Do not perform another \DOMDocument call if it was done already somewhere else (e.g. CombineJs)
 		$fetchType = 'regex'; // 'regex' or 'dom'

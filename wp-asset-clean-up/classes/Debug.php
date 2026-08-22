@@ -123,9 +123,7 @@ class Debug
 
 			'alter_html_source_for_combine_css',
 			'alter_html_source_for_minify_inline_style_tags',
-
             'alter_html_source_for_local_fonts_display_style_inline',
-
 			'alter_html_source_for_optimize_css_final_cleanups',
 
 			// JS
@@ -143,7 +141,7 @@ class Debug
 
             'alter_html_source_strip_any_references_for_unloaded_assets',
 
-			'fetch_strip_hardcoded_assets',
+            'fetch_strip_hardcoded_assets',
 			'fetch_all_hardcoded_assets',
 
 			'output_css_js_manager',
@@ -154,11 +152,10 @@ class Debug
 			'style_loader_tag_preload_css',
 			'script_loader_tag_preload_js',
 
-			'style_loader_tag_pro_changes',
-			'script_loader_tag_pro_changes',
-
             'all_timings'
 		);
+
+        $timingKeys = apply_filters('wpacu_internal_debug_timing_keys', $timingKeys);
 
 		foreach ( $timingKeys as $timingKey ) {
             $htmlSource = self::printTimingFor($timingKey, $htmlSource);
@@ -202,6 +199,8 @@ class Debug
 			'wpacu_no_admin_bar'     => 'Do not show the admin bar',
 			'wpacu_no_html_changes'  => 'Do not alter the HTML DOM (this will also load all assets non-minified and non-combined)',
 		);
+
+        $allDebugOptions = apply_filters('wpacu_internal_debug_options', $allDebugOptions);
 		?>
 		<style <?php echo Misc::getStyleTypeAttribute(); ?>>
 			<?php echo file_get_contents(WPACU_PLUGIN_DIR.'/assets/wpacu-debug.css'); ?>
@@ -233,6 +232,8 @@ class Debug
                             ?>
                             </ul>
 
+                            <?php do_action('wpacu_internal_debug_front_after_options'); ?>
+
                             <div>
                                 <input type="submit"
                                        value="Preview this page with the changes made above" />
@@ -241,6 +242,8 @@ class Debug
                         </form>
                     </td>
                     <td style="vertical-align: top;">
+                        <?php do_action('wpacu_internal_debug_front_right_column_top'); ?>
+
 	                    <div style="margin: 0 0 10px; padding: 10px 0;">
 	                        <strong>CSS handles marked for unload:</strong>&nbsp;
 	                        <?php
@@ -307,7 +310,10 @@ class Debug
                                                 <li>Google Fonts Optimization/Removal: {wpacu_alter_html_source_for_google_fonts_optimization_removal_exec_time}</li>
                                                 <li>From CSS file to Inline: {wpacu_alter_html_source_for_inline_css_exec_time}</li>
                                                 <li>Update Original to Optimized: {wpacu_alter_html_source_original_to_optimized_css_exec_time}</li>
+                                                <?php do_action('wpacu_internal_debug_timing_css_after_original_to_optimized'); ?>
                                                 <li>Preloads: {wpacu_alter_html_source_for_preload_css_exec_time}</li>
+
+                                                <?php do_action('wpacu_internal_debug_timing_css_after_preload'); ?>
 
                                                 <!-- -->
 
@@ -315,17 +321,25 @@ class Debug
                                                 <li>Minify Inline Tags: {wpacu_alter_html_source_for_minify_inline_style_tags_exec_time}</li>
                                                 <li>Unload (ignore dependencies): {wpacu_alter_html_source_unload_ignore_deps_css_exec_time}</li>
                                                 <li>Alter Inline CSS (font-display): {wpacu_alter_html_source_for_local_fonts_display_style_inline_exec_time}</li>
+
+                                                <?php do_action('wpacu_internal_debug_timing_css_after_local_fonts_display'); ?>
+
                                                 <li>Final Cleanups for the HTML source: {wpacu_alter_html_source_for_optimize_css_final_cleanups_exec_time}</li>
                                             </ul>
                                         </li>
 
                                         <li style="margin-top: 10px; margin-bottom: 10px;">OptimizeJs: {wpacu_alter_html_source_for_optimize_js_exec_time} ({wpacu_alter_html_source_for_optimize_js_exec_time_sec})
                                             <ul>
+
+                                                <?php do_action('wpacu_internal_debug_timing_js_before_original_to_optimized'); ?>
+
                                                 <li>Update Original to Optimized: {wpacu_alter_html_source_original_to_optimized_js_exec_time}</li>
                                                 <li>Preloads: {wpacu_alter_html_source_for_preload_js_exec_time}</li>
                                                 <!-- -->
 
                                                 <li>Combine: {wpacu_alter_html_source_for_combine_js_exec_time}</li>
+
+                                                <?php do_action('wpacu_internal_debug_timing_js_after_combine'); ?>
 
                                                 <li>Move jQuery within the BODY tag: {wpacu_alter_html_source_maybe_move_jquery_after_body_tag_exec_time}</li>
                                                 <li>Unload (ignore dependencies): {wpacu_alter_html_source_unload_ignore_deps_js_exec_time}</li>
@@ -337,6 +351,8 @@ class Debug
                                         <li>Strip any references for unloaded assets: {wpacu_alter_html_source_strip_any_references_for_unloaded_assets_exec_time}</li>
 
                                         <li>Apply any Resource Loading rules: {wpacu_alter_html_source_for_resource_loading_exec_time}</li>
+
+                                        <?php do_action('wpacu_internal_debug_timing_after_resource_loading'); ?>
 
                                         <li>HTML CleanUp: {wpacu_alter_html_source_cleanup_exec_time}
                                             <ul>
@@ -354,7 +370,9 @@ class Debug
 
 								<li style="margin-bottom: 10px;" data-wpacu-count-it="{wpacu_style_loader_tag_preload_css_exec_time}">"style_loader_tag" filters (Preload CSS): {wpacu_style_loader_tag_preload_css_exec_time} ({wpacu_style_loader_tag_preload_css_exec_time_sec})</li>
 								<li style="margin-bottom: 10px;" data-wpacu-count-it="{wpacu_script_loader_tag_preload_js_exec_time}">"script_loader_tag" filters (Preload JS): {wpacu_script_loader_tag_preload_js_exec_time} ({wpacu_script_loader_tag_preload_js_exec_time_sec})</li>
-                            </ul>
+
+                                <?php do_action('wpacu_internal_debug_timing_after_script_loader_tag_preload_js'); ?>
+							</ul>
 	                    </div>
                     </td>
                 </tr>

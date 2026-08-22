@@ -324,11 +324,9 @@ class MainFront
 	{
         Main::instance()->globalUnloaded = Main::instance()->getGlobalUnload();
 
-        // [wpacu_lite]
-        if ( ! Main::instance()->isUpdateable ) {
+        if (apply_filters('wpacu_internal_main_front_should_stop_set_vars_after_update', false)) {
             return;
         }
-        // [/wpacu_lite]
 
         $getCurrentPost = Main::instance()->getCurrentPost();
 
@@ -343,6 +341,8 @@ class MainFront
                 ? Main::instance()->getBulkUnload('post_type', $post->post_type)
                 : array();
             }
+
+        $type = apply_filters('wpacu_internal_main_front_for_type', $type);
 
         Main::$vars['for_type'] = $type;
         Main::$vars['current_post_id'] = Main::instance()->currentPostId;
@@ -494,9 +494,7 @@ class MainFront
      */
     public static function buildUnloadList($assetType)
     {
-        // [wpacu_lite]
-        $nonAssetConfigPage = ! Main::instance()->isUpdateable && ! Misc::getShowOnFront();
-        // [/wpacu_lite]
+        $list = array();
 
         /*
          * [All unloaded styles]
@@ -504,53 +502,65 @@ class MainFront
         if ($assetType === 'styles') {
             $globalUnload = Main::instance()->globalUnloaded;
 
-            // [wpacu_lite]
-            if ( $nonAssetConfigPage && ! empty( $globalUnload[$assetType] ) ) {
+            $useGlobalUnloadOnly = apply_filters(
+                'wpacu_internal_main_front_use_global_unload_only',
+                false,
+                $assetType,
+                $globalUnload
+            );
+
+            if ($useGlobalUnloadOnly && ! empty($globalUnload[$assetType])) {
                 $list = $globalUnload[$assetType];
             } else {
-            // [/wpacu_lite]
+                // Post, Page, Front-page and more
+                $toRemove = Main::instance()->getAssetsUnloadedPageLevel();
 
-            // Post, Page, Front-page and more
-            $toRemove = Main::instance()->getAssetsUnloadedPageLevel();
+                $jsonList = @json_decode($toRemove);
 
-            $jsonList = @json_decode($toRemove);
-
-            $list = array();
-
-            if (isset($jsonList->styles)) {
-                $list = (array)$jsonList->styles;
-            }
-
-            // Any global unloaded styles? Append them
-            if ( ! empty($globalUnload['styles'])) {
-                foreach ($globalUnload['styles'] as $handleStyle) {
-                    $list[] = $handleStyle;
-                }
-            }
-
-            if (MainFront::isSingularPage()) {
-                // Any bulk unloaded styles (e.g. for all pages belonging to a post type)? Append them
-                if (empty(Main::instance()->postTypesUnloaded)) {
-                    $post                               = Main::instance()->getCurrentPost();
-                    Main::instance()->postTypesUnloaded = (isset($post->post_type) && $post->post_type)
-                        ? Main::instance()->getBulkUnload('post_type', $post->post_type)
-                        : array();
+                if (isset($jsonList->styles)) {
+                    $list = (array)$jsonList->styles;
                 }
 
-                if ( ! empty(Main::instance()->postTypesUnloaded['styles']) ) {
-                    foreach (Main::instance()->postTypesUnloaded['styles'] as $handleStyle) {
+                // Any global unloaded styles? Append them
+                if ( ! empty($globalUnload[$assetType])) {
+                    foreach ($globalUnload[$assetType] as $handleStyle) {
                         $list[] = $handleStyle;
+
+                        Main::addAssetToUnloadReasonList($handleStyle, $assetType, array(
+                            'rule_label' => 'Unload site-wide'
+                        ));
+                    }
+                }
+
+                if (MainFront::isSingularPage()) {
+                    $post = Main::instance()->getCurrentPost();
+
+                    // Any bulk unloaded styles (e.g. for all pages belonging to a post type)? Append them
+                    if (empty(Main::instance()->postTypesUnloaded)) {
+                        Main::instance()->postTypesUnloaded = (isset($post->post_type) && $post->post_type)
+                            ? Main::instance()->getBulkUnload('post_type', $post->post_type)
+                            : array();
+                    }
+
+                    if ( ! empty(Main::instance()->postTypesUnloaded[$assetType]) ) {
+                        foreach (Main::instance()->postTypesUnloaded[$assetType] as $handleStyle) {
+                            $list[] = $handleStyle;
+
+                            Main::addAssetToUnloadReasonList($handleStyle, $assetType, array(
+                                'rule_label' => 'Unload on all <span><strong>' . $post->post_type . '</strong></span> type pages'
+                            ));
+                        }
                     }
                 }
             }
 
-            // [wpacu_lite]
-            }
-            // [/wpacu_lite]
-
             // Site-Wide Unload for "Dashicons" if user is not logged-in
             if (Main::instance()->settings['disable_dashicons_for_guests'] && ! is_user_logged_in()) {
                 $list[] = 'dashicons';
+
+                Main::addAssetToUnloadReasonList('dashicons', $assetType, array(
+                    'rule_label' => 'Unload Dashicons if th user is not logged in'
+                ));
             }
 
             // Any bulk unloaded styles for 'category', 'post_tag' and more?
@@ -568,51 +578,59 @@ class MainFront
         if ($assetType === 'scripts') {
             $globalUnload = Main::instance()->globalUnloaded;
 
-            // [wpacu_lite]
-            if ( $nonAssetConfigPage && ! empty( $globalUnload[$assetType] ) ) {
+            $useGlobalUnloadOnly = apply_filters(
+                'wpacu_internal_main_front_use_global_unload_only',
+                false,
+                $assetType,
+                $globalUnload
+            );
+
+            if ($useGlobalUnloadOnly && ! empty($globalUnload[$assetType])) {
                 $list = $globalUnload[$assetType];
             } else {
-            // [/wpacu_lite]
+                // Post, Page or Front-page?
+                $toRemove = Main::instance()->getAssetsUnloadedPageLevel();
 
-            // Post, Page or Front-page?
-            $toRemove = Main::instance()->getAssetsUnloadedPageLevel();
+                $jsonList = @json_decode( $toRemove );
 
-            $jsonList = @json_decode( $toRemove );
-
-            $list = array();
-
-            if ( isset( $jsonList->scripts ) ) {
-                $list = (array) $jsonList->scripts;
-            }
-
-            // Any global unloaded styles? Append them
-            if ( ! empty( $globalUnload['scripts'] ) ) {
-                foreach ( $globalUnload['scripts'] as $handleScript ) {
-                    $list[] = $handleScript;
-                }
-            }
-
-            if ( MainFront::isSingularPage() ) {
-                // Any bulk unloaded styles (e.g. for all pages belonging to a post type)? Append them
-                if ( empty( Main::instance()->postTypesUnloaded ) ) {
-                    $post = Main::instance()->getCurrentPost();
-
-                    // Make sure the post_type is set; it's not in specific pages (e.g. BuddyPress ones)
-                    Main::instance()->postTypesUnloaded = ( isset( $post->post_type ) && $post->post_type )
-                        ? Main::instance()->getBulkUnload( 'post_type', $post->post_type )
-                        : array();
+                if ( isset( $jsonList->scripts ) ) {
+                    $list = (array) $jsonList->scripts;
                 }
 
-                if ( ! empty( Main::instance()->postTypesUnloaded['scripts'] ) ) {
-                    foreach ( Main::instance()->postTypesUnloaded['scripts'] as $handleStyle ) {
-                        $list[] = $handleStyle;
+                // Any global unloaded styles? Append them
+                if ( ! empty( $globalUnload[$assetType] ) ) {
+                    foreach ( $globalUnload[$assetType] as $handleScript ) {
+                        $list[] = $handleScript;
+
+                        Main::addAssetToUnloadReasonList($handleScript, $assetType, array(
+                            'rule_label' => 'Unload site-wide'
+                        ));
                     }
                 }
-            }
 
-            // [wpacu_lite]
+                if ( MainFront::isSingularPage() ) {
+                    $post = Main::instance()->getCurrentPost();
+
+                    // Any bulk unloaded scripts (e.g. for all pages belonging to a post type)? Append them
+                    if ( empty( Main::instance()->postTypesUnloaded ) ) {
+                        // Make sure the post_type is set; it's not in specific pages (e.g. BuddyPress ones)
+                        Main::instance()->postTypesUnloaded = ( isset( $post->post_type ) && $post->post_type )
+                            ? Main::instance()->getBulkUnload( 'post_type', $post->post_type )
+                            : array();
+                    }
+
+                    if ( ! empty( Main::instance()->postTypesUnloaded[$assetType] ) ) {
+                        foreach ( Main::instance()->postTypesUnloaded[$assetType] as $handleScript ) {
+                            $list[] = $handleScript;
+
+                            Main::addAssetToUnloadReasonList($handleScript, $assetType, array(
+                                'rule_label' => 'Unload on all  <strong>' . $post->post_type . '</strong> type pages'
+                            ));
+                        }
+                    }
+                }
+
             }
-            // [/wpacu_lite]
 
             // Any bulk unloaded styles for 'category', 'post_tag' and more?
             // These are PRO rules or rules added via custom coding
@@ -631,6 +649,8 @@ class MainFront
                             Main::instance()->wpAllScripts['queue'][] = $handle;
                         }
                     }
+
+                    do_action('wpacu_internal_main_front_registered_script_collected', $handle, $wp_scripts);
                 }
 
                 if ( ! empty( Main::instance()->wpAllScripts['queue'] ) ) {
@@ -755,6 +775,10 @@ class MainFront
 
 			// e.g. for test/debug mode or AJAX calls (where all assets have to load)
 			if ( isset($_REQUEST['wpacu_no_css_unload']) ) {
+                // Don't forget (before preventing the unloading) to mark the ones that are set to be moved to BODY or HEAD.
+                // Make sure it is triggered even if the unload list is empty as the user might just want to move assets on this page.
+                do_action('wpacu_internal_mark_enqueued_styles_to_load_in_new_position', $list);
+
 				/* [wpacu_timing] */Misc::scriptExecTimer( 'filter_dequeue_styles', 'end' ); /* [/wpacu_timing] */
 				return;
 			}
@@ -771,6 +795,12 @@ class MainFront
             /*
 			 * [END] Load Exception Check
 			 * */
+
+			if ( ! Main::instance()->isGetAssetsCall ) {
+                // Only relevant if the regular page is viewed (not when the assets are fetched from the Dashboard).
+                // Make sure it is triggered even if the unload list is empty as the user might just want to move assets on this page.
+                do_action('wpacu_internal_mark_enqueued_styles_to_load_in_new_position', $list);
+            }
 
 			// Is $list still empty? Nothing to unload? Stop here
 			if (empty($list)) {
@@ -796,11 +826,8 @@ class MainFront
 
 			// Ignore auto generated handles for the hardcoded CSS as they were added for reference purposes
 			// They will get stripped later on via OptimizeCommon.php
-			if (strncmp($handle, 'wpacu_hardcoded_link_', 21) === 0) {
-				continue; // the handle is used just for reference for later stripping via altering the DOM
-			}
-
-			if (strncmp($handle, 'wpacu_hardcoded_style_', 22) === 0) {
+			if (strncmp($handle, 'wpacu_hardcoded_link_', 21) === 0 || strncmp($handle, 'wpacu_hardcoded_style_', 22) === 0) {
+                do_action('wpacu_internal_main_front_hardcoded_style_unload_detected', $handle);
 				continue; // the handle is used just for reference for later stripping via altering the DOM
 			}
 
@@ -976,6 +1003,12 @@ class MainFront
 			 * [END] Load Exception Check
 			 * */
 
+			if ( ! Main::instance()->isGetAssetsCall ) {
+                // Only relevant if the regular page is viewed (not when the assets are fetched from the Dashboard).
+                // Make sure it is triggered even if the unload list is empty as the user might just want to move assets on this page.
+                do_action('wpacu_internal_mark_enqueued_scripts_to_load_in_new_position');
+            }
+
 			// Nothing to unload
 			if ( empty( $list ) ) {
 				/* [wpacu_timing] */Misc::scriptExecTimer( 'filter_dequeue_scripts', 'end' ); /* [/wpacu_timing] */
@@ -997,11 +1030,8 @@ class MainFront
 			// Ignore auto generated handles for the hardcoded CSS as they were added for reference purposes
 			// They will get stripped later on via OptimizeCommon.php
 			// The handle is used just for reference for later stripping via altering the DOM
-			if (strpos($handle, 'wpacu_hardcoded_script_inline_') !== false || strpos($handle, 'wpacu_hardcoded_noscript_inline_') !== false) {
-				continue;
-			}
-
-			if (strpos($handle, 'wpacu_hardcoded_script_src_') !== false) {
+			if (strpos($handle, 'wpacu_hardcoded_script_inline_') !== false || strpos($handle, 'wpacu_hardcoded_noscript_inline_') !== false || strpos($handle, 'wpacu_hardcoded_script_src_') !== false) {
+                do_action('wpacu_internal_main_front_hardcoded_script_unload_detected', $handle);
 				continue;
 			}
 
@@ -1016,8 +1046,15 @@ class MainFront
 				if (wpacuIsPluginActive('jquery-updater/jquery-updater.php')) {
 					wp_dequeue_script($handle);
 				}
+
+                do_action('wpacu_internal_jquery_migrate_unloaded');
+
 				continue;
 			}
+
+            if (in_array($handle, array('jquery', 'jquery-core'))) {
+                do_action('wpacu_internal_jquery_unloaded');
+            }
 
 			if (isset($ignoreChildParentList['scripts'], Main::instance()->wpAllScripts['registered'][$handle]->src) && is_array($ignoreChildParentList['scripts']) && array_key_exists($handle, $ignoreChildParentList['scripts'])) {
 				// Do not dequeue it as it's "children" will also be dequeued (ignore rule is applied)
@@ -1058,7 +1095,7 @@ class MainFront
 			return $this->skipAssets[$getForAssetsType];
 		}
 
-		$ownScriptsIfAdminIsLoggedIn = Menu::userCanAccessPlugin() && AssetsManager::instance()->frontendShow()
+		$ownScriptsIfAdminIsLoggedIn = Main::showAssetsManagerInFrontend() && Menu::userCanAccessPlugin()
 			? OwnAssets::getOwnAssetsHandles( $getForAssetsType )
 			: array();
 

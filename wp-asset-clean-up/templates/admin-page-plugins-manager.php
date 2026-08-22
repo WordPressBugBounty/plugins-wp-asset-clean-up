@@ -4,6 +4,7 @@
  */
 
 use WpAssetCleanUp\AssetsManager;
+use WpAssetCleanUpLite\Admin\ProPreview;
 
 if (! isset($data)) {
 	exit;
@@ -20,6 +21,13 @@ if ( ! AssetsManager::instance()->currentUserCanViewAssetsList() ) {
 	<?php
 	return;
 }
+?>
+<?php
+ProPreview::renderNotice(
+    __('Plugins Manager is available as a read-only preview in Lite', 'wp-asset-clean-up'),
+    __('Open any active plugin below to see the unload rules and load exceptions available in Pro. Lite does not execute or save any of these rules.', 'wp-asset-clean-up'),
+    'plugins_manager_top'
+);
 ?>
 <div class="wpacu-sub-page-tabs-wrap"> <!-- Sub-tabs wrap -->
     <!-- Sub-nav menu -->
@@ -41,17 +49,17 @@ if ( ! AssetsManager::instance()->currentUserCanViewAssetsList() ) {
 
 <?php if ($data['wpacu_sub_page'] === 'manage_plugins_front') { ?>
     <div id="wpacu-plugins-manage-front-notice-top">
-        <p style="margin-top: 0;"><strong>Remember:</strong> Please be careful when using this feature as it would not only unload all the CSS/JS that is loading from a plugin, but everything else (e.g. its backend PHP code, HTML output printed via <code>wp_head()</code> or <code>wp_footer()</code> action hooks, any cookies that are set, .etc). It would be like the plugin is deactivated for the pages where it's chosen to be unloaded. Consider enabling "Test Mode" in plugin's "Settings" if you're unsure about anything. All the rules set below are applied in the front-end view only. They are not taking effect within the Dashboard (the function <code style="font-size: inherit;">is_admin()</code> is used to verify that) to make sure nothing will get broken while you're configuring any plugins' settings. <a style="text-decoration: none; color: #004567;" target="_blank" href="https://www.assetcleanup.com/docs/?p=372"><span class="dashicons dashicons-info"></span>&nbsp;Read more</a></p>
-        <p style="margin-bottom: 0;">If you wish to completely stop using a plugin in both admin/frontend pages, the most effective way would be to deactivate it from the "Plugins" -&gt; "Installed Plugins" area.</p>
+        <p style="margin-top: 0;"><strong><?php esc_html_e('What this Pro feature controls:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Unloading a plugin removes more than its CSS and JavaScript. Its PHP execution, HTML output, hooks, cookies and other front-end behaviour are also skipped on matching requests, much like deactivating it only for those pages.', 'wp-asset-clean-up'); ?> <a style="text-decoration: none; color: #004567;" target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/?p=372"><span class="dashicons dashicons-info"></span>&nbsp;<?php esc_html_e('Read more', 'wp-asset-clean-up'); ?></a></p>
+        <p style="margin-bottom: 0;"><?php esc_html_e('The controls below are a read-only Lite preview. In Pro, front-end rules do not affect Dashboard requests, and Test Mode can be used before exposing changes to visitors.', 'wp-asset-clean-up'); ?></p>
     </div>
 <?php
     include_once __DIR__.'/_admin-page-plugins-manager/_front.php';
 } elseif ($data['wpacu_sub_page'] === 'manage_plugins_dash') {
     ?>
     <div id="wpacu-plugins-manage-dash-notice-top">
-        <p style="margin-top: 0;"><strong>Remember:</strong> Using this feature is only recommended for advanced users (e.g. developers/admins that know very well their website and the consequences of having plugins unloaded for certain pages) &amp; who really need it. A set rule would not only unload all the CSS/JS loading from a plugin, but everything else (e.g. its backend PHP code, HTML output printed via <code>admin_head()</code> or <code>admin_footer()</code> action hooks, any cookies that are set, etc.).</p>
-        <p style="margin-top: 0;">Reasons for using this feature include: some admin pages are very slow, you want to avoid a conflict between two plugins, etc. It would be like the plugin is deactivated within the Dashboard for the pages where it's chosen to be unloaded. The function <code style="font-size: inherit;">is_admin()</code> is used to perform the verification to determine if the user is inside a Dashboard page. If you make a mistake and set a rule that doesn't allow you to access a page anymore, you can cancel it by appending the following query string to the URL: <code>&amp;wpacu_no_dash_plugin_unload</code>, thus allowing you to change/remove the rule in this management page. <a style="text-decoration: none; color: #004567;" target="_blank" href="https://www.assetcleanup.com/docs/?p=1128"><span class="dashicons dashicons-info"></span>&nbsp;Read more</a></p>
-        <p style="margin-bottom: 0;">If you wish to completely stop using a plugin in both admin/frontend pages, the most effective way would be to deactivate it from the "Plugins" --&gt; "Installed Plugins" area.</p>
+        <p style="margin-top: 0;"><strong><?php esc_html_e('Advanced Pro feature:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Dashboard plugin unloading can reduce a slow admin page or isolate a conflict, but it also skips the plugin’s PHP code, admin hooks, HTML output and other behaviour on every matching request.', 'wp-asset-clean-up'); ?></p>
+        <p style="margin-top: 0;"><?php esc_html_e('The controls below are a read-only Lite preview. In Pro, the emergency query string', 'wp-asset-clean-up'); ?> <code>&amp;wpacu_no_dash_plugin_unload</code> <?php esc_html_e('temporarily bypasses Dashboard unload rules so a mistaken rule can be corrected.', 'wp-asset-clean-up'); ?> <a style="text-decoration: none; color: #004567;" target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/?p=1128"><span class="dashicons dashicons-info"></span>&nbsp;<?php esc_html_e('Read more', 'wp-asset-clean-up'); ?></a></p>
+        <p style="margin-bottom: 0;"><?php esc_html_e('To stop using a plugin everywhere, deactivate it from Plugins → Installed Plugins instead of creating conditional rules.', 'wp-asset-clean-up'); ?></p>
     </div>
 <?php
 	include_once __DIR__.'/_admin-page-plugins-manager/_dash.php';
