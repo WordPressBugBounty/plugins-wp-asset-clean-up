@@ -452,7 +452,7 @@ SQL;
 
         // Any bulk unloads or removed? (e.g. all pages of a certain post type)
 	    $this->saveToBulkUnloads($post);
-	    $this->removeBulkUnloads(array(), array(), 'post_type', $post->post_type);
+	    $this->removeBulkUnloads(array(), array(), 'post_type', $post->post_type, 'post');
 
         do_action('wpacu_internal_post_update_after_bulk_changes', $post->post_type);
 

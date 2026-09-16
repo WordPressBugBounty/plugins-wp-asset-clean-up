@@ -1154,6 +1154,9 @@ SQL;
 	 */
 	public function preventAssetsSettings($ignoreList = array())
 	{
+        if (!is_admin() && !empty($GLOBALS['wpacu_debug_page_options']['no_assets_settings'])) {
+            return true;
+        }
 		$keyToCheck = 'wpacu_prevent_assets_settings_'.implode('_', $ignoreList);
 
 		if ( isset($GLOBALS[$keyToCheck]) ) {
@@ -1189,7 +1192,10 @@ SQL;
 			}
 		}
 
-		$GLOBALS[$keyToCheck] = false;
+		// init/parse_query can run before the current page and its overrides are known.
+		if (is_admin() || defined('WPACU_CURRENT_PAGE_ID')) {
+			$GLOBALS[$keyToCheck] = false;
+		}
 		return false;
 	}
 

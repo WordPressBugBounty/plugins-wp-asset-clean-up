@@ -1679,8 +1679,81 @@ html.wpacu-font-risk-modal-open body {
   line-height: 1.6;
 }
 
+#wpacu-setting-google-fonts .wpacu-google-fonts-header__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-header__description {
+  flex: 1 1 auto;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-header p.wpacu-google-fonts-doc-link-wrap {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid #cbdde2;
+  border-radius: 6px;
+  background: #f7fafb;
+  color: #315d6b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-doc-link:hover,
+#wpacu-setting-google-fonts .wpacu-google-fonts-doc-link:focus {
+  border-color: #8ebbc4;
+  background: #eef7f8;
+  color: #004567;
+  text-decoration: none;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-doc-link .dashicons-book-alt {
+  width: 15px;
+  height: 15px;
+  color: var(--wpacu-brand-3, #00a7a7);
+  font-size: 15px;
+  line-height: 15px;
+  text-decoration: none;
+}
+
+#wpacu-setting-google-fonts .wpacu-google-fonts-doc-link__external {
+  font-size: 12px;
+  text-decoration: none;
+}
+
 #wpacu-setting-google-fonts .wpacu-google-fonts-header + .wpacu-sub-tabs-wrap {
   margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  #wpacu-setting-google-fonts .wpacu-google-fonts-header__summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #wpacu-setting-google-fonts .wpacu-google-fonts-header p.wpacu-google-fonts-doc-link-wrap {
+    margin-top: 12px;
+  }
+
+  #wpacu-setting-google-fonts .wpacu-google-fonts-doc-link {
+    white-space: normal;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1924,6 +1997,42 @@ html.wpacu-font-risk-modal-open body {
   margin: 7px 0 0;
   color: #6c7b81;
   font-size: 13px;
+  line-height: 1.45;
+}
+
+.wpacu-google-fonts-preconnect-warning {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #ead8ad;
+  border-left: 3px solid #d49a00;
+  border-radius: 7px;
+  background: #fffaf0;
+}
+
+.wpacu-google-fonts-preconnect-warning > .dashicons {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  color: #9b6d00;
+  font-size: 17px;
+}
+
+.wpacu-google-fonts-preconnect-warning strong,
+.wpacu-google-fonts-preconnect-warning span {
+  display: block;
+}
+
+.wpacu-google-fonts-preconnect-warning strong {
+  margin-bottom: 3px;
+  color: #684b0a;
+}
+
+.wpacu-google-fonts-preconnect-warning div > span {
+  color: #6d6550;
   line-height: 1.45;
 }
 
@@ -2623,4 +2732,30 @@ html.wpacu-font-risk-modal-open body {
   .wpacu-google-fonts-card--legacy .wpacu-google-fonts-card__header {
     padding-right: 70px;
   }
+}
+
+.wpacu-font-preload-legacy__enable-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.wpacu-font-preload-legacy__enable-row .wpacu_switch {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.wpacu-font-preload-legacy__enable-row strong {
+    display: block;
+    margin-bottom: 3px;
+}
+
+.wpacu-font-preload-legacy__enable-row p {
+    margin: 0;
+    color: #646970;
 }

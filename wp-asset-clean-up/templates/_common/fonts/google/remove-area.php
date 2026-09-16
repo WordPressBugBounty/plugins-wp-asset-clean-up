@@ -238,12 +238,13 @@ $cacheRelPath   = str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . Opt
         </ol>
     </section>
 
-    <details class="wpacu-google-fonts-remove-technical">
-        <summary>
-            <span class="dashicons dashicons-admin-tools" aria-hidden="true"></span>
-            <?php esc_html_e('Technical scope, preserved settings and known limits', 'wp-asset-clean-up'); ?>
-        </summary>
-
+    <div class="wpacu-google-fonts-remove-technical" id="wpacuGoogleFontsRemoveTechnical">
+        <button class="wpacu-google-fonts-remove-technical__trigger" id="wpacuGoogleFontsRemoveTechnicalTrigger" type="button" aria-expanded="false" aria-controls="wpacuGoogleFontsRemoveTechnicalPanel">
+            <span class="wpacu-google-fonts-remove-technical__icon" aria-hidden="true"><span class="dashicons dashicons-admin-tools"></span></span>
+            <span><?php esc_html_e('Technical scope, preserved settings and known limits', 'wp-asset-clean-up'); ?></span>
+            <span class="wpacu-google-fonts-remove-technical__chevron" aria-hidden="true"></span>
+        </button>
+        <div class="wpacu-google-fonts-remove-technical__panel" id="wpacuGoogleFontsRemoveTechnicalPanel" role="region" aria-labelledby="wpacuGoogleFontsRemoveTechnicalTrigger" aria-hidden="true" hidden>
         <div class="wpacu-google-fonts-remove-technical__body">
             <div class="wpacu-google-fonts-remove-technical__grid">
                 <section>
@@ -281,8 +282,8 @@ $cacheRelPath   = str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . Opt
                 esc_html_e('The source files are not overwritten.', 'wp-asset-clean-up');
                 ?>
             </p>
-        </div>
-    </details>
+        </div></div>
+    </div>
 </div>
 <script>
 (function() {
@@ -296,6 +297,9 @@ $cacheRelPath   = str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . Opt
     var track = root.querySelector('.wpacu-google-fonts-remove-switch__track');
     var keptLabel = root.querySelector('.wpacu-google-fonts-remove-switch__text--kept');
     var removedLabel = root.querySelector('.wpacu-google-fonts-remove-switch__text--removed');
+    var technical = root.querySelector('#wpacuGoogleFontsRemoveTechnical');
+    var technicalTrigger = root.querySelector('#wpacuGoogleFontsRemoveTechnicalTrigger');
+    var technicalPanel = root.querySelector('#wpacuGoogleFontsRemoveTechnicalPanel');
 
     if (! input || ! track || ! keptLabel || ! removedLabel) {
         return;
@@ -333,6 +337,26 @@ $cacheRelPath   = str_replace(dirname(WP_CONTENT_DIR), '', WP_CONTENT_DIR) . Opt
     input.addEventListener('change', function() {
         updateWidth(false);
     });
+
+    if (technical && technicalTrigger && technicalPanel) {
+        var technicalAnimation = null;
+        var technicalOpen = false;
+        function technicalEffectsEnabled() { return typeof technicalPanel.animate === 'function' && ! (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+        function setTechnicalSemanticState(open) { technicalOpen = open; technical.classList.toggle('is-open', open); technicalTrigger.setAttribute('aria-expanded', open ? 'true' : 'false'); technicalPanel.setAttribute('aria-hidden', open ? 'false' : 'true'); }
+        function finishTechnicalAnimation(open) { technicalAnimation = null; technical.classList.remove('is-animating'); technicalPanel.style.height = ''; technicalPanel.style.overflow = ''; technicalPanel.style.opacity = ''; if (! open) { technicalPanel.hidden = true; } }
+        function setTechnicalState(open) {
+            if (technicalAnimation) { technicalAnimation.cancel(); technicalAnimation = null; }
+            if (! technicalEffectsEnabled()) { setTechnicalSemanticState(open); technicalPanel.hidden = ! open; return; }
+            if (open) { technicalPanel.hidden = false; }
+            var startHeight = technicalPanel.getBoundingClientRect().height;
+            if (open && ! technicalOpen) { startHeight = 0; }
+            technicalPanel.style.height = startHeight + 'px'; technicalPanel.style.overflow = 'hidden'; technical.classList.add('is-animating'); setTechnicalSemanticState(open); technicalPanel.offsetHeight;
+            var endHeight = open ? technicalPanel.scrollHeight : 0;
+            technicalAnimation = technicalPanel.animate([{ height: startHeight + 'px', opacity: open ? 0 : 1 }, { height: endHeight + 'px', opacity: open ? 1 : 0 }], { duration: 190, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)', fill: 'forwards' });
+            technicalAnimation.onfinish = function() { finishTechnicalAnimation(open); };
+        }
+        technicalTrigger.addEventListener('click', function() { setTechnicalState(! technicalOpen); });
+    }
 
     document.addEventListener('click', function(event) {
         var subTabInput = event.target;

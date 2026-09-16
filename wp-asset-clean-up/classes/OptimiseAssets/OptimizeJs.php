@@ -67,6 +67,10 @@ class OptimizeJs
 					$localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'js' );
 
 					if ( ! $localAssetPath ) {
+                        if (isset($_GET['wpacu_debug'])) {
+                            \WpAssetCleanUp\DebugOptimizationDetails::record('js', (object)array('handle'=>$scriptHandle, 'src'=>$src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
+                        }
+
 						continue; // not a local file
 					}
 
@@ -78,6 +82,10 @@ class OptimizeJs
 
 					// Check if the JS has any 'data-wpacu-skip' attribute; if it does, do not alter it
                     if ( Misc::hasExactDataAttr($scriptSourceTag, 'data-wpacu-skip') ) {
+                        if (isset($_GET['wpacu_debug'])) {
+                            \WpAssetCleanUp\DebugOptimizationDetails::record('js', (object)array('handle'=>$scriptHandle, 'src'=>$src), 'File optimization', 'Skipped', __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up'));
+                        }
+
                         unset( $wpScriptsList[ $index ] );
                         continue;
                     }
@@ -260,6 +268,14 @@ class OptimizeJs
 
 		if ( ! $isMinifyJsFilesEnabled || MinifyJs::skipMinify($src, $value->handle) ) {
 			$doFileMinify = false;
+            if (isset($_GET['wpacu_debug'])) {
+				if (! $isMinifyJsFilesEnabled) {
+					$reason = __('File minification is disabled by the effective settings or preview options.', 'wp-asset-clean-up');
+				} else {
+					$reason = __('The file matches a minification exclusion rule.', 'wp-asset-clean-up');
+				}
+				\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'Minification', 'Skipped', $reason);
+            }
 		}
 
 		// Default (it will be later replaced with the last time the file was modified, which is more accurate)
@@ -292,6 +308,7 @@ class OptimizeJs
 		}
 
 		$transientName = 'wpacu_js_optimize_'.$uniqueAssetStr;
+		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
 
 		$skipCache = false;
 
@@ -303,6 +320,10 @@ class OptimizeJs
 			$savedValuesArray = OptimizeCommon::getTransient($transientName);
 
 			if (isset($savedValuesArray[0]) && $savedValuesArray[0] === 'no_alter') {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'Skipped', __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up'));
+                }
+
 				return array();
 			}
 
@@ -341,10 +362,18 @@ class OptimizeJs
 			$sourceBeforeOptimization = $value->src;
 
 			if (! ($jsContent = DynamicLoadedAssets::getAssetContentFrom('dynamic', $value))) {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'Failed', __('The dynamic asset returned no readable content.', 'wp-asset-clean-up'));
+                }
+
 				return array();
 			}
 		} else {
-			if (! $isJsFile) {
+			if ( ! $isJsFile ) {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'Skipped', __('No supported local file was available for this source.', 'wp-asset-clean-up'));
+                }
+
 				return array();
 			}
 
@@ -367,7 +396,12 @@ class OptimizeJs
 		if ( $doFileMinify && $jsContent ) { // only bother to minify it if it has any content, save resources
 			// Minify this file?
 			$jsContentBeforeMin = $jsContent;
-			$jsContentAfterMin  = MinifyJs::applyMinification($jsContentBeforeMin);
+
+			if (isset($_GET['wpacu_debug'])) {
+				$jsContentAfterMin = \WpAssetCleanUp\DebugOptimizationDetails::minify('js', $value, $jsContentBeforeMin);
+			} else {
+				$jsContentAfterMin = MinifyJs::applyMinification($jsContentBeforeMin);
+			}
 
 			$jsContent = $jsContentAfterMin;
 
@@ -387,7 +421,7 @@ class OptimizeJs
 		if ( $jsContentBecomesEmptyAfterMin || $jsContent === '' ) {
 			$jsContent = '/**/';
 		} else {
-			$jsContentArray = self::maybeAlterContentForJsFile( $jsContent );
+			$jsContentArray = self::maybeAlterContentForJsFile( $jsContent, false, $value );
 			$jsContent = $jsContentArray['content']; // resulting content after alteration
 			$jsContentAfterAlterToCompare = $jsContentArray['content_after_alter_to_compare'];
 
@@ -396,6 +430,10 @@ class OptimizeJs
 				$jsContentCompareWith = md5(trim( $jsContentAfterAlterToCompare, '; ' ));
 
 				if ( $jsContentCompare === $jsContentCompareWith ) {
+                    if (isset($_GET['wpacu_debug'])) {
+                    	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'No change needed', __('The file comparison kept the original JavaScript; no optimized file is written by this branch.', 'wp-asset-clean-up'));
+                    }
+
 					// 1: The file was not minified
 					// 2: It doesn't need any alteration (e.g. no Google Fonts to strip from its content)
 					OptimizeCommon::setTransient($transientName, 'no_alter');
@@ -442,7 +480,21 @@ class OptimizeJs
 
 		$saveFile = FileSystem::filePutContents($newLocalPath, $jsContent);
 
-		if (! $saveFile || ! $jsContent) {
+        if (isset($_GET['wpacu_debug'])) {
+			if ($saveFile) {
+				$status = 'Cached';
+				$reason = __('The processed JavaScript was written to an optimized cache file.', 'wp-asset-clean-up');
+			} else {
+				$status = 'Failed';
+				$reason = __('The processed JavaScript could not be written to the cache file.', 'wp-asset-clean-up');
+			}
+			\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', $status, $reason);
+        }
+
+		if ( ! $saveFile || ! $jsContent ) {
+            if (isset($_GET['wpacu_debug'])) {
+            	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'Failed', __('The optimized file could not be saved or its content was empty.', 'wp-asset-clean-up'));
+            }
 			// Fallback to the original JS if the optimized version can't be created or updated
 			return array();
 		}
@@ -470,7 +522,7 @@ class OptimizeJs
 	 *
 	 * @return array
 	 */
-	public static function maybeAlterContentForJsFile($jsContent, $doJsMinify = false)
+	public static function maybeAlterContentForJsFile($jsContent, $doJsMinify = false, $debugAsset = null)
 	{
 		if (! trim($jsContent)) { // No Content! Return it as it, no point in doing extra checks
 			return array('content' => $jsContent);
@@ -486,10 +538,34 @@ class OptimizeJs
         $instance = Main::instance();
 
 		if ($instance->settings['google_fonts_remove']) {
+			$jsContentBeforeAlteration = $jsContent;
 			$jsContent = FontsGoogleRemove::stripReferencesFromJsCode($jsContent);
+			if (isset($_GET['wpacu_debug'])) {
+				$jsContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('js', $debugAsset, 'Google Fonts removal', __('Google Fonts references were removed from the JavaScript.', 'wp-asset-clean-up'), $jsContentBeforeAlteration, $jsContent);
+			}
 		} elseif ($instance->settings['google_fonts_display']) {
 			// Perhaps "display" parameter has to be applied to Google Font Links if they are active
+			$jsContentBeforeAlteration = $jsContent;
 			$jsContent = FontsGoogle::alterGoogleFontUrlFromJsContent($jsContent);
+			if (isset($_GET['wpacu_debug'])) {
+				$jsContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('js', $debugAsset, 'Google Fonts display', __('The display parameter in Google Fonts references was changed.', 'wp-asset-clean-up'), $jsContentBeforeAlteration, $jsContent);
+			}
+		}
+
+		if (empty($instance->settings['google_fonts_remove']) && FontsGoogleRemove::hasSpecificRules()) {
+			$jsContentBeforeAlteration = $jsContent;
+			$jsContent = FontsGoogleRemove::rewriteSpecificStylesheetReferences($jsContent);
+			if (isset($_GET['wpacu_debug'])) {
+				$jsContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('js', $debugAsset, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the JavaScript.', 'wp-asset-clean-up'), $jsContentBeforeAlteration, $jsContent);
+			}
+		}
+
+		if (empty($instance->settings['google_fonts_remove']) && ! empty($instance->settings['google_fonts_local'])) {
+			$jsContentBeforeAlteration = $jsContent;
+			$jsContent = FontsGoogleLocal::alterContent($jsContent, 'js');
+			if (isset($_GET['wpacu_debug'])) {
+				$jsContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('js', $debugAsset, 'Local Google Fonts', __('Google Fonts localization changed the JavaScript.', 'wp-asset-clean-up'), $jsContentBeforeAlteration, $jsContent);
+			}
 		}
 		/* [END] Change JS Content */
 
@@ -569,6 +645,14 @@ class OptimizeJs
 		} elseif ($instance->settings['google_fonts_display']) {
 			// Perhaps "display" parameter has to be applied to Google Font Links if they are active
 			$jsContent = FontsGoogle::alterGoogleFontUrlFromJsContent($jsContent);
+		}
+
+		if (empty($instance->settings['google_fonts_remove']) && FontsGoogleRemove::hasSpecificRules()) {
+			$jsContent = FontsGoogleRemove::rewriteSpecificStylesheetReferences($jsContent);
+		}
+
+		if (empty($instance->settings['google_fonts_remove']) && ! empty($instance->settings['google_fonts_local'])) {
+			$jsContent = FontsGoogleLocal::alterContent($jsContent, 'js');
 		}
 		/* [END] Change JS Content */
 
@@ -682,6 +766,7 @@ class OptimizeJs
 
 				$value = (object)array(
 					'handle' => $generatedHandle,
+					'wpacu_generated_handle' => true,
 					'src'    => $cleanScriptSrcFromTag,
 					'ver'    => md5($afterQuestionMark)
 				);

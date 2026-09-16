@@ -195,6 +195,21 @@ class MetaBoxes
 	 */
 	public static function getPageOptions($postId = 0, $type = 'post')
 	{
+        $saved = self::getSavedPageOptions($postId, $type);
+        // Populated only after validating the preview token, session and target URL.
+        if (! is_admin() && isset($GLOBALS['wpacu_debug_page_options']) && defined('WPACU_CURRENT_PAGE_ID')) {
+            $matchesPage = MainFront::isSingularPage()
+                ? $type === 'post' && (int)$postId === (int)WPACU_CURRENT_PAGE_ID
+                : MainFront::isHomePage() && $type === 'front_page';
+            if ($matchesPage) {
+                return array_merge((array)$saved, $GLOBALS['wpacu_debug_page_options']);
+            }
+        }
+        return $saved;
+    }
+
+    public static function getSavedPageOptions($postId = 0, $type = 'post')
+	{
 		if ($type === 'post' || $postId > 0) {
 			if ( $postId < 1 ) {
 				global $post;

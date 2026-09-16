@@ -35,6 +35,11 @@ class MinifyJs
 				// Save resources as the minify process can take time if the content is very large
 				// Limit the total number of entries to 100: if it's more than that, it's likely because there's dynamic JS altering on every page load
 				if ($checkForAlreadyMinifiedShaOne && OptimizeCommon::originalContentIsAlreadyMarkedAsMinified($sha1OriginalContent, 'scripts')) {
+						if (isset($_GET['wpacu_debug'])) {
+							if (\WpAssetCleanUp\DebugOptimizationDetails::enabled()) {
+								\WpAssetCleanUp\DebugOptimizationDetails::markCachedMinification();
+							}
+						}
 					return $jsContent;
 				}
 
@@ -243,6 +248,9 @@ class MinifyJs
 	 */
 	public static function isMinifyJsEnabled()
 	{
+        if (!empty($GLOBALS['wpacu_debug_page_options']['no_js_minify'])) {
+            return false;
+        }
 		if (defined('WPACU_IS_MINIFY_JS_ENABLED')) {
 			return WPACU_IS_MINIFY_JS_ENABLED;
 		}

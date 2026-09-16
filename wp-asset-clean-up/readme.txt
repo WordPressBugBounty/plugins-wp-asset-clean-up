@@ -3,7 +3,7 @@ Contributors: gabelivan
 Tags: unused css, critical css, page speed, minify css, minify javascript
 Requires at least: 4.7
 Tested up to: 7.1
-Stable tag: 1.4.0.5
+Stable tag: 1.4.0.6
 Requires PHP: 5.6
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -79,21 +79,21 @@ Lite includes an interactive preview of the **Plugins Manager** (rules can be ex
 
 **WordPress.org plugin icon service**
 
-When an authorized administrator opens an Asset CleanUp Dashboard screen and the local plugin-icon cache is missing or incomplete, Asset CleanUp may request public plugin information from `https://api.wordpress.org/plugins/info/1.2/`. The request is used only to retrieve icons for active plugins displayed inside Asset CleanUp. It can include the corresponding WordPress.org plugin slugs and standard HTTP metadata, including the server IP address. Asset CleanUp does not intentionally include the site URL, administrator details, or site content. See the [WordPress.org Privacy Policy](https://wordpress.org/about/privacy/).
+When an administrator opens an Asset CleanUp Dashboard screen, the plugin may request public plugin information from the [WordPress.org Plugin API](https://api.wordpress.org/plugins/info/1.2/) to retrieve icons for installed plugins. This occurs only when the local icon cache needs to be populated and does not intentionally send the site URL or administrator details. See the [WordPress.org Privacy Policy](https://wordpress.org/about/privacy/).
 
 **Google Fonts preload audit**
 
-When an authorized administrator explicitly runs the Google Fonts preload audit, Asset CleanUp may request discovered Google Fonts stylesheets from `https://fonts.googleapis.com/` and process font-file URLs from `https://fonts.gstatic.com/`. Requests can include the stylesheet URL and its font-family, variant, subset, or `text` parameters; the browser user-agent used by the audit; and standard HTTP metadata, including the server IP address. These requests are made only as part of the administrator-initiated audit. See the [Google Privacy Policy](https://policies.google.com/privacy).
+When an administrator runs the Google Fonts preload audit, Asset CleanUp may request discovered stylesheets and font files from [Google Fonts](https://fonts.google.com/) to analyze their preload requirements. These requests occur only during the administrator-initiated audit and can include the requested font URLs and standard HTTP metadata. See the [Google Privacy Policy](https://policies.google.com/privacy).
 
 The following two Asset CleanUp-operated services are optional. Both are disabled by default and require an administrator to opt in from `Asset CleanUp > Settings > Plugin Usage Preferences`.
 
 **Dashboard announcements**
 
-When an administrator explicitly enables announcements, Asset CleanUp periodically requests the Lite announcements JSON feed from `https://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json`. The feed is used to show maintenance information, important update notices, optimization guides, and occasional product offers in the WordPress Dashboard. Asset CleanUp does not intentionally add the site URL, administrator details, or site content to this request. As with any HTTP request, the service receives the server IP address and standard HTTP metadata. When announcements are disabled, this feed is not requested.
+When an administrator enables announcements, Asset CleanUp periodically requests the [Asset CleanUp Lite announcements feed](https://drm6aghn7w1h8.cloudfront.net/_wpacu-lite-announcements.json) to show maintenance information, update notices, optimization guides, and occasional product offers in the WordPress Dashboard. The request does not intentionally include the site URL, administrator details, or site content.
 
 **Optional usage tracking**
 
-When an administrator explicitly enables usage tracking, Asset CleanUp sends an initial technical check-in and then no more than one check-in per week to `https://www.assetcleanup.com/tracking/?wpacu_action=checkin`. The payload can include the PHP, WordPress, and Asset CleanUp versions; Asset CleanUp settings; first-use and review-notice state; server software; multisite status; the active theme name and version; active and inactive plugin file identifiers; and the WordPress locale. The site URL, administrator name, and administrator email are not intentionally included in the tracking payload. Disabling the setting stops future check-ins.
+When an administrator enables usage tracking, Asset CleanUp sends an initial technical check-in and no more than one check-in per week to the [Asset CleanUp usage-tracking endpoint](https://www.assetcleanup.com/tracking/?wpacu_action=checkin). It can include software versions, Asset CleanUp settings and notice state, server and multisite information, theme and plugin identifiers, and the WordPress locale. The site URL, administrator name, and administrator email are not intentionally included. Disabling the setting stops future check-ins.
 
 The announcements and usage-tracking services are operated by the Asset CleanUp developer. See the [privacy policy](https://www.gabelivan.com/privacy-policy/). CloudFront infrastructure is provided by Amazon Web Services and is also subject to the [AWS Privacy Notice](https://aws.amazon.com/privacy/).
 
@@ -178,6 +178,19 @@ Yes. Each site can be configured independently.
 5. Settings — configure asset retrieval, cleanup, Test Mode, and plugin behavior from clearly organized sections.
 
 == Changelog ==
+= 1.4.0.6 =
+* **New:** Admin Bar transfer savings estimates for unloaded CSS/JS files and removed inline code, with AJAX-based measurements and Brotli/GZIP indicators.
+* **Improvement:** Separate effective asset unloads from rules that had no effect on the current page, with inactive rules grouped by asset type.
+* **Improvement — Rule Management:** "Overview" is now the recommended place to review and manage bulk rules, including dormant rules left behind by deleted pages or deactivated plugins. Removed "Bulk Changes" from the top navigation, WordPress sidebar, and Admin Bar. The legacy page remains accessible through its direct URL and existing bookmarks: /wp-admin/admin.php?page=wpassetcleanup_bulk_unloads
+* **Improvement:** The "CSS/JS Manager" and Admin Bar now explain when "Page Options" disable optimizations, including CSS/JS unload rules. Admin Bar warnings identify disabled features, while clearer descriptions, dimmed overridden options, and quick links make these settings easier to understand.
+* **Improvement — Debugging "/?wpacu_debug":** Added temporary "Page Options" overrides without changing saved settings. Debugging controls now update their availability and distinguish global restrictions, Page Options overrides, and missing rules.
+* **Improvement — Debugging "/?wpacu_debug":** Added per-file CSS/JS optimization details explaining content changes, unchanged results, exclusions, failures, and cache decisions. Multiple optimization reasons can be shown for the same file.
+* **Improvement — Overview:** Added navigation entries for "Page Options" and "Special Settings", clarified page overrides, and dimmed redundant options.
+* **Fixed — Interface:** Corrected "Overview" horizontal overflow and alignment.
+* **Fixed — CSS Optimization:** When an optimized stylesheet has a matching `<noscript>` fallback, the fallback now uses the same optimized cache URL instead of retaining the original unminified URL.
+* **Fixed — CSS/JS Manager:** Selecting “Remove bulk rule” or "Remove site-wide rule" now correctly removes the unload rules when saving changes.
+* **Fixed — Page Options:** Fixed an issue where CSS/JS processing could still run on pages with "Disable all front-end optimizations" enabled. The plugin now checks the current page’s options before retaining the decision to allow optimizations, preventing unnecessary processing on excluded pages.
+
 = 1.4.0.5 =
 * **Added — Resource Loading:** Added automatic lazy loading for images. Location: "Settings" -> "Resource Loading" -> "Lazy Load". [Read more](https://www.assetcleanup.com/docs/?p=2403)
 * **Added — Font Preload Audit:** Added a browser-assisted audit for manually preloaded Local and Google Fonts. The audit checks representative pages in desktop and mobile viewports, identifies duplicate, invalid or unnecessary site-wide preloads and provides conservative cleanup recommendations without removing the fonts themselves.

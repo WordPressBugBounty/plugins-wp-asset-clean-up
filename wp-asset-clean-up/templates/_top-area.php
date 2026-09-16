@@ -30,12 +30,6 @@ $wpacuTopAreaLinks = array(
 		'page'  => 'wpassetcleanup_plugins_manager',
 	),
 
-	'admin.php?page=wpassetcleanup_bulk_unloads' => array(
-		'icon' => '<span class="dashicons dashicons-networking"></span>',
-		'title' => esc_html__('Bulk Changes', 'wp-asset-clean-up'),
-		'page'  => 'wpassetcleanup_bulk_unloads'
-	),
-
 	'admin.php?page=wpassetcleanup_overview' => array(
 		'icon' => '<span class="dashicons dashicons-media-text"></span>',
 		'title' => esc_html__('Overview', 'wp-asset-clean-up'),
@@ -146,7 +140,7 @@ $isSettingsCurrentPage = ($wpacuCurrentPage !== WPACU_PLUGIN_ID . '_settings');
                 $wpacuIsCurrentPage            = ($wpacuCurrentPage  === $wpacuInfo['page']);
 	            $wpacuIsAssetsManagerPageLink  = ($wpacuInfo['page'] === 'wpassetcleanup_assets_manager');
 	            $wpacuIsPluginsManagerPageLink = ($wpacuInfo['page'] === 'wpassetcleanup_plugins_manager');
-	            $wpacuIsBulkUnloadsPageLink    = ($wpacuInfo['page'] === 'wpassetcleanup_bulk_unloads');
+	            $wpacuIsOverviewPageLink       = ($wpacuInfo['page'] === 'wpassetcleanup_overview');
                 $wpacuIsLicensePageLink        = ($wpacuInfo['page'] === 'wpassetcleanup_license');
                 ?>
                 <li data-wpacu-top-menu-tab-item="<?php echo $wpacuInfo['page']; ?>"
@@ -167,18 +161,10 @@ $isSettingsCurrentPage = ($wpacuCurrentPage !== WPACU_PLUGIN_ID . '_settings');
                         }
                     }
 
-                    if ($wpacuIsBulkUnloadsPageLink) {
-                        $totalBulkUnloadRules = MiscAdmin::getTotalBulkUnloadsFor('all');
-
-                        if ($totalBulkUnloadRules === 0) {
-                            ?>
-                            <span class="extra-info no-bulk-unloads assets-unloaded-false"><span class="dashicons dashicons-warning"></span> No bulk unloads</span>
-	                        <?php
-                        } elseif ($totalBulkUnloadRules > 0) {
-                            ?>
-                            <span class="extra-info has-bulk-unloads assets-unloaded-true"><strong><?php echo $totalBulkUnloadRules; ?></strong> bulk unload<?php echo ($totalBulkUnloadRules > 1) ? 's' : ''; ?></span>
-	                        <?php
-                        }
+                    if ($wpacuIsOverviewPageLink) {
+                        ?>
+                        <span class="extra-info assets-unloaded-true" style="color: #004567;"><?php esc_html_e('+ Bulk Changes', 'wp-asset-clean-up'); ?></span>
+                        <?php
                     }
                     ?>
                     <a <?php if (isset($wpacuInfo['target']) && $wpacuInfo['target'] === '_blank') { ?> target="_blank" <?php } ?>

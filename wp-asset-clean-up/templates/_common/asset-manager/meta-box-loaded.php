@@ -51,6 +51,8 @@ if ( ! $metaBoxLoadedFine ) {
     exit();
 }
 
+include WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/_optimizations-disabled-notice.php';
+
 $tipsClass = new Tips();
 $data['tips'] = $tipsClass->list;
 

@@ -38,7 +38,7 @@ $storageTypeLabels = array(
 ?>
 <hr style="margin: 15px 0;"/>
 <h3 id="wpacu-overview-section-critical-css" class="wpacu-overview-section-title">
-    <span class="dashicons dashicons-admin-appearance"></span>
+    <span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-admin-appearance"></span>
     <?php esc_html_e('Critical CSS', 'wp-asset-clean-up'); ?>
     <?php
     if ($rulesCount > 0) {
@@ -47,7 +47,7 @@ $storageTypeLabels = array(
             $rulesCount
         ));
     }
-    ?>
+    ?></span>
     <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a>
 </h3>
 
@@ -68,7 +68,7 @@ $storageTypeLabels = array(
         </div>
     <?php } ?>
 
-    <div class="wpacu-critical-css-overview-content <?php echo $isGloballyDisabled ? 'wpacu-critical-css-overview-content-disabled' : ''; ?>">
+    <div data-wpacu-rule-state="<?php echo $isGloballyDisabled ? 'inactive' : 'active'; ?>" class="wpacu-critical-css-overview-content <?php echo $isGloballyDisabled ? 'wpacu-critical-css-overview-content-disabled' : ''; ?>">
         <?php if ( ! empty($locations) ) { ?>
             <table class="wp-list-table wpacu-overview-list-table widefat fixed striped">
                 <thead>
@@ -199,7 +199,7 @@ $storageTypeLabels = array(
                                         );
                                     }
                                     ?>
-                                    <div class="wpacu-critical-css-overview-rule">
+                                    <div class="wpacu-critical-css-overview-rule" data-wpacu-rule-scope="<?php echo $ruleData['scope'] === 'specific' || $ruleData['location_key'] === 'homepage' ? 'page' : 'bulk'; ?>">
                                         <?php echo $ruleMainOutput; ?>
 
                                         <div class="wpacu-critical-css-overview-rule-actions">

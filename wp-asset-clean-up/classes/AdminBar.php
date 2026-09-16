@@ -36,8 +36,82 @@ class AdminBar
 	 */
 	public function inlineCode()
 	{
+		if (! is_admin()) {
+			include __DIR__ . '/../templates/admin-bar-paused-optimizations.php';
+		}
 		?>
 		<style <?php echo Misc::getStyleTypeAttribute(); ?> data-wpacu-own-inline-style="true">
+            #wpadminbar #wp-admin-bar-assetcleanup-inactive-unload-rules {
+                position: relative;
+                border-top: 1px solid #d63638;
+                border-bottom: 1px solid #d63638;
+            }
+            #wpadminbar #wpacu-inactive-help-slot,
+            #wpadminbar #wpacu-savings-help-slot {
+                display: inline-block;
+                width: 22px;
+                margin-left: 8px;
+            }
+            #wpadminbar .wpacu-savings-unit {
+                opacity: 0.8;
+            }
+            #wpadminbar #wp-admin-bar-assetcleanup-inactive-unload-rules .ab-sub-wrapper {
+                border-top: 1px solid #d63638;
+                border-bottom: 1px solid #d63638;
+            }
+            #wpadminbar #wp-admin-bar-assetcleanup-inactive-unload-rules-css > .ab-sub-wrapper,
+            #wpadminbar #wp-admin-bar-assetcleanup-inactive-unload-rules-js > .ab-sub-wrapper {
+                border-right: 1px solid #d63638;
+            }
+            #wpadminbar .wpacu-inactive-help-button {
+                position: absolute;
+                top: 4px;
+                width: 18px;
+                height: 18px;
+                padding: 0;
+                border: 1px solid #a7aaad;
+                border-radius: 50%;
+                background: transparent;
+                color: #f0f0f1;
+                font: bold 12px/16px sans-serif;
+                text-align: center;
+                cursor: pointer;
+            }
+            #wpadminbar .wpacu-inactive-help-button:hover,
+            #wpadminbar .wpacu-inactive-help-button:focus-visible {
+                background: #2271b1;
+                border-color: #72aee6;
+                color: #fff;
+            }
+            #wpadminbar .wpacu-inactive-help-button:focus-visible {
+                outline: 2px solid #72aee6;
+                outline-offset: 2px;
+            }
+            #wpadminbar .wpacu-adminbar-help-panel {
+                position: fixed;
+                box-sizing: border-box;
+                z-index: 100001;
+                width: 330px;
+                max-width: calc(100vw - 16px);
+                padding: 14px;
+                border: 1px solid #d63638;
+                border-radius: 4px;
+                background: #fff;
+                color: #1d2327;
+                font: 13px/1.5 sans-serif;
+                white-space: normal;
+                box-shadow: 0 4px 16px rgba(0,0,0,.25);
+            }
+            #wpadminbar .wpacu-adminbar-help-panel[hidden] { display: none !important; }
+            #wpadminbar #wp-admin-bar-assetcleanup-parent.wpacu-inactive-help-open .menupop:not(.wpacu-help-row-open) > .ab-sub-wrapper {
+                display: none !important;
+            }
+            #wpadminbar #wp-admin-bar-assetcleanup-parent.wpacu-inactive-help-open > .ab-sub-wrapper,
+            #wpadminbar .wpacu-inactive-help-open .wpacu-help-row-open > .ab-sub-wrapper {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
             #wpadminbar #wp-admin-bar-assetcleanup-parent {
                 position: relative;
                 overflow: visible;
@@ -724,8 +798,13 @@ class AdminBar
 	{
 		$topTitle = WPACU_PLUGIN_TITLE;
 
+        if (! is_admin() && Menu::userCanAccessPlugin() && self::getDisabledPageOptimizations()) {
+            $topTitle = self::pausedOptimizationsIcon() . ' ' . $topTitle;
+        }
+
         $anyUnloadedItems = false;
         $markedCssListForUnload = $markedJsListForUnload = array();
+        $inactiveAssetUnloads = array('styles' => array(), 'scripts' => array());
 
         if (! is_admin()) {
             $markedCssListForUnload = isset(Main::instance()->allUnloadedAssets['styles'])  ? array_unique(Main::instance()->allUnloadedAssets['styles'])  : array();
@@ -744,6 +823,25 @@ class AdminBar
                 ? $unloadedAssetsLists['scripts']
                 : array();
 
+            $unloadGroups = AdminBarSavings::partitionUnloads(array('styles' => $markedCssListForUnload, 'scripts' => $markedJsListForUnload));
+            $markedCssListForUnload = $unloadGroups['active']['styles'];
+            $markedJsListForUnload = $unloadGroups['active']['scripts'];
+            $inactiveAssetUnloads = $unloadGroups['inactive'];
+
+            // Hardcoded assets are discovered from the HTML stream instead of
+            // WordPress' queue. Keep rules whose saved tag is no longer present
+            // visible as inactive, without counting them as savings.
+            $hardcodedInactive = ObjectCache::wpacu_cache_get('wpacu_hardcoded_inactive_handles');
+            if (is_array($hardcodedInactive)) {
+                foreach (array('styles', 'scripts') as $assetType) {
+                    if (!empty($hardcodedInactive[$assetType]) && is_array($hardcodedInactive[$assetType])) {
+                        $inactiveAssetUnloads[$assetType] = array_values(array_unique(array_merge(
+                            $inactiveAssetUnloads[$assetType],
+                            $hardcodedInactive[$assetType]
+                        )));
+                    }
+                }
+            }
             $anyUnloadedItems = (count($markedCssListForUnload) + count($markedJsListForUnload)) > 0;
         }
 
@@ -837,13 +935,6 @@ class AdminBar
             }
 		}
 
-		$wp_admin_bar->add_menu(array(
-			'parent' => 'assetcleanup-parent',
-			'id'     => 'assetcleanup-bulk-unloaded',
-			'title'  => esc_html__('Bulk Changes', 'wp-asset-clean-up'),
-			'href'   => esc_url(admin_url( 'admin.php?page=' . WPACU_PLUGIN_ID . '_bulk_unloads'))
-		));
-
 		$wp_admin_bar->add_menu( array(
 			'parent' => 'assetcleanup-parent',
 			'id'     => 'assetcleanup-overview',
@@ -860,7 +951,7 @@ class AdminBar
 			if ($totalUnloadedAssets > 0) {
                 $assetUnloadsWithMultipleLineValues = self::getAssetUnloadsWithMultipleLineValues();
 
-                $titleUnloadText = sprintf( _n( '%d unload asset rules took effect on this frontend page',
+                $titleUnloadText = sprintf( _n( '%d unload asset rule took effect on this frontend page',
 					'%d unload asset rules took effect on this frontend page', $totalUnloadedAssets, 'wp-asset-clean-up' ),
 					$totalUnloadedAssets );
 
@@ -936,9 +1027,90 @@ class AdminBar
 		}
 
         do_action('wpacu_internal_admin_bar_after_unloaded_assets_list', $wp_admin_bar);
+        $this->addPausedOptimizationsNotice($wp_admin_bar);
+        AdminBarSavings::addInactiveMenu($wp_admin_bar, $inactiveAssetUnloads);
+        AdminBarSavings::addMenu($wp_admin_bar, array('styles' => $markedCssListForUnload, 'scripts' => $markedJsListForUnload));
 		// [END LISTING UNLOADED ASSETS]
 
 		}
+
+    /**
+     * @return string
+     */
+    private static function pausedOptimizationsIcon()
+    {
+        return '<svg class="wpacu-paused-icon" aria-hidden="true" focusable="false" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.1 2.2 18.2A2 2 0 0 0 3.9 21h16.2a2 2 0 0 0 1.7-2.8L13.7 4.1a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg>';
+    }
+
+    /**
+     * Remind administrators when the current page's saved rules are paused.
+     *
+     * @param \WP_Admin_Bar $wp_admin_bar
+     */
+    private static function getDisabledPageOptimizations()
+    {
+        $pageOptions = array();
+        if (MainFront::isSingularPage()) {
+            $postId = defined('WPACU_CURRENT_PAGE_ID') && WPACU_CURRENT_PAGE_ID > 0
+                ? (int) WPACU_CURRENT_PAGE_ID : (int) get_queried_object_id();
+            if ($postId > 0) {
+                $pageOptions = MetaBoxes::getPageOptions($postId);
+            }
+        } elseif (MainFront::isHomePage()) {
+            $pageOptions = MetaBoxes::getPageOptions(0, 'front_page');
+        }
+        return array_filter(array_intersect_key((array) $pageOptions, array_flip(array(
+            'no_assets_settings', 'no_css_minify', 'no_css_optimize', 'no_js_minify', 'no_js_optimize'
+        ))));
+    }
+
+    public function addPausedOptimizationsNotice($wp_admin_bar)
+    {
+        if (is_admin() || ! Menu::userCanAccessPlugin()) {
+            return;
+        }
+        $disabledOptions = self::getDisabledPageOptimizations();
+        if (! $disabledOptions) {
+            return;
+        }
+        $allPaused = ! empty($disabledOptions['no_assets_settings']);
+        $description = esc_html__('Saved CSS/JS unload rules and other optimization settings will not take effect while "Disable all front-end optimizations" is enabled.', 'wp-asset-clean-up');
+        if (! $allPaused) {
+            $labels = array(
+                'no_css_minify' => esc_html__('CSS minification', 'wp-asset-clean-up'),
+                'no_css_optimize' => esc_html__('CSS combination', 'wp-asset-clean-up'),
+                'no_js_minify' => esc_html__('JavaScript minification', 'wp-asset-clean-up'),
+                'no_js_optimize' => esc_html__('JavaScript combination', 'wp-asset-clean-up'),
+            );
+            $description = esc_html__('Disabled through Page Options in the CSS/JS Manager:', 'wp-asset-clean-up')
+                . '</p><ul class="wpacu-disabled-features"><li>' . implode('</li><li>', array_intersect_key($labels, $disabledOptions)) . '</li></ul><p>'
+                . esc_html__('These features will not take effect on this page while their disable options are checked. CSS/JS unload rules and other optimizations can still apply.', 'wp-asset-clean-up');
+        }
+
+        $managerUrl = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager');
+        if (MainFront::isSingularPage()) {
+            $postId = defined('WPACU_CURRENT_PAGE_ID') && WPACU_CURRENT_PAGE_ID > 0
+                ? (int) WPACU_CURRENT_PAGE_ID : (int) get_queried_object_id();
+            $managerUrl .= '&wpacu_post_id=' . $postId;
+        }
+        $managerUrl .= '#wpacu_page_options_no_assets_settings';
+
+        $panel = '<div id="wpacu-paused-optimizations-panel" role="region" aria-labelledby="wpacu-paused-optimizations-title" hidden>'
+            . '<strong id="wpacu-paused-optimizations-title">' . ($allPaused ? esc_html__('Optimizations are disabled on this page', 'wp-asset-clean-up') : esc_html__('Some optimizations are disabled on this page', 'wp-asset-clean-up')) . '</strong>'
+            . '<p>' . $description . '</p>'
+            . '<a href="' . esc_url($managerUrl) . '" target="_blank" rel="noopener noreferrer">'
+            . esc_html__('Review Page Options', 'wp-asset-clean-up') . ' <span aria-hidden="true">&rarr;</span></a></div>';
+
+        $wp_admin_bar->add_menu(array(
+            'parent' => 'assetcleanup-parent',
+            'id'     => 'assetcleanup-optimizations-paused',
+            'title'  => self::pausedOptimizationsIcon() . ' '
+                . ($allPaused ? esc_html__('Optimizations paused', 'wp-asset-clean-up') : esc_html__('Some optimizations disabled', 'wp-asset-clean-up'))
+                . '<span class="wpacu-paused-chevron" aria-hidden="true">&rsaquo;</span>',
+            'href'   => esc_url($managerUrl),
+            'meta'   => array('target' => '_blank', 'rel' => 'noopener noreferrer', 'html' => $panel)
+        ));
+    }
 
     /**
      * @return array

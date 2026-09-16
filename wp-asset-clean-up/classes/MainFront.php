@@ -645,9 +645,11 @@ class MainFront
                     // This could be triggered several times, check if the script already exists
                     if ( ! isset( Main::instance()->wpAllScripts['registered'][ $handle ] ) ) {
                         Main::instance()->wpAllScripts['registered'][ $handle ] = $value;
-                        if ( in_array( $handle, $allScripts->queue ) ) {
-                            Main::instance()->wpAllScripts['queue'][] = $handle;
                         }
+
+                    // A previously registered script can be enqueued on a later pass.
+                    if ( in_array( $handle, $allScripts->queue, true ) ) {
+                        Main::instance()->wpAllScripts['queue'][] = $handle;
                     }
 
                     do_action('wpacu_internal_main_front_registered_script_collected', $handle, $wp_scripts);
@@ -758,9 +760,11 @@ class MainFront
 					// This could be triggered several times, check if the style already exists
 					if ( ! isset( Main::instance()->wpAllStyles['registered'][ $handle ] ) ) {
 						Main::instance()->wpAllStyles['registered'][ $handle ] = $value;
-						if ( in_array( $handle, $allStyles->queue ) ) {
-							Main::instance()->wpAllStyles['queue'][] = $handle;
 						}
+
+					// A previously registered stylesheet can be enqueued on a later pass.
+					if ( in_array( $handle, $allStyles->queue, true ) ) {
+						Main::instance()->wpAllStyles['queue'][] = $handle;
 					}
 				}
 
@@ -840,6 +844,9 @@ class MainFront
 
 			// Only trigger the unloading on regular page load, not when the assets list is collected
 			if ( ! Main::instance()->isGetAssetsCall ) {
+                if (isset($wp_styles->registered[$handle])) {
+                    AdminBarSavings::capture('styles', $handle, $wp_styles->registered[$handle], !in_array($handle, $wp_styles->done, true));
+                }
                 wp_dequeue_style( $handle );
 				wp_deregister_style( $handle );
 			}
@@ -1069,8 +1076,13 @@ class MainFront
 
 			// Only trigger the unloading on regular page load, not when the assets list is collected
 			if ( ! Main::instance()->isGetAssetsCall ) {
+                $savingsHandle = $handle;
                 $handle = Main::maybeGetOriginalNonUniqueHandleName($handle, 'scripts');
 
+                global $wp_scripts;
+                if (isset($wp_scripts->registered[$handle])) {
+                    AdminBarSavings::capture('scripts', $savingsHandle, $wp_scripts->registered[$handle], !in_array($handle, $wp_scripts->done, true));
+                }
                 wp_dequeue_script( $handle );
 				wp_deregister_script( $handle );
 			}

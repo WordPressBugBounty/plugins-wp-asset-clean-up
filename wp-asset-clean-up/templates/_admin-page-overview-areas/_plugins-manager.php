@@ -17,7 +17,7 @@ if ( ! isset($data) ) {
 	foreach ($data['plugins_with_rules'] as $locationKey => $pluginsWithRules) {
 		if ( ! empty($pluginsWithRules) ) {
 			?>
-			<h3 id="<?php echo $locationKey === 'plugins' ? 'wpacu-overview-section-plugins-front' : 'wpacu-overview-section-plugins-admin'; ?>" class="wpacu-overview-section-title"><span class="dashicons dashicons-admin-plugins"></span> <?php _e('Plugins Manager rules', 'wp-asset-clean-up'); ?>
+			<h3 id="<?php echo $locationKey === 'plugins' ? 'wpacu-overview-section-plugins-front' : 'wpacu-overview-section-plugins-admin'; ?>" class="wpacu-overview-section-title"><span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-admin-plugins"></span> <?php _e('Plugins Manager rules', 'wp-asset-clean-up'); ?>
 				<?php
 				if ($locationKey === 'plugins') {
 					$pageTypeText = 'frontend';
@@ -31,7 +31,7 @@ if ( ! isset($data) ) {
 				if (isset($data['plugins_with_rules'][$locationKey]) && count($data['plugins_with_rules'][$locationKey]) > 0) {
 					echo ' &#10230; Total: '.count($data['plugins_with_rules'][$locationKey]);
 				}
-				?>
+				?></span>
 				<a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a>
 			</h3>
 
@@ -56,7 +56,7 @@ if ( ! isset($data) ) {
 
 					$isPluginActive = $isPluginInstalled && in_array($pluginPath, $data['plugins_active'], true);
 					?>
-					<tr>
+					<tr data-wpacu-rule-state="<?php echo $isPluginActive ? 'active' : 'inactive'; ?>">
 						<td data-wpacu-item-data="1" class="wpacu_plugin_details">
 							<div class="wpacu_plugin_icon" style="float: left;">
 								<?php if (isset($data['plugins_icons'][$pluginDir])) { ?>
@@ -608,7 +608,10 @@ if ( ! isset($data) ) {
                                 }
 							}
 
-                           $noUnloadRuleSet = empty($rulesList);
+                           $enabledUnloadRules = array_filter($rulesList, static function ($rule) use ($inactiveRuleKeys) {
+                               return !in_array($rule['status'], $inactiveRuleKeys, true);
+                           });
+                           $noUnloadRuleSet = empty($enabledUnloadRules) && empty($pluginValues['_overview_has_unloads']);
 
                             $allLoadRuleKeys = array(
                                 'load_home_page',
@@ -910,11 +913,29 @@ if ( ! isset($data) ) {
                                     $ruleKey = isset($ruleData['status']) && is_string($ruleData['status'])
                                         ? $ruleData['status']
                                         : '';
+                                    if (in_array($ruleKey, $inactiveRuleKeys, true) || ($noUnloadRuleSet && strpos($ruleKey, 'load_') === 0)) {
+                                        $ruleData['text'] = preg_replace('/^<ul\\b/', '<ul data-wpacu-rule-state="inactive"', $ruleData['text'], 1);
+                                    }
 
-                                    if (in_array($ruleKey, $inactiveRuleKeys, true)) {
-                                        $inactiveExplanation = __('A value is saved for this rule, but its checkbox is not enabled. The rule is inactive; you can re-enable it in Plugins Manager or remove it here in Edit Mode.', 'wp-asset-clean-up');
+                                    if (in_array($ruleKey, $inactiveRuleKeys, true) || ($noUnloadRuleSet && strpos($ruleKey, 'load_') === 0)) {
+                                        $inactiveReasons = array();
+                                        if ($noUnloadRuleSet && strpos($ruleKey, 'load_') === 0) {
+                                            $inactiveReasons[] = __('This load exception has no enabled unload rule to override. There is no site-wide unload or other enabled unload condition for this plugin. When the plugin is active, it loads normally without this exception.', 'wp-asset-clean-up');
+                                        }
+                                        if (in_array($ruleKey, $inactiveRuleKeys, true)) {
+                                            $inactiveReasons[] = __('This rule is also saved with its checkbox disabled. Enabling the exception alone will not make it useful if there is no unload rule to override.', 'wp-asset-clean-up');
+                                            if (strpos($ruleKey, 'load_') !== 0 || !$noUnloadRuleSet) {
+                                                $inactiveReasons[count($inactiveReasons) - 1] = __('A value is saved for this rule, but its checkbox is not enabled. You can re-enable it in Plugins Manager or remove it here in Edit Mode.', 'wp-asset-clean-up');
+                                            }
+                                        }
+                                        if (!$isPluginActive) {
+                                            $inactiveReasons[] = $isPluginInstalled
+                                                ? __('The plugin itself is currently inactive, so none of its rules can take effect.', 'wp-asset-clean-up')
+                                                : __('The plugin is not installed, so none of its rules can take effect.', 'wp-asset-clean-up');
+                                        }
+                                        $inactiveExplanation = implode("\n\n", $inactiveReasons);
                                         $inactiveHelpIcon = '<span class="dashicons dashicons-editor-help wpacu-overview-plugin-rule-inactive-help" tabindex="0" data-tooltip="'.esc_attr($inactiveExplanation).'" aria-label="'.esc_attr($inactiveExplanation).'"></span>';
-                                        $inactiveRuleText = preg_replace('/<ul class="/', '<ul class="wpacu-overview-plugin-rule-inactive ', $ruleData['text'], 1);
+                                        $inactiveRuleText = preg_replace('/class="/', 'class="wpacu-overview-plugin-rule-inactive ', $ruleData['text'], 1);
                                         $inactiveRuleText = preg_replace('/<\/li>\s*<\/ul>\s*$/', $inactiveHelpIcon.'</li></ul>', $inactiveRuleText, 1);
                                         echo $inactiveRuleText . "\n";
                                     } else {
@@ -922,12 +943,14 @@ if ( ! isset($data) ) {
                                     }
 								}
 
-                                // There are just load exceptions left
-                                if ($noUnloadRuleSet) {
-                                    if (count($rulesList) > 1) {
-                                        echo '<small><strong>'.esc_html__('Orphaned load exceptions:', 'wp-asset-clean-up').'</strong> <em>'.esc_html__('There are no unload rules left for this plugin, so the exceptions above are inactive and can be safely removed in Edit Mode.', 'wp-asset-clean-up').'</em></small>';
+                                $loadExceptionRules = array_filter($rulesList, static function ($rule) {
+                                    return isset($rule['status']) && strpos($rule['status'], 'load_') === 0;
+                                });
+                                if ($noUnloadRuleSet && !empty($loadExceptionRules)) {
+                                    if (count($loadExceptionRules) > 1) {
+                                        echo '<small><strong>'.esc_html__('Orphaned load exceptions:', 'wp-asset-clean-up').'</strong> <em>'.esc_html__('There are no enabled unload rules for this plugin, so these load exceptions have nothing to override and can be removed in Edit Mode.', 'wp-asset-clean-up').'</em></small>';
                                     } else {
-                                        echo '<small><strong>'.esc_html__('Orphaned load exception:', 'wp-asset-clean-up').'</strong> <em>'.esc_html__('There is no unload rule left for this plugin, so the exception above is inactive and can be safely removed in Edit Mode.', 'wp-asset-clean-up').'</em></small>';
+                                        echo '<small><strong>'.esc_html__('Orphaned load exception:', 'wp-asset-clean-up').'</strong> <em>'.esc_html__('There is no enabled unload rule for this plugin, so this load exception has nothing to override and can be removed in Edit Mode.', 'wp-asset-clean-up').'</em></small>';
                                     }
                                 }
 							}

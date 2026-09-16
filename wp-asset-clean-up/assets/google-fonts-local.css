@@ -1,0 +1,1159 @@
+.wpacu-google-fonts-local-card {
+    --wpacu-gfl-border: #d8e1e8;
+    --wpacu-gfl-muted: #586775;
+    --wpacu-gfl-surface: #f7f9fb;
+    margin: 0 0 22px;
+    overflow: hidden;
+    border: 1px solid var(--wpacu-gfl-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(28, 52, 68, .07);
+}
+
+.wpacu-google-fonts-local-card__header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--wpacu-gfl-border);
+    background: linear-gradient(135deg, #f4fbfb 0%, #fff 62%);
+}
+
+.wpacu-google-fonts-local-card__icon {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 12px;
+    color: #006d77;
+    background: #dff5f3;
+}
+
+.wpacu-google-fonts-local-card__icon .dashicons {
+    width: 25px;
+    height: 25px;
+    font-size: 25px;
+}
+
+.wpacu-google-fonts-local-card__eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: #007c83;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.wpacu-google-fonts-local-card__heading h3 {
+    margin: 0 0 6px;
+    color: #172b35;
+    font-size: 20px;
+    line-height: 1.25;
+}
+
+.wpacu-google-fonts-local-card__heading p,
+.wpacu-google-fonts-local-card__notice p,
+.wpacu-google-fonts-local-automation-note p {
+    margin: 0;
+    color: var(--wpacu-gfl-muted);
+    line-height: 1.55;
+}
+
+.wpacu-google-fonts-local-card__master {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 220px;
+    padding: 12px 14px;
+    border: 1px solid #cfdde4;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .9);
+}
+
+.wpacu-google-fonts-local-card__master > label:last-child {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.wpacu-google-fonts-local-card__master small {
+    margin-top: 2px;
+    color: #6b7782;
+}
+
+.wpacu-google-fonts-local-card__notice,
+.wpacu-google-fonts-local-automation-note {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 13px 24px;
+    border-bottom: 1px solid #dcebe9;
+    background: #f1fbf9;
+}
+
+.wpacu-google-fonts-local-card__notice .dashicons,
+.wpacu-google-fonts-local-automation-note .dashicons {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #007c83;
+}
+
+.wpacu-google-fonts-local-card__notice.is-warning {
+    border-color: #f0d998;
+    background: #fff9e8;
+}
+
+.wpacu-google-fonts-local-card__notice.is-warning .dashicons {
+    color: #9b6d00;
+}
+
+.wpacu-google-fonts-local-card__body {
+    padding: 22px 24px 24px;
+}
+
+.wpacu-google-fonts-local-card.is-disabled-by-removal > .wpacu-google-fonts-local-card__header,
+.wpacu-google-fonts-local-card.is-disabled-by-removal > .wpacu-google-fonts-local-card__body {
+    opacity: .65;
+}
+
+.wpacu-google-fonts-local-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(115px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.wpacu-google-fonts-local-summary__item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 13px 14px;
+    border: 1px solid #dce4e9;
+    border-radius: 9px;
+    background: var(--wpacu-gfl-surface);
+}
+
+.wpacu-google-fonts-local-summary__item[href] {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.wpacu-google-fonts-local-summary__item[href]:hover,
+.wpacu-google-fonts-local-summary__item[href]:focus-visible {
+    border-color: #9fc8ce;
+    background: #f4fafb;
+    box-shadow: 0 2px 8px rgba(41, 91, 105, .08);
+}
+
+.wpacu-google-fonts-local-summary__item > span:last-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.wpacu-google-fonts-local-summary__item strong {
+    overflow: hidden;
+    color: #1d313b;
+    font-size: 18px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+}
+
+.wpacu-google-fonts-local-summary__item small {
+    margin-top: 3px;
+    color: #63717d;
+    white-space: nowrap;
+}
+
+.wpacu-google-fonts-local-summary__item .dashicons {
+    color: #607681;
+}
+
+.wpacu-google-fonts-local-summary__item.is-ready .dashicons { color: #16804d; }
+.wpacu-google-fonts-local-summary__item.is-pending .dashicons { color: #946200; }
+.wpacu-google-fonts-local-summary__item.is-error .dashicons { color: #b32d2e; }
+
+.wpacu-google-fonts-local-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    align-items: center;
+    margin-bottom: 0;
+}
+
+.wpacu-google-fonts-local-actions .button {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    min-height: 34px;
+}
+
+.wpacu-google-fonts-local-actions .dashicons {
+    width: 17px;
+    height: 17px;
+    font-size: 17px;
+}
+
+.wpacu-google-fonts-local-action { display: inline-flex; gap: 5px; align-items: center; }
+.wpacu-google-fonts-local-action__help { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 1px solid #b8c7cf; border-radius: 50%; color: #2271b1; background: #fff; text-decoration: none; box-sizing: border-box; transition: border-color .15s ease, color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.wpacu-google-fonts-local-action__help .dashicons { display: inline-flex; align-items: center; justify-content: center; position: relative; top: 0; left: 0; width: 23px; height: 23px; margin: 0; padding: 0; font-size: 23px; line-height: 1; vertical-align: middle; }
+.wpacu-google-fonts-local-action__help:hover,
+.wpacu-google-fonts-local-action__help:focus-visible { border-color: #16808b; color: #087987; background: #eef9fa; box-shadow: 0 0 0 2px rgba(0, 124, 131, .12); outline: 0; }
+.wpacu-google-fonts-local-action__help.is-danger { border-color: #e3b7b8; color: #b32d2e; }
+.wpacu-google-fonts-local-action__help.is-danger:hover,
+.wpacu-google-fonts-local-action__help.is-danger:focus-visible { border-color: #d63638; color: #9b2526; background: #fff3f3; box-shadow: 0 0 0 2px rgba(214, 54, 56, .1); }
+
+.wpacu-google-fonts-cache-modal__content { max-width: 720px; }
+.wpacu-google-fonts-cache-modal__body ul { margin: 18px 0 0 20px; }
+.wpacu-google-fonts-cache-modal__body li { margin-bottom: 10px; color: #52616c; line-height: 1.55; }
+.wpacu-google-fonts-cache-modal__warning { display: flex; gap: 11px; align-items: flex-start; padding: 14px 15px; border: 1px solid #efc2c2; border-radius: 8px; color: #812f30; background: #fff3f3; }
+.wpacu-google-fonts-cache-modal__warning > .dashicons { flex: 0 0 auto; margin-top: 1px; color: #b32d2e; }
+.wpacu-google-fonts-cache-modal__warning strong,
+.wpacu-google-fonts-cache-modal__warning span { display: block; }
+.wpacu-google-fonts-cache-modal__warning span { margin-top: 3px; line-height: 1.5; }
+
+.wpacu-google-fonts-pending-scan-note {
+    display: none;
+    color: #5c6970;
+}
+
+.wpacu-google-fonts-local-card.is-key-page-scanning [data-wpacu-google-fonts-local-operation="process-pending"] {
+    display: none;
+}
+
+.wpacu-google-fonts-local-card.is-key-page-scanning [data-wpacu-google-fonts-pending-scan-note] {
+    display: inline-flex;
+}
+
+.wpacu-google-fonts-local-summary,
+.wpacu-google-fonts-local-actions,
+.wpacu-google-fonts-local-inventory,
+.wpacu-google-fonts-local-inventory-group,
+.wpacu-google-fonts-specific [data-wpacu-google-fonts-specific-group] {
+    transition: opacity .18s ease;
+}
+
+.wpacu-google-fonts-local-card.is-ajax-loading:not([data-wpacu-google-fonts-loading-group]) .wpacu-google-fonts-local-summary,
+.wpacu-google-fonts-local-card.is-ajax-loading:not([data-wpacu-google-fonts-loading-group]) .wpacu-google-fonts-local-inventory,
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="pending"] [data-wpacu-google-fonts-local-group="pending"] > :not(.wpacu-google-fonts-local-inventory-group__header),
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="pending"] [data-wpacu-google-fonts-local-group="pending"] > .wpacu-google-fonts-local-inventory-group__header > :not(.wpacu-google-fonts-local-inventory-group__loader),
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="ready"] [data-wpacu-google-fonts-local-group="ready"] > :not(.wpacu-google-fonts-local-inventory-group__header),
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="ready"] [data-wpacu-google-fonts-local-group="ready"] > .wpacu-google-fonts-local-inventory-group__header > :not(.wpacu-google-fonts-local-inventory-group__loader),
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="error"] [data-wpacu-google-fonts-local-group="error"] > :not(.wpacu-google-fonts-local-inventory-group__header),
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="error"] [data-wpacu-google-fonts-local-group="error"] > .wpacu-google-fonts-local-inventory-group__header > :not(.wpacu-google-fonts-local-inventory-group__loader) {
+    opacity: .45;
+    pointer-events: none;
+}
+
+.wpacu-google-fonts-local-card.is-ajax-loading:not([data-wpacu-google-fonts-loading-group]) .wpacu-google-fonts-local-actions {
+    opacity: .45;
+}
+
+.wpacu-google-fonts-specific[data-wpacu-google-fonts-loading-group="failed"] [data-wpacu-google-fonts-specific-group="failed"] {
+    opacity: .45;
+    pointer-events: none;
+}
+
+.wpacu-google-fonts-local-progress {
+    margin: 12px 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #b9d8d5;
+    border-radius: 8px;
+    background: #f3fbfa;
+}
+
+.wpacu-google-fonts-local-card.is-local-hosting-disabled .wpacu-google-fonts-local-summary,
+.wpacu-google-fonts-local-card.is-local-hosting-disabled .wpacu-google-fonts-local-actions,
+.wpacu-google-fonts-local-card.is-local-hosting-disabled .wpacu-google-fonts-local-progress,
+.wpacu-google-fonts-local-card.is-local-hosting-disabled .wpacu-google-fonts-local-inventory-shell,
+.wpacu-google-fonts-local-card.is-local-hosting-disabled .wpacu-google-fonts-local-pro {
+    opacity: .65;
+}
+
+.wpacu-google-fonts-local-feature-preview {
+    position: relative;
+    box-sizing: border-box;
+    padding-top: 16px;
+    overflow: visible;
+    transition: height .4s cubic-bezier(.4, 0, .2, 1);
+}
+
+.wpacu-google-fonts-local-feature-preview > .wpacu-google-fonts-key-pages-scan {
+    margin-top: 0;
+}
+
+.wpacu-google-fonts-local-feature-preview.is-collapsed {
+    height: 112px;
+    overflow: hidden;
+}
+
+.wpacu-google-fonts-local-feature-preview.is-collapsed::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    height: 72px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff 92%);
+    content: '';
+    pointer-events: none;
+}
+
+.wpacu-google-fonts-local-inventory-shell {
+    position: relative;
+    margin-top: 16px;
+}
+
+.wpacu-google-fonts-local-inventory-loader {
+    display: none;
+    position: absolute;
+    justify-content: center;
+    align-items: center;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 45px;
+    pointer-events: none;
+}
+
+.wpacu-google-fonts-local-card.is-ajax-loading:not([data-wpacu-google-fonts-loading-group]) .wpacu-google-fonts-local-inventory-loader {
+    display: flex;
+}
+
+.wpacu-google-fonts-local-inventory-loader::before {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #b9d8d5;
+    border-top-color: #007c83;
+    border-radius: 50%;
+    content: "";
+    animation: wpacu-google-fonts-local-spin .7s linear infinite;
+}
+
+@keyframes wpacu-google-fonts-local-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wpacu-google-fonts-local-inventory-loader::before,
+    .wpacu-google-fonts-local-card.is-ajax-loading .wpacu-google-fonts-local-progress p::before,
+    .wpacu-google-fonts-local-save-waiting .dashicons {
+        animation-duration: 1.8s;
+    }
+}
+
+.wpacu-google-fonts-local-save-waiting {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 9px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid #b9d8d5;
+    border-radius: 7px;
+    background: #f3fbfa;
+    color: #26444b;
+    font-weight: 600;
+}
+
+.wpacu-google-fonts-local-save-waiting .dashicons {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: #007c83;
+    font-size: 18px;
+    animation: wpacu-google-fonts-local-spin .7s linear infinite;
+}
+
+.wpacu-google-fonts-local-progress.is-error {
+    border-color: #e1b7b8;
+    background: #fff5f5;
+}
+
+.wpacu-google-fonts-local-progress__track {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #d7e5e4;
+}
+
+.wpacu-google-fonts-local-progress__track span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: #007c83;
+    transition: width .2s ease;
+}
+
+.wpacu-google-fonts-local-progress.is-error .wpacu-google-fonts-local-progress__track span {
+    background: #b32d2e;
+}
+
+.wpacu-google-fonts-local-progress p {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0 0;
+    font-weight: 600;
+}
+
+.wpacu-google-fonts-local-card.is-ajax-loading .wpacu-google-fonts-local-progress p::before {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #b9d8d5;
+    border-top-color: #007c83;
+    border-radius: 50%;
+    content: "";
+    flex: 0 0 auto;
+    animation: wpacu-google-fonts-local-spin .7s linear infinite;
+}
+
+.wpacu-google-fonts-local-automation-note {
+    margin: 16px 0;
+    padding: 12px 14px;
+    border: 1px solid #d8e4eb;
+    border-radius: 8px;
+    background: #f6f9fb;
+}
+
+.wpacu-google-fonts-local-inventory {
+    margin-top: 0;
+    border: 1px solid #dce4e9;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.wpacu-google-fonts-local-inventory > summary {
+    padding: 13px 15px;
+    cursor: pointer;
+    color: #253943;
+    font-weight: 600;
+}
+
+.wpacu-google-fonts-local-card.is-ajax-loading .wpacu-google-fonts-local-inventory > summary {
+    pointer-events: auto;
+}
+
+.wpacu-google-fonts-local-inventory-group + .wpacu-google-fonts-local-inventory-group {
+    border-top: 1px solid #dce4e9;
+}
+
+.wpacu-google-fonts-local-inventory-group {
+    position: relative;
+}
+
+.wpacu-google-fonts-local-inventory-group__loader {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="pending"] [data-wpacu-google-fonts-local-group="pending"] .wpacu-google-fonts-local-inventory-group__loader,
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="ready"] [data-wpacu-google-fonts-local-group="ready"] .wpacu-google-fonts-local-inventory-group__loader,
+.wpacu-google-fonts-local-card[data-wpacu-google-fonts-loading-group="error"] [data-wpacu-google-fonts-local-group="error"] .wpacu-google-fonts-local-inventory-group__loader {
+    display: flex;
+}
+
+.wpacu-google-fonts-local-inventory-group__loader::before {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #b9d8d5;
+    border-top-color: #007c83;
+    border-radius: 50%;
+    content: "";
+    animation: wpacu-google-fonts-local-spin .7s linear infinite;
+}
+
+.wpacu-google-fonts-local-inventory-group__header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    background: #f7fafb;
+}
+
+.wpacu-google-fonts-local-inventory-group__header h4 {
+    margin: 0;
+    color: #263d48;
+    font-size: 13px;
+}
+
+.wpacu-google-fonts-local-inventory-group__header h4 span {
+    display: inline-flex;
+    min-width: 20px;
+    justify-content: center;
+    margin-left: 5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #e5ecef;
+    font-size: 11px;
+}
+
+.wpacu-google-fonts-local-inventory-group.is-ready .wpacu-google-fonts-local-inventory-group__header {
+    background: #f3faf6;
+}
+
+.wpacu-google-fonts-local-inventory-group.is-error .wpacu-google-fonts-local-inventory-group__header {
+    background: #fff6f6;
+}
+
+.wpacu-google-fonts-local-inventory-group__header .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.wpacu-google-fonts-local-inventory-group__header .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+}
+
+.wpacu-google-fonts-local-group-empty {
+    margin: 0;
+    padding: 14px;
+    border-top: 1px solid #e5ebee;
+    color: #687781;
+}
+
+.wpacu-google-fonts-local-table-wrap {
+    overflow-x: auto;
+    border-top: 1px solid #dce4e9;
+}
+
+.wpacu-google-fonts-local-open-css {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    margin: 4px 0 0;
+    vertical-align: middle;
+}
+
+.wpacu-google-fonts-local-open-css .dashicons {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.wpacu-google-fonts-local-table {
+    border: 0;
+    box-shadow: none;
+}
+
+.wpacu-google-fonts-local-table th:first-child { width: 145px; }
+.wpacu-google-fonts-local-table th:nth-child(3) { width: 210px; }
+.wpacu-google-fonts-local-table th:last-child { width: 145px; }
+
+.wpacu-google-fonts-local-table td {
+    vertical-align: top;
+}
+
+.wpacu-google-fonts-local-table tr.is-status-error > td:first-child {
+    box-shadow: inset 3px 0 0 #d63638;
+}
+
+.wpacu-google-fonts-local-status {
+    display: inline-flex;
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: #4d5962;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: #e9edf0;
+}
+
+.wpacu-google-fonts-local-status.is-ready { color: #096b3c; background: #dff3e8; }
+.wpacu-google-fonts-local-status.is-pending { color: #7a5200; background: #fff0bf; }
+.wpacu-google-fonts-local-status.is-processing { color: #075f91; background: #dff1fb; }
+.wpacu-google-fonts-local-status.is-error { color: #9b2526; background: #f9dddd; }
+
+.wpacu-google-fonts-local-attempts {
+    display: block;
+    margin-top: 6px;
+    color: #6c7881;
+}
+
+.wpacu-google-fonts-local-url {
+    display: block;
+    overflow: hidden;
+    max-width: 560px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.wpacu-google-fonts-local-error {
+    display: flex;
+    gap: 5px;
+    margin: 8px 0 0;
+    color: #a12627;
+    line-height: 1.45;
+}
+
+.wpacu-google-fonts-local-error .dashicons {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+}
+
+.wpacu-google-fonts-local-paths {
+    margin: 0;
+}
+
+.wpacu-google-fonts-local-paths li {
+    margin: 0 0 4px;
+}
+
+.wpacu-google-fonts-local-paths-more {
+    margin-top: 5px;
+}
+
+.wpacu-google-fonts-local-paths-more > summary {
+    display: inline-block;
+    color: #2271b1;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.wpacu-google-fonts-local-paths-more[open] > summary {
+    margin-bottom: 6px;
+}
+
+.wpacu-google-fonts-local-paths-more > .wpacu-google-fonts-local-paths {
+    padding-left: 12px;
+}
+
+.wpacu-google-fonts-local-empty {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 24px 18px;
+    border-top: 1px solid #dce4e9;
+    color: #65727d;
+}
+
+.wpacu-google-fonts-local-empty[hidden] {
+    display: none;
+}
+
+.wpacu-google-fonts-local-empty p { margin: 0; }
+
+.wpacu-google-fonts-local-card.is-disabled-by-removal .wpacu-google-fonts-local-card__body {
+    background: #fcfcfc;
+}
+
+
+.wpacu-google-fonts-local-pro {
+    margin: 20px 0;
+    padding: 18px;
+    border: 1px solid #b8d8ca;
+    border-radius: 10px;
+    background: linear-gradient(145deg, #f5fbf8 0%, #f8fbfd 100%);
+}
+
+.wpacu-google-fonts-local-pro__heading {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.wpacu-google-fonts-local-pro__heading > .dashicons {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    padding: 7px;
+    border-radius: 8px;
+    color: #12603f;
+    background: #d9f1e4;
+    font-size: 18px;
+    line-height: 18px;
+    box-sizing: border-box;
+}
+
+.wpacu-google-fonts-local-pro__heading h4 {
+    margin: 0 0 5px;
+    color: #173c30;
+    font-size: 15px;
+}
+
+.wpacu-google-fonts-local-pro__heading p {
+    margin: 0;
+    color: #53665f;
+    line-height: 1.5;
+}
+
+.wpacu-google-fonts-local-pro__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.wpacu-google-fonts-local-pro__control,
+.wpacu-google-fonts-local-pro__field {
+    padding: 14px;
+    border: 1px solid #d4e3dc;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .78);
+}
+
+.wpacu-google-fonts-local-pro__control label {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.wpacu-google-fonts-local-pro__control input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.wpacu-google-fonts-local-pro__control strong,
+.wpacu-google-fonts-local-pro__field > span:first-child,
+.wpacu-google-fonts-local-pro__exceptions > span:first-child {
+    display: block;
+    color: #263a33;
+    font-weight: 650;
+}
+
+.wpacu-google-fonts-local-pro__control small,
+.wpacu-google-fonts-local-pro__exceptions small {
+    display: block;
+    margin-top: 4px;
+    color: #62726c;
+    line-height: 1.45;
+}
+
+.wpacu-google-fonts-local-pro__field {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.wpacu-google-fonts-local-pro__number {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+.wpacu-google-fonts-local-pro__number input {
+    width: 78px;
+}
+
+.wpacu-google-fonts-local-pro__exceptions {
+    display: block;
+    margin-top: 12px;
+}
+
+.wpacu-google-fonts-local-pro__exceptions textarea {
+    width: 100%;
+    max-width: none;
+    margin-top: 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+}
+
+@media screen and (max-width: 1120px) {
+    .wpacu-google-fonts-local-card__header {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .wpacu-google-fonts-local-card__master {
+        grid-column: 1 / -1;
+        width: auto;
+    }
+
+    .wpacu-google-fonts-local-summary {
+        grid-template-columns: repeat(3, minmax(130px, 1fr));
+    }
+}
+
+@media screen and (max-width: 782px) {
+    .wpacu-google-fonts-local-card__header {
+        grid-template-columns: 1fr;
+        padding: 18px;
+    }
+
+    .wpacu-google-fonts-local-card__icon { display: none; }
+    .wpacu-google-fonts-local-card__body { padding: 18px; }
+    .wpacu-google-fonts-local-card__notice { padding: 12px 18px; }
+    .wpacu-google-fonts-local-summary { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+    .wpacu-google-fonts-local-summary__item.is-bytes { grid-column: 1 / -1; }
+    .wpacu-google-fonts-local-action { width: 100%; }
+    .wpacu-google-fonts-local-action .button { flex: 1; justify-content: center; }
+    .wpacu-google-fonts-local-table thead { display: none; }
+    .wpacu-google-fonts-local-table,
+    .wpacu-google-fonts-local-table tbody,
+    .wpacu-google-fonts-local-table tr,
+    .wpacu-google-fonts-local-table td { display: block; width: auto; }
+    .wpacu-google-fonts-local-table tr { padding: 10px 12px; border-bottom: 1px solid #e4eaee; }
+    .wpacu-google-fonts-local-table td { padding: 7px 0; border: 0; }
+    .wpacu-google-fonts-local-table td::before { content: attr(data-colname); display: block; margin-bottom: 4px; color: #65727c; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
+    .wpacu-google-fonts-local-pro { padding: 14px; }
+    .wpacu-google-fonts-local-pro__grid { grid-template-columns: 1fr; }
+    .wpacu-google-fonts-local-pro__field { grid-column: auto; align-items: flex-start; flex-direction: column; }
+}
+
+.wpacu-google-fonts-local-lite-pro-preview {
+    margin: 16px 0;
+    overflow: hidden;
+    border: 1px solid #d8e4eb;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__heading {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e1e8ed;
+    background: linear-gradient(135deg, #f7fafc 0%, #fff 100%);
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__heading > .dashicons {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #007c83;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__heading h4 {
+    margin: 0 0 4px;
+    color: #213741;
+    font-size: 14px;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__heading p {
+    margin: 0;
+    color: #63717d;
+    line-height: 1.5;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__included,
+.wpacu-google-fonts-local-lite-pro-preview__locked {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e7ecef;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__included {
+    background: #f4fbf7;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__included > .dashicons {
+    color: #16804d;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__locked {
+    color: #6e7982;
+    background: #fafbfc;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__locked > .dashicons {
+    color: #8a959d;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__included strong,
+.wpacu-google-fonts-local-lite-pro-preview__locked strong {
+    display: block;
+    color: #2c4049;
+    font-weight: 650;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__locked strong {
+    color: #59666f;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__included small,
+.wpacu-google-fonts-local-lite-pro-preview__locked small {
+    display: block;
+    margin-top: 3px;
+    color: #68757f;
+    line-height: 1.4;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__badge.is-lite {
+    color: #0a6640;
+    background: #dff3e8;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__badge.is-pro {
+    color: #735600;
+    background: #fff0bf;
+}
+
+.wpacu-google-fonts-local-lite-pro-preview__footer {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    color: #52616c;
+    background: #f6f8fa;
+}
+
+@media screen and (max-width: 782px) {
+    .wpacu-google-fonts-local-lite-pro-preview__included,
+    .wpacu-google-fonts-local-lite-pro-preview__locked {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .wpacu-google-fonts-local-lite-pro-preview__badge {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .wpacu-google-fonts-local-lite-pro-preview__footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+/* Google Fonts: Optimize quick navigation */
+.wpacu-google-fonts-quick-nav.is-disabled-by-removal { opacity: .65; }
+.wpacu-google-fonts-quick-nav{position:sticky;top:32px;z-index:21;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:9px 10px;border:1px solid #dce5e8;border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 4px 14px rgba(0,69,103,.055);backdrop-filter:blur(8px)}.wpacu-google-fonts-quick-nav a{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid transparent;border-radius:7px;color:#3c515c;font-size:12px;font-weight:650;text-decoration:none;transition:border-color .15s ease,background-color .15s ease,color .15s ease}.wpacu-google-fonts-quick-nav a:hover,.wpacu-google-fonts-quick-nav a:focus-visible{border-color:#bcdde1;background:#f1fafb;color:#007c83}.wpacu-google-fonts-quick-nav a.is-active{color:#007c83}.wpacu-google-fonts-quick-nav .dashicons{width:16px;height:16px;color:currentColor;font-size:16px}.wpacu-google-fonts-quick-nav__legacy{padding:2px 5px;border-radius:4px;background:#f0ebf8;color:#67458b;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}@media(max-width:900px){.wpacu-google-fonts-quick-nav{position:static;backdrop-filter:none}}
+/* Google Fonts: Remove Specific (Pro) */
+div.wpacu-google-fonts-specific__upgrade{margin:0 0 18px}
+.wpacu-google-fonts-specific.is-disabled-by-remove-all > [data-wpacu-google-fonts-specific-inventory] { opacity: .65; }
+.wpacu-google-fonts-specific{border:1px solid #d7e0e5;border-radius:12px;background:#fff;overflow:hidden;color:#243746}.wpacu-google-fonts-specific__intro{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:28px 30px;background:linear-gradient(135deg,#f7fbfc 0%,#fff 72%);border-bottom:1px solid #e2e9ed}.wpacu-google-fonts-specific__intro h3{margin:5px 0 7px;font-size:21px;line-height:1.3;color:#173847}.wpacu-google-fonts-specific__intro p{margin:0;max-width:850px;color:#5c6d78;font-size:14px}.wpacu-google-fonts-specific__eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#16808b}.wpacu-google-fonts-specific__pro-badge{flex:0 0 auto;padding:5px 9px;border-radius:5px;background:#e7f5eb;color:#16813b;font-size:11px;font-weight:800;letter-spacing:.04em}.wpacu-google-fonts-specific.is-lite .wpacu-google-fonts-specific__pro-badge{background:#f0ebf8;color:#67458b}.wpacu-google-fonts-specific__upgrade,.wpacu-google-fonts-specific__notice,.wpacu-google-fonts-specific__empty{display:flex;align-items:flex-start;gap:12px;margin:22px 28px;padding:15px 17px;border-radius:8px}.wpacu-google-fonts-specific__upgrade{background:#faf8fd;border:1px solid #ded4eb;color:#4e3c64}.wpacu-google-fonts-specific__notice{background:#f2f8fb;border:1px solid #cee0e8;color:#315363}.wpacu-google-fonts-specific__empty{background:#f8fafb;border:1px dashed #cad6dc;color:#50636d}.wpacu-google-fonts-specific__upgrade p,.wpacu-google-fonts-specific__empty p{margin:3px 0 0;color:#677782}.wpacu-google-fonts-specific__toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 28px 12px}.wpacu-google-fonts-specific__toolbar input[type=search]{min-width:290px;max-width:420px;width:34vw}.wpacu-google-fonts-specific__toolbar>span{color:#6b7b85;font-size:12px}.wpacu-google-fonts-specific__families{padding:0 28px 24px}.wpacu-google-fonts-specific__family{border:1px solid #dce4e8;border-radius:9px;margin-top:12px;overflow:hidden}.wpacu-google-fonts-specific__family>header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#f8fafb;border-bottom:1px solid #e4eaed}.wpacu-google-fonts-specific__family>header strong{display:block;font-size:14px;color:#183746}.wpacu-google-fonts-specific__family>header span{display:block;margin-top:2px;color:#74838c;font-size:11px}.wpacu-google-fonts-specific__variants{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.wpacu-google-fonts-specific__variant{position:relative;display:flex;align-items:center;gap:11px;min-height:58px;padding:10px 15px;border-right:1px solid #edf1f3;border-bottom:1px solid #edf1f3;cursor:pointer;background:#fff}.wpacu-google-fonts-specific__variant:nth-child(2n){border-right:0}.wpacu-google-fonts-specific__variant:hover{background:#fafdfe}.wpacu-google-fonts-specific__variant.is-locked{cursor:not-allowed;opacity:.62;background:#fbfbfc}.wpacu-google-fonts-specific__variant input{position:absolute;opacity:0;pointer-events:none}.wpacu-google-fonts-specific__check{width:17px;height:17px;border:1.5px solid #9fb0b9;border-radius:4px;box-sizing:border-box;flex:0 0 auto}.wpacu-google-fonts-specific__variant input:checked+.wpacu-google-fonts-specific__check{background:#d94747;border-color:#c83d3d;box-shadow:inset 0 0 0 3px #fff}.wpacu-google-fonts-specific__variant-name{display:flex;flex-direction:column;min-width:0}.wpacu-google-fonts-specific__variant-name strong{font-size:13px;color:#263c48}.wpacu-google-fonts-specific__variant-name small{margin-top:2px;color:#74828b}.wpacu-google-fonts-specific__action{margin-left:auto;color:#9b4b4b;font-size:11px;font-weight:600}.wpacu-google-fonts-specific.is-lite .wpacu-google-fonts-specific__action{color:#76558f}.wpacu-google-fonts-specific__footer{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:15px 28px;border-top:1px solid #e2e8eb;background:#fafcfc;color:#62727c;font-size:12px}.wpacu-google-fonts-specific__footer strong{font-size:15px;color:#b33636;margin-right:4px}@media(max-width:900px){.wpacu-google-fonts-specific__variants{grid-template-columns:1fr}.wpacu-google-fonts-specific__variant{border-right:0}.wpacu-google-fonts-specific__toolbar,.wpacu-google-fonts-specific__footer{align-items:flex-start;flex-direction:column}.wpacu-google-fonts-specific__toolbar input[type=search]{width:100%;min-width:0}}
+
+.wpacu-google-fonts-specific__family-actions{display:flex;align-items:center;gap:6px}.wpacu-google-fonts-specific__family>header .wpacu-google-fonts-specific__family-actions>span{display:inline;margin:0;color:#a8b3b9}.wpacu-google-fonts-specific__family-actions .button-link{font-size:12px}.wpacu-google-fonts-specific__family{transition:border-color .15s ease,box-shadow .15s ease}.wpacu-google-fonts-specific__family:hover{border-color:#aecbd2;box-shadow:0 2px 9px rgba(41,91,105,.09)}.wpacu-google-fonts-specific__check{transition:border-color .15s ease}.wpacu-google-fonts-specific__family.is-select-all-preview .wpacu-google-fonts-specific__check{border-color:#c83d3d}.wpacu-google-fonts-specific:not(.is-lite) .wpacu-google-fonts-specific__variant{transition:background-color .15s ease}.wpacu-google-fonts-specific:not(.is-lite) .wpacu-google-fonts-specific__variant:hover{background:#fff7f7}.wpacu-google-fonts-specific:not(.is-lite) .wpacu-google-fonts-specific__variant:hover .wpacu-google-fonts-specific__check{border-color:#c83d3d}.wpacu-google-fonts-specific__variants{grid-template-columns:repeat(3,minmax(0,1fr))}.wpacu-google-fonts-specific__variant:nth-child(2n){border-right:1px solid #edf1f3}.wpacu-google-fonts-specific__variant:nth-child(3n){border-right:0}@media(max-width:1100px){.wpacu-google-fonts-specific__variants{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:1100px){.wpacu-google-fonts-specific__variant:nth-child(3n){border-right:1px solid #edf1f3}.wpacu-google-fonts-specific__variant:nth-child(2n){border-right:0}}@media(max-width:782px){.wpacu-google-fonts-specific__variants{grid-template-columns:1fr}}@media(max-width:782px){.wpacu-google-fonts-specific__variant:nth-child(n){border-right:0}}.wpacu-google-fonts-specific__style-badge{margin-left:auto;min-width:54px;padding:3px 7px;border-radius:10px;box-sizing:border-box;background:#eef3f5;color:#50636d;font-size:11px;font-weight:700;letter-spacing:.03em;line-height:1.2;text-align:center;text-transform:uppercase}.wpacu-google-fonts-specific__style-badge.is-italic{background:#f2ecf8;color:#67458b;font-style:italic}.wpacu-google-fonts-specific__style-badge+.wpacu-google-fonts-specific__action{margin-left:0}@media(min-width:1400px){.wpacu-google-fonts-specific__style-badge{font-size:10px}}.wpacu-google-fonts-specific:not(.is-lite) .wpacu-google-fonts-specific__variant.is-selected{background:#fdeaea}
+
+.wpacu-google-fonts-specific__empty[hidden]{display:none}
+
+.wpacu-google-fonts-specific__group {
+    overflow: hidden;
+    margin-top: 16px;
+    padding-bottom: 12px;
+    border: 1px solid #dce4e9;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.wpacu-google-fonts-specific__group + .wpacu-google-fonts-specific__group {
+    margin-top: 20px;
+}
+
+.wpacu-google-fonts-specific__group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #dce4e9;
+}
+
+.wpacu-google-fonts-specific__group-header h4 {
+    margin: 0;
+    color: #263d48;
+    font-size: 13px;
+}
+
+.wpacu-google-fonts-specific__group-count {
+    display: inline-flex;
+    min-width: 20px;
+    justify-content: center;
+    margin-left: 5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #e5ecef;
+    font-size: 11px;
+}
+
+.wpacu-google-fonts-specific__group.is-ready .wpacu-google-fonts-specific__group-header {
+    background: #f3faf6;
+}
+
+.wpacu-google-fonts-specific__group.is-ready {
+    border-color: #b9ddc8;
+}
+
+.wpacu-google-fonts-specific__group.is-failed .wpacu-google-fonts-specific__group-header {
+    background: #fff6f6;
+}
+
+.wpacu-google-fonts-specific__group.is-failed {
+    border-color: #efc2c2;
+}
+
+.wpacu-google-fonts-specific__group > .wpacu-google-fonts-specific__family {
+    margin: 12px 12px 0;
+}
+
+.wpacu-google-fonts-specific__group-header .button {
+    display: inline-flex;
+    align-items: center;
+}
+
+.wpacu-google-fonts-specific__failed-intro,
+.wpacu-google-fonts-specific__failed-advice {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 12px 12px 0;
+    padding: 10px 12px;
+    border-radius: 7px;
+    line-height: 1.5;
+}
+
+.wpacu-google-fonts-specific__failed-intro {
+    border: 1px solid #ead8ad;
+    background: #fffaf0;
+    color: #67572f;
+}
+
+.wpacu-google-fonts-specific__failed-advice {
+    border: 1px solid #efc2c2;
+    background: #fff1f1;
+    color: #812f30;
+    font-weight: 600;
+}
+
+.wpacu-google-fonts-specific__failed-intro[hidden],
+.wpacu-google-fonts-specific__failed-advice[hidden] {
+    display: none;
+}
+
+.wpacu-google-fonts-specific__failed-intro .dashicons,
+.wpacu-google-fonts-specific__failed-advice .dashicons {
+    flex: 0 0 auto;
+    margin-top: 1px;
+}
+
+/* Google Fonts: bounded key-page discovery */
+.wpacu-google-fonts-key-pages-scan {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid #dce5e8;
+    border-radius: 9px;
+    background: #f8fbfc;
+}
+.wpacu-google-fonts-key-pages-scan.is-disabled .wpacu-google-fonts-key-pages-scan__intro,
+.wpacu-google-fonts-key-pages-scan.is-disabled details {
+    opacity: .55;
+}
+.wpacu-google-fonts-key-pages-scan__disabled-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 9px 11px;
+    border: 1px solid #d7e3e8;
+    border-radius: 6px;
+    background: #fff;
+    color: #405563;
+}
+.wpacu-google-fonts-key-pages-scan__disabled-notice[hidden] {
+    display: none;
+}
+.wpacu-google-fonts-key-pages-scan__disabled-notice.is-fading-in {
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+.wpacu-google-fonts-key-pages-scan__disabled-notice.is-fading-in.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.wpacu-google-fonts-key-pages-scan__disabled-notice .dashicons {
+    color: #16808b;
+}
+.wpacu-google-fonts-key-pages-scan__intro {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.wpacu-google-fonts-key-pages-scan__intro > .dashicons {
+    color: #16808b;
+}
+.wpacu-google-fonts-key-pages-scan__intro > div {
+    flex: 1;
+    min-width: 0;
+}
+.wpacu-google-fonts-key-pages-scan h4,
+.wpacu-google-fonts-key-pages-scan p {
+    margin: 0;
+}
+.wpacu-google-fonts-key-pages-scan p,
+.wpacu-google-fonts-key-pages-scan small {
+    color: #60717b;
+}
+.wpacu-google-fonts-key-pages-scan details {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e4eaed;
+}
+.wpacu-google-fonts-key-pages-scan details label,
+.wpacu-google-fonts-key-pages-scan details label > span {
+    display: block;
+}
+.wpacu-google-fonts-key-pages-scan textarea {
+    width: 100%;
+    margin: 8px 0 5px;
+}
+@media screen and (max-width: 782px) {
+    .wpacu-google-fonts-key-pages-scan__intro {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    .wpacu-google-fonts-key-pages-scan__intro > div {
+        flex-basis: calc(100% - 40px);
+    }
+}
+
+.wpacu-google-fonts-specific__family > header .wpacu-google-fonts-specific__provenance {
+    display: block;
+    margin-top: 4px;
+    color: #617680;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.wpacu-google-fonts-specific__provenance > span {
+    display: inline;
+    margin: 0;
+    color: inherit;
+    font-size: inherit;
+}
+
+.wpacu-google-fonts-specific__provenance a {
+    white-space: nowrap;
+}
+
+.wpacu-google-fonts-specific__provenance a::after {
+    content: " ↗";
+}

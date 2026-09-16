@@ -959,7 +959,9 @@ class MainAdmin
             // Keep the effective page URL inside the payload. Browser and
             // server HTTP clients do not always expose the final redirect URL,
             // while this value is produced by the page that actually answered.
-            $list['wpacu_fetched_url'] = Misc::getCurrentPageUrl();
+            // Keep page-identifying query arguments (plain permalinks, searches, etc.).
+            // The redirect comparison strips only the ignored fetch arguments.
+            $list['wpacu_fetched_url'] = Misc::getCurrentPageUrl(false);
             $list['wpacu_fetched_context_is_homepage'] = is_front_page() || is_home();
 
             if ( ! headers_sent()) {

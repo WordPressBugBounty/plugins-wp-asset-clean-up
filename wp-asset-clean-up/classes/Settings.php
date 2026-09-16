@@ -14,7 +14,7 @@ class Settings
     const INPUT_STYLE_ENHANCED = 'enhanced';
     const INPUT_STYLE_STANDARD = 'standard';
 
-	/**
+    /**
 	 * @var array
 	 */
 	public $settingsKeys = array(
@@ -183,6 +183,7 @@ class Settings
         'local_fonts_display_overwrite',
 
         // Local Fonts: Preload Files
+        'local_fonts_preload_files_enable',
         'local_fonts_preload_files',
 
         // Google Fonts: Combine Into One Request
@@ -197,7 +198,11 @@ class Settings
         'google_fonts_preconnect',
 
         // Google Fonts: Preload Files
+        'google_fonts_preload_files_enable',
         'google_fonts_preload_files',
+
+        // Google Fonts: Host locally
+        'google_fonts_local',
 
         // Google Fonts: Remove all traces
         'google_fonts_remove'
@@ -286,6 +291,14 @@ class Settings
 	        'combine_loaded_css_exceptions' => '/wd-instagram-feed/(.*?).css',
 	        'combine_loaded_js_exceptions'  => '/wd-instagram-feed/(.*?).js',
 
+            // Manual site-wide font-file preloads are opt-in for new/empty configurations.
+            // Legacy installs with existing textarea values are migrated to ON in filterSettings().
+            'local_fonts_preload_files_enable'  => 0,
+            'google_fonts_preload_files_enable' => 0,
+
+            // Google Fonts local hosting is opt-in in both Lite and Pro.
+            'google_fonts_local' => 0,
+
             // Since 1.2.7.1 (Pro) and 1.4.0.4 (Lite)
             'resource_loading' => array(
                 '_enabled' => 0,
@@ -362,30 +375,53 @@ class Settings
     }
 
 	/**
+	 * Return the effective settings for the current request.
+	 *
 	 * @param false $forceRefetch
 	 *
 	 * @return array|mixed
 	 */
 	public function getAll($forceRefetch = false)
     {
-        if ($forceRefetch) {
-	        $GLOBALS['wp_object_cache']->delete(WPACU_PLUGIN_ID . '_settings', 'options');
-        } elseif ( ! empty( $this->currentSettings ) ) { // default check
+        if ( ! $forceRefetch && ! empty($this->currentSettings) ) { // default check
             return apply_filters('wpacu_settings', $this->currentSettings);
+        }
+
+        $this->currentSettings = $this->filterSettings($this->getAllStored($forceRefetch));
+
+        return apply_filters('wpacu_settings', $this->currentSettings);
+    }
+
+    /**
+     * Return the normalized values from storage without request-scoped overrides
+     * or runtime compatibility filters.
+     *
+     * Any path that writes the complete settings array back to the database must
+     * start from this method. Otherwise a temporary query-string/POST override can
+     * be copied into persistent storage by an unrelated background update.
+     *
+     * @param false $forceRefetch
+     *
+     * @return array
+     */
+    public function getAllStored($forceRefetch = false)
+    {
+        if ($forceRefetch) {
+            $GLOBALS['wp_object_cache']->delete(WPACU_PLUGIN_ID . '_settings', 'options');
         }
 
         $settingsOption = get_option(WPACU_PLUGIN_ID . '_settings');
 
         $applyDefaultToNeverSaved = array(
             'alter_html_source_method',
-		    'input_style',
-		    'frontend_show_exceptions',
-		    'minify_loaded_css_exceptions',
-		    'inline_css_files_below_size_input',
-		    'minify_loaded_js_exceptions',
-		    'inline_js_files_below_size_input',
-		    'clear_cached_files_after',
-		    'hide_meta_boxes_for_post_types',
+            'input_style',
+            'frontend_show_exceptions',
+            'minify_loaded_css_exceptions',
+            'inline_css_files_below_size_input',
+            'minify_loaded_js_exceptions',
+            'inline_js_files_below_size_input',
+            'clear_cached_files_after',
+            'hide_meta_boxes_for_post_types',
             'disable_rss_feed_message',
             'resource_loading',
             'announcements',
@@ -395,7 +431,7 @@ class Settings
             'allow_manage_assets_via_users',
             'access_via_non_admin_user_roles',
             'access_via_specific_non_admin_users'
-	    );
+        );
 
         $applyDefaultToNeverSaved = apply_filters('wpacu_internal_settings_apply_default_to_never_saved', $applyDefaultToNeverSaved);
 
@@ -416,31 +452,29 @@ class Settings
 
                         // If it doesn't exist, it was never saved (Exception: "show_assets_meta_box")
                         // Make sure the default value is added
-	                    if ( in_array($settingsKey, $applyDefaultToNeverSaved) ) {
-	                        $settings[ $settingsKey ] = isset( $this->defaultSettings[ $settingsKey ] ) ? $this->defaultSettings[ $settingsKey ] : '';
+                        if ( in_array($settingsKey, $applyDefaultToNeverSaved) ) {
+                            $settings[$settingsKey] = isset($this->defaultSettings[$settingsKey]) ? $this->defaultSettings[$settingsKey] : '';
                         }
                     }
                 }
 
-                $this->currentSettings = $this->filterSettings($settings);
-
-                return apply_filters('wpacu_settings', $this->currentSettings);
+                return $settings;
             }
         }
 
-	    // No record in the database? Set the default values
-	    // That could be because no changes were done on the "Settings" page
-	    // OR a full reset of the plugin (via "Tools") was performed
+        // No record in the database? Set the default values
+        // That could be because no changes were done on the "Settings" page
+        // OR a full reset of the plugin (via "Tools") was performed
         $finalDefaultSettings = $this->defaultSettings;
 
         foreach ($this->settingsKeys as $settingsKey) {
-	        if (! array_key_exists($settingsKey, $finalDefaultSettings)) {
-		        // Keep the keys with empty values to avoid notice errors
-		        $finalDefaultSettings[$settingsKey] = '';
-	        }
+            if ( ! array_key_exists($settingsKey, $finalDefaultSettings) ) {
+                // Keep the keys with empty values to avoid notice errors
+                $finalDefaultSettings[$settingsKey] = '';
+            }
         }
 
-	    return apply_filters('wpacu_settings', $this->filterSettings($finalDefaultSettings));
+        return $finalDefaultSettings;
     }
 
     /**
@@ -459,6 +493,27 @@ class Settings
         }
 
         return $settings;
+    }
+
+    /**
+     * Preserve legacy manual preload behavior without making an explicitly disabled
+     * toggle turn itself back on merely because its textarea still has saved URLs.
+     *
+     * A missing legacy key is normalised by getAllStored() to an empty string.
+     * Explicit OFF is persisted as integer/string zero by the new Settings switch.
+     *
+     * @param mixed  $enabledValue
+     * @param string $preloadFiles
+     *
+     * @return int
+     */
+    public static function normalizeFontPreloadEnabledState($enabledValue, $preloadFiles)
+    {
+        if ($enabledValue === '' || $enabledValue === null) {
+            return trim((string)$preloadFiles) !== '' ? 1 : 0;
+        }
+
+        return ((string)$enabledValue === '1') ? 1 : 0;
     }
 
 	/**
@@ -486,6 +541,15 @@ class Settings
         // Any missing or legacy/invalid value falls back to the default enhanced interface.
         $settings['input_style'] = self::getInputStyle($settings);
 
+        $settings['local_fonts_preload_files_enable'] = self::normalizeFontPreloadEnabledState(
+            isset($settings['local_fonts_preload_files_enable']) ? $settings['local_fonts_preload_files_enable'] : '',
+            isset($settings['local_fonts_preload_files']) ? $settings['local_fonts_preload_files'] : ''
+        );
+        $settings['google_fonts_preload_files_enable'] = self::normalizeFontPreloadEnabledState(
+            isset($settings['google_fonts_preload_files_enable']) ? $settings['google_fonts_preload_files_enable'] : '',
+            isset($settings['google_fonts_preload_files']) ? $settings['google_fonts_preload_files'] : ''
+        );
+
 		// Oxygen Builder is triggered, and some users might want to trigger unload rules there to make the editor faster, especially plugin unload rules
         // We will prevent minify/combine and other functions that will require caching any files to avoid any errors
 		if (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')) {
@@ -495,6 +559,7 @@ class Settings
                 = $settings['combine_loaded_js']
                 = $settings['inline_css_files']
                 = $settings['google_fonts_combine']
+                = $settings['google_fonts_local']
                 = $settings['google_fonts_remove']
                 = false;
 		}
@@ -546,7 +611,9 @@ class Settings
                 = $settings['google_fonts_display']
                 = $settings['google_fonts_display_overwrite']
                 = $settings['google_fonts_preconnect']
+                = $settings['google_fonts_preload_files_enable']
                 = $settings['google_fonts_preload_files']
+                = $settings['google_fonts_local']
                 = '';
 		}
 
@@ -577,30 +644,7 @@ class Settings
             $settings = $filteredSettings;
         }
 
-		// [START] Temporarily overwrite specific settings via query string for authorized troubleshooting
-        // Multiple flat values are supported, e.g. /?wpacu_settings[key_one]=1&wpacu_settings[key_two]=false
-        // Ideally, either use /?wpacu_settings[...] OR /?wpacu_skip_test_mode (never both because they could interfere)
-		if ( ! empty($_GET['wpacu_settings']) && is_array($_GET['wpacu_settings']) && Menu::userCanAccessPlugin()) {
-            foreach (wp_unslash($_GET['wpacu_settings']) as $settingKey => $settingValue) {
-                if ( ! is_string($settingKey)
-                    || sanitize_key($settingKey) !== $settingKey
-                    || ! array_key_exists($settingKey, $settings)
-                    || ! is_scalar($settingValue)
-                ) {
-                    continue;
-                }
-
-                $settingValue = sanitize_text_field((string)$settingValue);
-
-                if ($settingValue === 'true') {
-	                $settingValue = true;
-                } elseif ($settingValue === 'false') {
-		            $settingValue = false;
-	            }
-
-                $settings[$settingKey] = $settingValue;
-            }
-		}
+		// [START] Dedicated request-scoped debugging overrides
 
 		// /?wpacu_test_mode (will load the page with "Test Mode" enabled disregarding the value from the plugin's "Settings")
 		// For debugging purposes (e.g. to make sure the HTML source is the same when a guest user accesses it as the one that is generated when the plugin is deactivated)
@@ -717,11 +761,16 @@ class Settings
                     }
 
                     if ($featureToAvoid === 'local_fonts_preload') {
+                        $settings['local_fonts_preload_files_enable'] = 0;
                         $settings['local_fonts_preload_files'] = '';
                     }
                     // [/Local Fonts]
 
                     // [Google Fonts]
+                    if ($featureToAvoid === 'google_fonts_local') {
+                        $settings['google_fonts_local'] = '';
+                    }
+
                     if ($featureToAvoid === 'google_fonts_combine') {
                         $settings['google_fonts_combine'] = '';
                     }
@@ -735,6 +784,7 @@ class Settings
                     }
 
                     if ($featureToAvoid === 'google_fonts_preload') {
+                        $settings['google_fonts_preload_files_enable'] = 0;
                         $settings['google_fonts_preload_files'] = '';
                     }
                     // [/Google Fonts]

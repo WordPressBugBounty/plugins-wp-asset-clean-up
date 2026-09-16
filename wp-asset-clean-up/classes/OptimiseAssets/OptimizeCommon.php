@@ -388,6 +388,9 @@ class OptimizeCommon
      */
     public static function preventAnyFrontendOptimization($tagActionName = '', $htmlSource = '')
     {
+        if (!is_admin() && !empty($GLOBALS['wpacu_debug_page_options']['no_assets_settings'])) {
+            return true;
+        }
         if (isset($GLOBALS['wpacu_prevent_any_frontend_optimization'])) {
             return $GLOBALS['wpacu_prevent_any_frontend_optimization'];
         }
@@ -433,14 +436,13 @@ class OptimizeCommon
 
         // $tagActionName needs to be different from 'parse_query' because is_singular() would trigger too soon and cause notice errors
         // Has the following page option set: "Do not apply any front-end optimization on this page (this includes any changes related to CSS/JS files)"
-        if ($tagActionName !== 'parse_query' && MetaBoxes::hasNoFrontendOptimizationPageOption()) {
+        if ($tagActionName !== 'parse_query' && defined('WPACU_CURRENT_PAGE_ID') && MetaBoxes::hasNoFrontendOptimizationPageOption()) {
             $GLOBALS['wpacu_prevent_any_frontend_optimization'] = true;
             return true;
         }
 
         // Only relevant if all the plugins are already loaded and in the front-end view
         if ( ! defined('WPACU_ALL_ACTIVE_PLUGINS_LOADED') ) {
-            $GLOBALS['wpacu_prevent_any_frontend_optimization'] = false;
             return false;
         }
 
@@ -485,7 +487,10 @@ class OptimizeCommon
             }
         }
 
-        $GLOBALS['wpacu_prevent_any_frontend_optimization'] = false;
+        // An early "allowed" result is provisional: the page options are not known yet.
+        if ($tagActionName !== 'parse_query' && defined('WPACU_CURRENT_PAGE_ID')) {
+            $GLOBALS['wpacu_prevent_any_frontend_optimization'] = false;
+        }
         return false;
     }
 
@@ -547,8 +552,10 @@ class OptimizeCommon
             Main::instance()->settings['cache_dynamic_loaded_css'] ||
             Main::instance()->settings['combine_loaded_css'] ||
             Main::instance()->settings['local_fonts_display'] ||
+            Main::instance()->settings['google_fonts_local'] ||
             Main::instance()->settings['google_fonts_display'] ||
             Main::instance()->settings['google_fonts_remove'] ||
+            FontsGoogleRemove::hasSpecificRules() ||
             $isMinifyCssEnabled;
 
         return $GLOBALS['wpacu_optimize_css_is_worth_checking_for_optimization'];
@@ -581,6 +588,7 @@ class OptimizeCommon
             Main::instance()->settings['combine_loaded_js'] ||
             Main::instance()->settings['google_fonts_display'] ||
             Main::instance()->settings['google_fonts_remove'] ||
+            FontsGoogleRemove::hasSpecificRules() ||
             $isMinifyJsEnabled;
 
         return $GLOBALS['wpacu_optimize_js_is_worth_checking_for_optimization'];

@@ -277,6 +277,51 @@ class Overview
     }
 
     /**
+     * Count pages with at least one enabled, recognized Page Option.
+     *
+     * @param array $results
+     * @return int
+     */
+    public static function countPagesWithOptions($results)
+    {
+        $records = isset($results['posts']) && is_array($results['posts']) ? $results['posts'] : array();
+        if (! empty($results['homepage'])) {
+            $records[] = $results['homepage'];
+        }
+        $knownOptions = self::getPageOptionsToText();
+        $count = 0;
+        foreach ($records as $record) {
+            if (isset($record['options']) && is_array($record['options'])
+                && array_filter(array_intersect_key($record['options'], $knownOptions))) {
+                ++$count;
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Shared by the navigation count and the Special Settings table.
+     *
+     * @return array
+     */
+    public static function getSpecialSettings()
+    {
+        $settings = array(
+            'do_not_also_clear_autoptimize_cache'   => wpacuIsDefinedConstant('WPACU_DO_NOT_ALSO_CLEAR_AUTOPTIMIZE_CACHE'),
+            'do_not_also_clear_cache_enabler_cache' => wpacuIsDefinedConstant('WPACU_DO_NOT_ALSO_CLEAR_CACHE_ENABLER_CACHE'),
+            'load_on_oxygen_builder_edit'          => wpacuIsDefinedConstant('WPACU_LOAD_ON_OXYGEN_BUILDER_EDIT'),
+            'load_on_divi_builder_edit'            => wpacuIsDefinedConstant('WPACU_LOAD_ON_DIVI_BUILDER_EDIT'),
+            'load_on_bricks_builder'               => wpacuIsDefinedConstant('WPACU_LOAD_ON_BRICKS_BUILDER'),
+            'load_on_elementor_builder'            => wpacuIsDefinedConstant('WPACU_LOAD_ON_ELEMENTOR_BUILDER')
+        );
+        // [wpacu_pro]
+        $settings['allow_dash_plugin_filter'] = wpacuIsDefinedConstant('WPACU_ALLOW_DASH_PLUGIN_FILTER');
+        $settings['load_on_rest_call'] = wpacuIsDefinedConstant('WPACU_LOAD_ON_REST_CALLS');
+        // [/wpacu_pro]
+        return $settings;
+    }
+
+    /**
      * @param string $viewOrChangeOutput
      * @param array $ruleKey
      *
@@ -658,6 +703,11 @@ class Overview
         $anyUnloadRule        = MiscArray::hasKeyStartingWith($handleChangesOutputs, 'unload');
         $anyLoadExceptionRule = MiscArray::hasKeyStartingWith($handleChangesOutputs, 'load');
 
+        if (OverviewByPage::$rendering && isset(OverviewByPage::$originalHandles[$handleData['asset_type']][$handleData['handle']])) {
+            $originalRules = OverviewByPage::$originalHandles[$handleData['asset_type']][$handleData['handle']];
+            $anyUnloadRule = MiscArray::hasKeyStartingWith($originalRules, 'unload');
+        }
+
         if ( ! $anyUnloadRule && $anyLoadExceptionRule ) {
             $clearLoadExceptionsArea = '';
 
@@ -672,11 +722,16 @@ class Overview
                 );
             }
 
-            $handleChangesOutputs['load_exception_notice'] = '<div><em><small><strong>Note:</strong> Although a load exception rule is added, it is not relevant as there are no rules that would work together with it (e.g. unloaded site-wide, on all posts). This exception can be removed as the file is loaded anyway in all pages.</small></em>&nbsp;' .
+            $handleChangesOutputs['load_exception_notice'] = '<div><small><strong>' . esc_html__('Orphaned load exceptions:', 'wp-asset-clean-up') . '</strong> <em>' . esc_html__('There are no unload rules for this asset, so its load exceptions have nothing to override and can be removed in Edit Mode. When the asset is enqueued, it loads normally without these exceptions.', 'wp-asset-clean-up') . '</em></small>&nbsp;' .
                                                             ' ' . $clearLoadExceptionsArea . '</div><div style="clear:both;"></div>';
+            foreach ($handleChangesOutputs as $outputKey => $output) {
+                if (strpos($outputKey, 'load') === 0) {
+                    $handleChangesOutputs[$outputKey] = '<div class="wpacu-overview-orphaned-load-exception">' . $output . '</div>';
+                }
+            }
         }
 
-        return $handleChangesOutputs;
+        return OverviewByPage::$rendering ? OverviewByPage::contextualChanges($handleData, $handleChangesOutputs) : $handleChangesOutputs;
     }
 
     /**
@@ -691,20 +746,21 @@ class Overview
     public static function renderRuleOutput($output, $handleData, $ruleKey, $ruleValue = null, $ruleParentValue = '')
     {
         if ($ruleValue === null) {
-            return OverviewEdit::renderMaybeEditSettingChangesWrapOutputRule(
+            $rendered = OverviewEdit::renderMaybeEditSettingChangesWrapOutputRule(
                 $output,
                 $handleData,
                 $ruleKey
             );
+        } else {
+            $rendered = OverviewEdit::renderMaybeEditSettingChangesWrapOutputRule(
+                $output,
+                $handleData,
+                $ruleKey,
+                $ruleValue,
+                $ruleParentValue
+            );
         }
-
-        return OverviewEdit::renderMaybeEditSettingChangesWrapOutputRule(
-            $output,
-            $handleData,
-            $ruleKey,
-            $ruleValue,
-            $ruleParentValue
-        );
+        return OverviewRuleScope::wrap($rendered, $handleData, $ruleKey, $ruleValue, $ruleParentValue);
     }
 
     /**
@@ -1401,7 +1457,8 @@ SQL;
             self::addScriptAttrOverviewItem(
                 $groupedAttrs,
                 $attr,
-                '<span style="font-weight: 200;">No-load leftovers</span>',
+                OverviewByPage::$rendering && in_array($attr, isset(OverviewByPage::$originalHandles[$handleData['asset_type']][$handleData['handle']]['script_site_wide_attrs']) ? OverviewByPage::$originalHandles[$handleData['asset_type']][$handleData['handle']]['script_site_wide_attrs'] : array(), true)
+                    ? 'Do not apply on these pages' : '<span style="font-weight: 200;">No-load leftovers</span>',
                 $exceptionsOutput
             );
         }
@@ -1865,7 +1922,7 @@ SQL;
 
                     $handleExtras[1] = $handleChangesOutputPositions;
                 } else {
-                    $handleExtras[1] = '<span style="color: #004567; font-weight: 600;">Moved to <code>&lt;' . esc_html($handleData['positions']) . '&gt;</code></span>';
+                    $handleExtras[1] = '<span data-wpacu-rule-scope="sitewide" style="color: #004567; font-weight: 600;">Moved to <code>&lt;' . esc_html($handleData['positions']) . '&gt;</code></span>';
                 }
             }
 
@@ -2462,6 +2519,7 @@ SQL;
                     $maybeInactiveAsset = Admin\MiscAdmin::maybeIsInactiveAsset($src);
 
                     if (is_array($maybeInactiveAsset) && ! empty($maybeInactiveAsset)) {
+                        echo '<span hidden data-wpacu-asset-inactive="1"></span>';
                         ?>
                         <div>
                             <?php if ($maybeInactiveAsset['from'] === 'plugin') { ?>
@@ -2586,7 +2644,7 @@ SQL;
                         echo $handleChangesOutputPreloaded;
                     } else {
                         ?>
-                        <div>
+                        <div data-wpacu-rule-scope="sitewide">
                             <small style="color: #004567;">
                                 <span class="dashicons dashicons-desktop" style="color: #004567; vertical-align: middle;"></span>
                                 Downloads if this media query matches:
@@ -2614,7 +2672,7 @@ SQL;
                     echo $handleChangesOutputPreloaded;
                 } else {
                     ?>
-                    <div><small><span class="dashicons dashicons-welcome-write-blog" style="vertical-align: middle;"></span>
+                    <div data-wpacu-rule-scope="sitewide"><small><span class="dashicons dashicons-welcome-write-blog" style="vertical-align: middle;"></span>
                             Note: <em><?php echo ucfirst(htmlspecialchars($handleData['notes'])); ?></em></small></div>
                     <?php
                 }

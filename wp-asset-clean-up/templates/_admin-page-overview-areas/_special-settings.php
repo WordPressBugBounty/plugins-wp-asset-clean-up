@@ -9,26 +9,12 @@ if (! isset($data)) {
 <hr style="margin: 15px 0;"/>
 <!-- [Special Settings Area] -->
 <?php
-$specialSettings = array(
-    // Cache plugins caching: clear it or not after Asset CleanUp Lite/Pro caching is cleared
-	'do_not_also_clear_autoptimize_cache'   => wpacuIsDefinedConstant('WPACU_DO_NOT_ALSO_CLEAR_AUTOPTIMIZE_CACHE'),
-	'do_not_also_clear_cache_enabler_cache' => wpacuIsDefinedConstant('WPACU_DO_NOT_ALSO_CLEAR_CACHE_ENABLER_CACHE'),
-
-	'load_on_oxygen_builder_edit'           => wpacuIsDefinedConstant('WPACU_LOAD_ON_OXYGEN_BUILDER_EDIT'),
-	'load_on_divi_builder_edit'             => wpacuIsDefinedConstant('WPACU_LOAD_ON_DIVI_BUILDER_EDIT'),
-	'load_on_bricks_builder'                => wpacuIsDefinedConstant('WPACU_LOAD_ON_BRICKS_BUILDER'),
-    'load_on_elementor_builder'             => wpacuIsDefinedConstant('WPACU_LOAD_ON_ELEMENTOR_BUILDER')
-);
-
-// [wpacu_pro]
-$specialSettings['allow_dash_plugin_filter'] = wpacuIsDefinedConstant('WPACU_ALLOW_DASH_PLUGIN_FILTER');
-$specialSettings['load_on_rest_call']        = wpacuIsDefinedConstant('WPACU_LOAD_ON_REST_CALLS');
-// [/wpacu_pro]
+$specialSettings = \WpAssetCleanUp\Admin\Overview::getSpecialSettings();
 
 $noSpecialSettings = empty(array_filter($specialSettings));
 ?>
-<div id="wpacu-special-settings-wrap">
-	<h3><span class="dashicons dashicons-admin-generic"></span> <?php _e('Special Settings', 'wp-asset-clean-up'); ?></h3>
+<div id="wpacu-special-settings-wrap" data-wpacu-rule-scope="<?php echo $noSpecialSettings ? 'shared' : 'bulk'; ?>">
+	<h3 id="wpacu-overview-section-special-settings" class="wpacu-overview-section-title"><span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-admin-generic"></span> <?php _e('Special Settings', 'wp-asset-clean-up'); ?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
 	<div style="padding: 10px; background: white; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
 		<div>To avoid broken functionality, Asset CleanUp Pro does not load by default when certain URLs are loading (e.g. on REST Calls, when using specific Page Builders). Some experienced users would want to change this behaviour and allow the plugin to load and trigger its unload rules. Through special settings, you can do that. <a target="_blank" style="text-decoration: none;" href="https://www.assetcleanup.com/docs/?p=1495"><span class="dashicons dashicons-info"></span> Read more</a></div>
         <p>Due to the sensitive nature of these settings, requiring manual update in <em>wp-config.php</em>, you can not edit their values from this area.</p>

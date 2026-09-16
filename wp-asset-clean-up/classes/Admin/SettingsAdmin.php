@@ -8,6 +8,7 @@ use WpAssetCleanUp\Menu;
 use WpAssetCleanUp\Misc;
 use WpAssetCleanUp\MiscArray;
 use WpAssetCleanUp\OptimiseAssets\FontsGooglePreloadScanner;
+use WpAssetCleanUp\OptimiseAssets\FontsGoogleRemove;
 use WpAssetCleanUp\OptimiseAssets\FontsLocalPreloadScanner;
 use WpAssetCleanUp\OptimiseAssets\FontPreloadScanner;
 use WpAssetCleanUp\OptimiseAssets\OptimizeCommon;
@@ -56,6 +57,7 @@ class SettingsAdmin
 
         FontsLocalPreloadScanner::registerAdminHooks();
         FontsGooglePreloadScanner::registerAdminHooks();
+        FontsGoogleLocalAdmin::registerAdminHooks();
         FontPreloadScanner::registerAdminHooks();
     }
 
@@ -75,7 +77,9 @@ class SettingsAdmin
             'google_fonts_display',
             'google_fonts_display_overwrite',
             'google_fonts_preconnect',
-            'google_fonts_preload_files'
+            'google_fonts_preload_files_enable',
+            'google_fonts_preload_files',
+            'google_fonts_local'
         );
     }
 
@@ -165,6 +169,7 @@ class SettingsAdmin
         $data['is_optimize_js_enabled_by_other_party']  = OptimizeJs::isOptimizeJsEnabledByOtherParty();
         $data['local_fonts_preload_scan']  = FontsLocalPreloadScanner::getAdminConfig();
         $data['google_fonts_preload_scan'] = FontsGooglePreloadScanner::getAdminConfig();
+        $data['google_fonts_local_config']  = FontsGoogleLocalAdmin::getAdminConfig();
         $data['critical_css_rule_stats']   = CriticalCssAdmin::getCriticalCssRuleStats();
 
         // Settings::filterSettings() intentionally disables Google Fonts
@@ -311,6 +316,14 @@ class SettingsAdmin
         );
 
         foreach ($settings as $settingKey => $settingValue) {
+            if (in_array($settingKey, array('local_fonts_preload_files_enable', 'google_fonts_preload_files_enable'), true)) {
+                $settings[$settingKey] = ((string)$settingValue === '1') ? 1 : 0;
+            }
+
+            if ($settingKey === 'google_fonts_local') {
+                $settings[$settingKey] = ((string) $settingValue === '1') ? 1 : '';
+            }
+
             if ($settingKey === 'input_style') {
                 $settings[$settingKey] = Settings::getInputStyle($settingValue);
             }
@@ -746,7 +759,7 @@ class SettingsAdmin
     public function updateOption($key, $value)
     {
         $settingsClass = new Settings();
-        $settings      = self::restoreStoredGoogleFontsSettings($settingsClass->getAll(true));
+        $settings      = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
 
         if ( ! is_array($key) ) {
             if ( ! in_array($key, $settingsClass->settingsKeys, true) ) {
@@ -778,11 +791,15 @@ class SettingsAdmin
     public function deleteOption($key)
     {
         $settingsClass = new Settings();
-        $settings = self::restoreStoredGoogleFontsSettings($settingsClass->getAll(true));
+        if ( ! is_string($key) || ! in_array($key, $settingsClass->settingsKeys, true) ) {
+            return;
+        }
+
+        $settings = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
 
         $settings[$key] = '';
 
-        $this->update($settings, false);
+        return $this->update($settings, false);
     }
 
     /**
@@ -1234,6 +1251,7 @@ class SettingsAdmin
                 'local_fonts_display'      => __('Local Fonts: "font-display" update', 'wp-asset-clean-up'),
                 'local_fonts_preload'      => __('Local Fonts: Manual preload (legacy)', 'wp-asset-clean-up'),
 
+                'google_fonts_local'       => __('Google Fonts: Host locally', 'wp-asset-clean-up'),
                 'google_fonts_combine'     => __('Google Fonts: Combine', 'wp-asset-clean-up'),
                 'google_fonts_display'     => __('Google Fonts: "font-display" update', 'wp-asset-clean-up'),
                 'google_fonts_preconnect'  => __('Google Fonts: Preconnect', 'wp-asset-clean-up'),
@@ -1493,6 +1511,10 @@ class SettingsAdmin
                 'wpacu-google-fonts-remove' => array(
                     'label'        => 'Remove All',
                     'include_path' => '{local_template_dir}/_{for}/_remove-area.php'
+                ),
+                'wpacu-google-fonts-remove-specific' => array(
+                    'label'        => 'Remove Specific',
+                    'include_path' => '{local_template_dir}/_{for}/_remove-specific-area.php'
                 )
             );
         }
@@ -1581,6 +1603,8 @@ class SettingsAdmin
             || ! empty($data['hide_from_side_bar']);
         $accessControlChanged = ! empty($data['access_via_non_admin_user_roles'])
             || ! empty($data['access_via_specific_non_admin_users']);
+        $googleFontsRemoveAllChanged = ! empty($data['google_fonts_remove']);
+        $googleFontsRemoveSpecificChanged = FontsGoogleRemove::hasSpecificRules();
 
         ?>
         <div id="wpacu-settings-admin-sub-tabs-wrap" class="wpacu-sub-tabs-wrap wpacu-tabs-not-ready"> <!-- Sub-tabs wrap -->
@@ -1605,6 +1629,18 @@ class SettingsAdmin
                     if ($subTabArea === 'wpacu-plugin-usage-settings-access') {
                         ?><span id="wpacu-access-control-sub-tab-indicator"
                                 class="wpacu-sub-tab-changed-indicator wpacu-is-success<?php echo $accessControlChanged ? ' is-visible' : ''; ?>"
+                                aria-hidden="true"></span><?php
+                    }
+
+                    if ($subTabArea === 'wpacu-google-fonts-remove') {
+                        ?><span id="wpacu-google-fonts-remove-sub-tab-indicator"
+                                class="wpacu-sub-tab-changed-indicator wpacu-is-attention<?php echo $googleFontsRemoveAllChanged ? ' is-visible' : ''; ?>"
+                                aria-hidden="true"></span><?php
+                    }
+
+                    if ($subTabArea === 'wpacu-google-fonts-remove-specific') {
+                        ?><span id="wpacu-google-fonts-remove-specific-sub-tab-indicator"
+                                class="wpacu-sub-tab-changed-indicator wpacu-is-attention wpacu-is-partial<?php echo $googleFontsRemoveSpecificChanged ? ' is-visible' : ''; ?>"
                                 aria-hidden="true"></span><?php
                     }
                 ?></label>

@@ -45,6 +45,11 @@ class OwnAssets
                 'rel_path' => '/assets/local-fonts-preload-scanner.min.css'
             ),
 
+            'google_fonts_local' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-google-fonts-local',
+                'rel_path' => '/assets/google-fonts-local.min.css'
+            ),
+
             'critical_css_admin' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-critical-css-admin',
                 'rel_path' => '/assets/critical-css-admin.min.css'
@@ -87,6 +92,11 @@ class OwnAssets
                 'rel_path' => '/assets/local-fonts-preload-scanner.min.js'
             ),
 
+            'google_fonts_local' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-google-fonts-local',
+                'rel_path' => '/assets/google-fonts-local.min.js'
+            ),
+
             'script_cache_manager' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-script-cache-manager',
                 'rel_path' => '/assets/script-cache-manager.min.js'
@@ -118,10 +128,12 @@ class OwnAssets
 	    if ( (defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ) {
 		    self::$ownAssets['styles']['style_core']['rel_path']   = '/assets/style.css';
             self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'] = '/assets/local-fonts-preload-scanner.css';
+            self::$ownAssets['styles']['google_fonts_local']['rel_path'] = '/assets/google-fonts-local.css';
 		    self::$ownAssets['styles']['critical_css_admin']['rel_path'] = '/assets/critical-css-admin.css';
 		    self::$ownAssets['styles']['critical_css_admin_classic']['rel_path'] = '/assets/critical-css-admin-classic.css';
 		    self::$ownAssets['scripts']['script_core']['rel_path'] = '/assets/script.js';
             self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path'] = '/assets/local-fonts-preload-scanner.js';
+            self::$ownAssets['scripts']['google_fonts_local']['rel_path'] = '/assets/google-fonts-local.js';
 
             self::$ownAssets['scripts']['script_cache_manager']['rel_path'] = '/assets/script-cache-manager.js';
 
@@ -1068,6 +1080,13 @@ JS;
                 array(self::$ownAssets['styles']['style_core']['handle']),
                 self::assetVer(self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'])
             );
+
+            wp_enqueue_style(
+                self::$ownAssets['styles']['google_fonts_local']['handle'],
+                plugins_url(self::$ownAssets['styles']['google_fonts_local']['rel_path'], WPACU_PLUGIN_FILE),
+                array(self::$ownAssets['styles']['style_core']['handle']),
+                self::assetVer(self::$ownAssets['styles']['google_fonts_local']['rel_path'])
+            );
         }
     }
 
@@ -1113,6 +1132,14 @@ JS;
                 plugins_url(self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path'], WPACU_PLUGIN_FILE),
                 array('jquery', self::$ownAssets['scripts']['script_core']['handle']),
                 self::assetVer(self::$ownAssets['scripts']['local_fonts_preload_scanner']['rel_path']),
+                true
+            );
+
+            wp_enqueue_script(
+                self::$ownAssets['scripts']['google_fonts_local']['handle'],
+                plugins_url(self::$ownAssets['scripts']['google_fonts_local']['rel_path'], WPACU_PLUGIN_FILE),
+                array(self::$ownAssets['scripts']['script_core']['handle']),
+                self::assetVer(self::$ownAssets['scripts']['google_fonts_local']['rel_path']),
                 true
             );
         }

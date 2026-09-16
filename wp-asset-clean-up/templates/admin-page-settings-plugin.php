@@ -274,7 +274,7 @@ $inputStyle = Settings::getInputStyle($data);
                     if ($settingsTabKey === 'wpacu-setting-google-fonts') {
                         $googleFontsRemovalIndicatorVisibleClass = ! empty($data['google_fonts_remove']) ? ' is-visible' : '';
                         $wpacuNavTextSub .= '<div id="wpacu-google-fonts-removal-menu-indicator" class="wpacu-tab-extra-text wpacu-settings-changed-indicator' . esc_attr($googleFontsRemovalIndicatorVisibleClass) . '"><small><span class="wpacu-status-wrap"><span class="wpacu-circle-status wpacu-attention"></span></span></small></div>';
-                        $wpacuNavTextSub .= '<div style="margin-top: 3px;"><small style="font-weight: lighter;">Combine, Async Load, Font-Display, Preconnect, Preload, <span>Removal</span></small></div>';
+                        $wpacuNavTextSub .= '<div style="margin-top: 3px;"><small style="font-weight: lighter;">Local Hosting, Selective Removal, Preload, Font Display &amp; More</small></div>';
                     }
                 ?>
                     <a href="#<?php echo esc_attr($settingsTabKey); ?>"
@@ -379,6 +379,7 @@ $inputStyle = Settings::getInputStyle($data);
         var xmlRpcIndicatorCircle = xmlRpcIndicator ? xmlRpcIndicator.querySelector('.wpacu-circle-status') : null;
         var googleFontsRemovalInput = document.getElementById('wpacu_google_fonts_remove');
         var googleFontsRemovalIndicator = document.getElementById('wpacu-google-fonts-removal-menu-indicator');
+        var googleFontsRemoveSubTabIndicator = document.getElementById('wpacu-google-fonts-remove-sub-tab-indicator');
         var cdnRewriteInput = document.getElementById('wpacu_cdn_rewrite_enable');
         var cdnRewriteCssInput = document.getElementById('wpacu_cdn_rewrite_url_css');
         var cdnRewriteJsInput = document.getElementById('wpacu_cdn_rewrite_url_js');
@@ -445,6 +446,10 @@ $inputStyle = Settings::getInputStyle($data);
 
             if (googleFontsRemovalInput && googleFontsRemovalIndicator) {
                 googleFontsRemovalIndicator.classList.toggle('is-visible', googleFontsRemovalInput.checked);
+            }
+
+            if (googleFontsRemovalInput && googleFontsRemoveSubTabIndicator) {
+                googleFontsRemoveSubTabIndicator.classList.toggle('is-visible', googleFontsRemovalInput.checked);
             }
 
             if (cdnRewriteInput && cdnRewriteMenuCircle) {
@@ -597,7 +602,8 @@ $inputStyle = Settings::getInputStyle($data);
                 .filter(function (control) {
                     return ignoredNames.indexOf(control.name) === -1
                         && control.type !== 'submit'
-                        && control.type !== 'button';
+                        && control.type !== 'button'
+                        && ! control.classList.contains('wpacu-google-fonts-specific__serialized');
                 });
         }
 

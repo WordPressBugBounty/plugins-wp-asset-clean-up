@@ -71,7 +71,8 @@ add_action('init', function() {
 
 if (is_admin()) {
     \WpAssetCleanUp\Admin\MainAdmin::instance();
-} else {
+
+    } else {
     // Situations when methods from MainAdmin are needed in the front-end view
     // e.g. when "wp_assetcleanup_load=1" is used or when the admin manages the assets in the front-end view (bottom of the page)
     add_action('init', function () {
@@ -231,10 +232,12 @@ if (is_admin()) {
 
 	add_action('init', function() {
         $isLocalFontPreloadScanRequest = \WpAssetCleanUp\OptimiseAssets\FontsLocalPreloadScanner::isActiveRequest();
+        $hasEnabledLocalFontPreloadFiles = ! empty(\WpAssetCleanUp\Main::instance()->settings['local_fonts_preload_files_enable'])
+            && trim(\WpAssetCleanUp\Main::instance()->settings['local_fonts_preload_files']) !== '';
 
 		$loadFontsLocalClass = $isLocalFontPreloadScanRequest || ! (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')
             || ( ! is_admin() && \WpAssetCleanUp\OptimiseAssets\OptimizeCommon::preventAnyFrontendOptimization() )
-            || ( ! \WpAssetCleanUp\Main::instance()->settings['local_fonts_display'] && ! trim(\WpAssetCleanUp\Main::instance()->settings['local_fonts_preload_files']) ) );
+            || ( ! \WpAssetCleanUp\Main::instance()->settings['local_fonts_display'] && ! $hasEnabledLocalFontPreloadFiles ) );
 
 		if ( $loadFontsLocalClass ) {
 			$wpacuFontsLocal = new \WpAssetCleanUp\OptimiseAssets\FontsLocal();
@@ -243,12 +246,17 @@ if (is_admin()) {
 	}, 11);
 
     $isGoogleFontPreloadScanRequest = \WpAssetCleanUp\OptimiseAssets\FontsGooglePreloadScanner::isActiveRequest();
+    $hasEnabledGoogleFontPreloadFiles = ! empty(\WpAssetCleanUp\Main::instance()->settings['google_fonts_preload_files_enable'])
+        && trim(\WpAssetCleanUp\Main::instance()->settings['google_fonts_preload_files']) !== '';
 
     if ( $isGoogleFontPreloadScanRequest ||
+         apply_filters('wpacu_google_fonts_remove_specific_is_pro', false) ||
+         \WpAssetCleanUp\OptimiseAssets\FontsGoogleRemove::hasSpecificRules() ||
+         \WpAssetCleanUp\Main::instance()->settings['google_fonts_local'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_combine'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_display'] ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_preconnect'] ||
-         \WpAssetCleanUp\Main::instance()->settings['google_fonts_preload_files'] ||
+         $hasEnabledGoogleFontPreloadFiles ||
          \WpAssetCleanUp\Main::instance()->settings['google_fonts_remove'] ) {
         $wpacuFontsGoogle = new \WpAssetCleanUp\OptimiseAssets\FontsGoogle();
         $wpacuFontsGoogle->init();

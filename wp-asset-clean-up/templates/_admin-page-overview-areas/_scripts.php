@@ -13,12 +13,12 @@ if (! isset($data)) {
 ?>
 <hr style="margin: 15px 0;"/>
 
-<h3 id="wpacu-overview-section-scripts" class="wpacu-overview-section-title"><span class="dashicons dashicons-media-code"></span> <?php _e('Scripts (.js)', 'wp-asset-clean-up'); ?>
+<h3 id="wpacu-overview-section-scripts" class="wpacu-overview-section-title"><span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-media-code"></span> <?php _e('Scripts (.js)', 'wp-asset-clean-up'); ?>
 	<?php
 	if (isset($data['handles']['scripts']) && count($data['handles']['scripts']) > 0) {
 		echo ' &#10230; Total handles with rules: '.count($data['handles']['scripts']);
 	}
-	?> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
+	?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
 <?php
 if ( ! empty($data['handles']['scripts']) ) {
 	?>

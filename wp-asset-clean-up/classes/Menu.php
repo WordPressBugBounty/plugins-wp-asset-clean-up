@@ -151,6 +151,11 @@ class Menu
 		    WPACU_PLUGIN_ID . '_bulk_unloads',
             array(new BulkChanges, 'pageBulkUnloads')
         );
+        // WordPress needs this entry while resolving the page and checking access.
+        // Hide it only after those checks, before the sidebar menu is rendered.
+        add_action('admin_head', static function () use ($parentSlug) {
+            remove_submenu_page($parentSlug, WPACU_PLUGIN_ID . '_bulk_unloads');
+        });
 
 	    add_submenu_page(
 		    $parentSlug,

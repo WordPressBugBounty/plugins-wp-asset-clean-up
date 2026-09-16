@@ -38,12 +38,17 @@ class FontsGoogle
 	public function init()
 	{
 		FontsGooglePreloadScanner::maybeInitFrontendCollector();
+		FontsGoogleLocal::registerFrontendHooks();
 
 		if (self::preventAnyChange()) {
 			return;
 		}
 
 		add_filter('wp_resource_hints', array($this, 'resourceHints'), PHP_INT_MAX, 2);
+
+		if (FontsGoogleRemove::hasSpecificRules()) {
+			add_filter('style_loader_src', array(FontsGoogleRemove::class, 'rewriteStylesheetUrlForSpecificRemoval'), PHP_INT_MAX - 1);
+		}
 
 		add_action('wp_head',   array($this, 'preloadFontFiles'), 1);
 		add_action('wp_footer', static function() {
@@ -68,6 +73,29 @@ class FontsGoogle
 
 			add_filter('style_loader_src', array($this, 'alterGoogleFontLink'));
 		}, 20);
+	}
+
+	/**
+	 * @param $urls
+	 * @param $relationType
+	 *
+	 * @return array
+	 */
+	public static function shouldWarnPreconnectForLocalHosting($settings = null)
+	{
+		if ($settings === null) {
+			$settings = Main::instance()->settings;
+		}
+
+		if (! is_array($settings) || empty($settings['google_fonts_local'])) {
+			return false;
+		}
+
+		$exceptions = isset($settings['google_fonts_local_exceptions']) && is_string($settings['google_fonts_local_exceptions'])
+			? trim($settings['google_fonts_local_exceptions'])
+			: '';
+
+		return $exceptions === '';
 	}
 
 	/**
@@ -135,6 +163,10 @@ class FontsGoogle
 			return;
 		}
 
+        if (empty(Main::instance()->settings['google_fonts_preload_files_enable'])) {
+            return;
+        }
+
 		if ( ! $preloadFontFiles = trim(Main::instance()->settings['google_fonts_preload_files']) ) {
 			return;
 		}
@@ -157,6 +189,7 @@ class FontsGoogle
 		$preloadFontFilesOutput = '';
 
 		foreach ($preloadFontFilesArray as $preloadFontFile) {
+			$preloadFontFile = FontsGoogleLocal::mapReadyFontFileUrl($preloadFontFile);
 			$preloadFontFilesOutput .= '<link rel="preload" as="font" href="' . esc_url($preloadFontFile) . '" data-wpacu-preload-google-font="1" crossorigin>' . "\n";
 		}
 
@@ -178,11 +211,17 @@ class FontsGoogle
 			return $htmlSource;
 		}
 
+        $htmlSource = FontsGoogleLocal::discoverContent($htmlSource, 'html');
+
 		/*
 		 * Remove Google Fonts? Stop here as optimization is no longer relevant
 		 */
 		if (Main::instance()->settings['google_fonts_remove']) {
 			return FontsGoogleRemove::cleanHtmlSource($htmlSource);
+		}
+
+		if (FontsGoogleRemove::hasSpecificRules()) {
+			$htmlSource = FontsGoogleRemove::cleanHtmlSourceSpecific($htmlSource);
 		}
 
 		/*
@@ -320,6 +359,17 @@ class FontsGoogle
 
 		// "font-display: swap;" if enabled
 		$htmlSource = self::alterGoogleFontUrlFromInlineStyleTags($htmlSource);
+
+		if (FontsGoogleLocal::isEnabled()) {
+			$htmlSource = FontsGoogleLocal::alterContent($htmlSource, 'html');
+		}
+
+		// Local hosting can replace a remote stylesheet after the first selective-removal
+		// pass. Run the filter once more so ready local copies use their immutable,
+		// rule-specific derivative instead of serving the selected font faces.
+		if (FontsGoogleRemove::hasSpecificRules()) {
+			$htmlSource = FontsGoogleRemove::cleanHtmlSourceSpecific($htmlSource);
+		}
 
 		// Clear any traces
 		return str_replace(self::NOSCRIPT_WEB_FONT_LOADER, '', $htmlSource);

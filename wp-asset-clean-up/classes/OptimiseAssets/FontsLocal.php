@@ -71,6 +71,10 @@ class FontsLocal
             return;
         }
 
+        if (empty(Main::instance()->settings['local_fonts_preload_files_enable'])) {
+            return;
+        }
+
         if ( ! $preloadFontFiles = trim(Main::instance()->settings['local_fonts_preload_files']) ) {
             return;
         }

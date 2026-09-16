@@ -135,6 +135,9 @@ class OptimizeCss
                 $localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'css' );
 
                 if ( ! $localAssetPath ) {
+                    if (isset($_GET['wpacu_debug'])) {
+                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle'=>$styleHandle, 'src'=>$src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
+                    }
                     continue; // not a local file
                 }
 
@@ -148,6 +151,9 @@ class OptimizeCss
 
                 // Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not alter it
                 if ( Misc::hasExactDataAttr($linkSourceTag, 'data-wpacu-skip') ) {
+                    if (isset($_GET['wpacu_debug'])) {
+                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle'=>$styleHandle, 'src'=>$src), 'File optimization', 'Skipped', __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up'));
+                    }
                     unset( $wpStylesDone[ $index ] );
                     continue;
                 }
@@ -324,6 +330,13 @@ class OptimizeCss
 			return array();
 		}
 
+        // Local Google Fonts stylesheets are already transformed, minified and
+        // published as immutable transactions. Do not cache those files again
+        // under the standard css/item directory.
+        if (FontsGoogleLocalCache::isManagedStylesheetUrl($src)) {
+            return array();
+        }
+
         $srcForDynamicCacheCheck = $src;
 
         // Check if it starts without "/" or a protocol; e.g. "wp-content/theme/style.css"
@@ -359,6 +372,18 @@ class OptimizeCss
 
 		if ( ! $isMinifyCssFilesEnabled || MinifyCss::skipMinify($src, $value->handle) ) {
 			$doFileMinify = false;
+
+			if (isset($_GET['wpacu_debug'])) {
+				if (! $isMinifyCssFilesEnabled) {
+					$reason = __('File minification is disabled by the effective settings or preview options.', 'wp-asset-clean-up');
+				} else {
+					$reason = __('The file matches a minification exclusion rule.', 'wp-asset-clean-up');
+				}
+
+				if (isset($_GET['wpacu_debug'])) {
+					\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'Minification', 'Skipped', $reason);
+				}
+			}
 		}
 
 		// Default (it will be later replaced with the last time the file was modified, which is more accurate)
@@ -391,6 +416,7 @@ class OptimizeCss
 		}
 
 		$transientName = 'wpacu_css_optimize_'.$uniqueAssetStr;
+		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
 
 		$skipCache = false;
 
@@ -402,6 +428,9 @@ class OptimizeCss
 		    $savedValuesArray = OptimizeCommon::getTransient($transientName);
 
 		    if (isset($savedValuesArray[0]) && $savedValuesArray[0] === 'no_alter') {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Skipped', __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up'));
+                }
 			    return array();
 		    }
 
@@ -444,10 +473,16 @@ class OptimizeCss
 			$sourceBeforeOptimization = str_replace('&#038;', '&', $value->src);
 
 			if (! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('dynamic', $value))) {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Failed', __('The dynamic asset returned no readable content.', 'wp-asset-clean-up'));
+                }
 				return array();
 			}
 		} else {
 			if (! $isCssFile) {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Skipped', __('No supported local file was available for this source.', 'wp-asset-clean-up'));
+                }
 				return array();
 			}
 
@@ -470,15 +505,51 @@ class OptimizeCss
 		$cssContentBefore = $cssContent;
 
 		if ($cssContent) { // only proceed with extra alterations if there is some content there (save resources)
+			$cssContentBeforeAlteration = $cssContent;
 			$cssContent = apply_filters( 'wpacu_local_fonts_display_css_output', $cssContent, Main::instance()->settings['local_fonts_display'] );
+			if (isset($_GET['wpacu_debug'])) {
+				$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Font display', __('The local font-display filter changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+			}
 
 			if ( Main::instance()->settings['google_fonts_display'] ) {
 				// Any "font-display" enabled in "Settings" - "Google Fonts"?
+				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogle::alterGoogleFontUrlFromCssContent( $cssContent );
+				if (isset($_GET['wpacu_debug'])) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts display', __('The display parameter in Google Fonts references was changed.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+				}
+			}
+
+			if (FontsGoogleRemove::hasSpecificRules()) {
+				$cssContentBeforeAlteration = $cssContent;
+				$cssContent = FontsGoogleRemove::applySpecificRemovalToCss($cssContent);
+				if (isset($_GET['wpacu_debug'])) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+				}
+			}
+
+			if ( Main::instance()->settings['google_fonts_local'] ) {
+				$cssContentBeforeAlteration = $cssContent;
+				$cssContent = FontsGoogleLocal::alterContent( $cssContent, 'css' );
+				if (isset($_GET['wpacu_debug'])) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Local Google Fonts', __('Google Fonts localization changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+				}
 			}
 
 			// Move any @imports to top; This also strips any @imports to Google Fonts if the option is chosen
+			$cssContentBeforeAlteration = $cssContent;
 			$cssContent = self::importsUpdate( $cssContent );
+			if (isset($_GET['wpacu_debug'])) {
+				$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'CSS imports', __('CSS import processing changed the content; this stage can also remove Google Fonts imports.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+			}
+
+			if (FontsGoogleRemove::hasSpecificRules()) {
+				$cssContentBeforeAlteration = $cssContent;
+				$cssContent = FontsGoogleRemove::applySpecificRemovalToCss($cssContent);
+				if (isset($_GET['wpacu_debug'])) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+				}
+			}
 		}
 
 		// If it stays like this, it means there is content there, even if only comments
@@ -487,7 +558,11 @@ class OptimizeCss
 		if ($doFileMinify && $cssContent) { // only bother to minify it if it has any content, save resources
 			// Minify this file?
 			$cssContentBeforeMin = trim($cssContent);
-			$cssContentAfterMin  = MinifyCss::applyMinification($cssContent);
+			if (isset($_GET['wpacu_debug'])) {
+				$cssContentAfterMin = \WpAssetCleanUp\DebugOptimizationDetails::minify('css', $value, $cssContent);
+			} else {
+				$cssContentAfterMin = MinifyCss::applyMinification($cssContent);
+			}
 
 			$cssContent = $cssContentAfterMin;
 
@@ -501,11 +576,18 @@ class OptimizeCss
 			$cssContent = '/**/';
 		} else {
 			if ( Main::instance()->settings['google_fonts_remove'] ) {
+				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogleRemove::cleanFontFaceReferences( $cssContent );
+				if (isset($_GET['wpacu_debug'])) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Google Fonts font-face references were removed.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+				}
 			}
 
 			// No changes were made, thus, there's no point in changing the original file location
 			if ( $isCssFile && trim( $cssContentBefore ) === trim( $cssContent ) ) {
+                if (isset($_GET['wpacu_debug'])) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'No change needed', __('The processed CSS matches the original content. No optimized file is needed.', 'wp-asset-clean-up'));
+                }
 				// There's no point in changing the original CSS (static) file location
 				OptimizeCommon::setTransient($transientName, 'no_alter');
 				return array();
@@ -558,8 +640,21 @@ class OptimizeCss
 		}
 
 		$saveFile = FileSystem::filePutContents($newLocalPath, $cssContent);
+        if (isset($_GET['wpacu_debug'])) {
+			if ($saveFile) {
+				$status = 'Cached';
+				$reason = __('The processed CSS was written to an optimized cache file.', 'wp-asset-clean-up');
+			} else {
+				$status = 'Failed';
+				$reason = __('The processed CSS could not be written to the cache file.', 'wp-asset-clean-up');
+			}
+			\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', $status, $reason);
+        }
 
 		if (! $saveFile && ! $cssContent) {
+            if (isset($_GET['wpacu_debug'])) {
+            	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Failed', __('The optimized file could not be saved or its content was empty.', 'wp-asset-clean-up'));
+            }
 			// Fallback to the original CSS if the optimized version can't be created or updated
 			return array();
 		}
@@ -701,7 +796,7 @@ class OptimizeCss
 
 		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_google_fonts_optimization_removal'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
 		// Alter HTML Source for Google Fonts Optimization / Removal
-        if (Main::instance()->settings['google_fonts_combine'] || Main::instance()->settings['google_fonts_display'] || Main::instance()->settings['google_fonts_remove']) {
+        if (FontsGoogleRemove::hasSpecificRules() || Main::instance()->settings['google_fonts_local'] || Main::instance()->settings['google_fonts_combine'] || Main::instance()->settings['google_fonts_display'] || Main::instance()->settings['google_fonts_remove']) {
             $htmlSource = FontsGoogle::alterHtmlSource($htmlSource);
         }
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
@@ -902,7 +997,7 @@ class OptimizeCss
 			return $htmlSource;
 		}
 
-		$cssOptimizeListHardcoded = $linkTagsToUpdate = array();
+		$cssOptimizeListHardcoded = $linkTagsToUpdate = $noscriptUrlReplacementRules = array();
 
 		foreach ($matchesSourcesFromTags as $matches) {
 			$linkSourceTag = $matches[0];
@@ -938,6 +1033,7 @@ class OptimizeCss
 
 				$value = (object)array(
 					'handle' => $generatedHandle,
+					'wpacu_generated_handle' => true,
 					'src'    => $cleanLinkHrefFromTag,
 					'ver'    => md5($afterQuestionMark)
 				);
@@ -1039,6 +1135,17 @@ class OptimizeCss
 						// Do the replacement
 						$newLinkSourceTag = self::updateOriginalToOptimizedTag( $linkSourceTag, $sourceUrlList, $optimizeUrl );
 						$linkTagsToUpdate[$linkSourceTag] = $newLinkSourceTag;
+
+                        // The reduced HTML used above intentionally excludes NOSCRIPT blocks. This keeps
+                        // asset discovery fast and prevents a fallback copy from being optimized as a
+                        // second, independent stylesheet. Keep the successful URL mapping so the fallback
+                        // can be synchronized later without fetching or minifying the same file again.
+                        $noscriptUrlReplacementRules[] = array(
+                            'source_urls'   => $sourceUrlList,
+                            'source_path'   => $listValues[0],
+                            'site_path'     => $parseSiteUrlPath,
+                            'optimized_url' => $optimizeUrl,
+                        );
 						}
 
 					break; // there was a match, stop here
@@ -1046,8 +1153,407 @@ class OptimizeCss
 			}
 		}
 
-		return strtr($htmlSource, $linkTagsToUpdate);
+		$htmlSource = strtr($htmlSource, $linkTagsToUpdate);
+
+        return self::updateNoscriptStylesheetUrls($htmlSource, $noscriptUrlReplacementRules);
 	}
+
+    /**
+     * Synchronize custom NOSCRIPT stylesheet fallbacks with URLs that were already optimized.
+     *
+     * NOSCRIPT content is deliberately absent from the reduced HTML used for normal asset discovery.
+     * Processing it separately here avoids duplicate optimization work while ensuring that browsers
+     * without JavaScript receive the same minified file as browsers that use the primary LINK tag.
+     *
+     * Only the HREF of a LINK whose REL token list contains "stylesheet" is eligible. URLs elsewhere
+     * in the document, unrelated fallback stylesheets and other LINK relationships remain untouched.
+     *
+     * @param string $htmlSource
+     * @param array  $replacementRules Each rule contains source_urls and optimized_url.
+     *
+     * @return string
+     */
+    public static function updateNoscriptStylesheetUrls($htmlSource, $replacementRules)
+    {
+        if (empty($replacementRules)) {
+            return $htmlSource;
+        }
+
+        $firstNoscriptPosition = stripos($htmlSource, '<noscript');
+
+        // This conservative preflight is intentionally textual: a real fallback LINK must occur after
+        // a NOSCRIPT opening marker. False positives are harmless because the context-aware scanner
+        // below will reject them; avoiding stricter parsing here keeps the common no-candidate path fast.
+        if ($firstNoscriptPosition === false
+            || stripos($htmlSource, '<link', $firstNoscriptPosition + 9) === false) {
+            return $htmlSource;
+        }
+
+        $replacements = array();
+        $noscriptSearchOffset = $firstNoscriptPosition;
+
+        // Work only inside textual NOSCRIPT ranges. This intentionally includes reusable templates
+        // stored in comments, JavaScript strings or HTML attributes: if such a template is later
+        // inserted into the DOM, its stylesheet fallback should already use the optimized URL.
+        while (($noscriptStart = stripos($htmlSource, '<noscript', $noscriptSearchOffset)) !== false) {
+            if (! self::startsWithHtmlTagName($htmlSource, $noscriptStart, 'noscript')) {
+                $noscriptSearchOffset = $noscriptStart + 9;
+                continue;
+            }
+
+            $openingTagEnd = self::findHtmlTagEnd($htmlSource, $noscriptStart);
+            $closingTagStart = $openingTagEnd !== false
+                ? self::findClosingHtmlTagStart($htmlSource, 'noscript', $openingTagEnd + 1)
+                : false;
+            $closingTagEnd = $closingTagStart !== false ? self::findHtmlTagEnd($htmlSource, $closingTagStart) : false;
+
+            if ($openingTagEnd === false || $closingTagStart === false || $closingTagEnd === false) {
+                break;
+            }
+
+            $linkSearchOffset = $openingTagEnd + 1;
+
+            while (($linkTagStart = stripos($htmlSource, '<link', $linkSearchOffset)) !== false
+                   && $linkTagStart < $closingTagStart) {
+                if (! self::startsWithHtmlTagName($htmlSource, $linkTagStart, 'link')) {
+                    $linkSearchOffset = $linkTagStart + 5;
+                    continue;
+                }
+
+                $linkTagEnd = self::findHtmlTagEnd($htmlSource, $linkTagStart);
+
+                if ($linkTagEnd === false || $linkTagEnd > $closingTagStart) {
+                    break;
+                }
+
+                $linkTagEnd++;
+                $linkTag = substr($htmlSource, $linkTagStart, $linkTagEnd - $linkTagStart);
+                $updatedLinkTag = self::updateNoscriptStylesheetLinkTag($linkTag, $replacementRules);
+
+                if ($updatedLinkTag !== $linkTag) {
+                    $replacements[] = array($linkTagStart, strlen($linkTag), $updatedLinkTag);
+                }
+
+                $linkSearchOffset = $linkTagEnd;
+            }
+
+            $noscriptSearchOffset = $closingTagEnd + 1;
+        }
+
+        // Apply from right to left so earlier offsets remain valid without rebuilding the document.
+        for ($index = count($replacements) - 1; $index >= 0; $index--) {
+            $htmlSource = substr_replace(
+                $htmlSource,
+                $replacements[$index][2],
+                $replacements[$index][0],
+                $replacements[$index][1]
+            );
+        }
+
+        return $htmlSource;
+    }
+
+    /**
+     * @param string $contents
+     * @param int    $offset
+     * @param string $tagName
+     *
+     * @return bool
+     */
+    private static function startsWithHtmlTagName($contents, $offset, $tagName)
+    {
+        $tagPrefix = '<' . $tagName;
+
+        if (strncasecmp(substr($contents, $offset, strlen($tagPrefix)), $tagPrefix, strlen($tagPrefix)) !== 0) {
+            return false;
+        }
+
+        $characterAfterName = substr($contents, $offset + strlen($tagPrefix), 1);
+
+        return $characterAfterName === '' || $characterAfterName === '>' || $characterAfterName === '/'
+               || ctype_space($characterAfterName);
+    }
+
+    /**
+     * Find a tag's closing angle bracket while respecting quoted attribute values.
+     *
+     * @param string $contents
+     * @param int    $tagStart
+     *
+     * @return int|false
+     */
+    private static function findHtmlTagEnd($contents, $tagStart)
+    {
+        $quote = '';
+        $contentsLength = strlen($contents);
+
+        for ($index = $tagStart + 1; $index < $contentsLength; $index++) {
+            $character = $contents[$index];
+
+            if ($quote !== '') {
+                if ($character === $quote) {
+                    $quote = '';
+                }
+                continue;
+            }
+
+            if ($character === '"' || $character === "'") {
+                $quote = $character;
+            } elseif ($character === '>') {
+                return $index;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Find a real closing tag, not a longer name sharing the same prefix (e.g. SCRIPTURE).
+     *
+     * @param string $contents
+     * @param string $tagName
+     * @param int    $offset
+     *
+     * @return int|false
+     */
+    private static function findClosingHtmlTagStart($contents, $tagName, $offset)
+    {
+        $needle = '</' . $tagName;
+
+        while (($tagStart = stripos($contents, $needle, $offset)) !== false) {
+            $characterAfterName = substr($contents, $tagStart + strlen($needle), 1);
+
+            if ($characterAfterName === '>' || ctype_space($characterAfterName)) {
+                return $tagStart;
+            }
+
+            $offset = $tagStart + strlen($needle);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $linkTag
+     * @param array  $replacementRules
+     *
+     * @return string
+     */
+    private static function updateNoscriptStylesheetLinkTag($linkTag, $replacementRules)
+    {
+        $relValue = self::getHtmlTagAttributeValue($linkTag, 'rel');
+
+        if ($relValue === null || ! in_array('stylesheet', preg_split('/\s+/', strtolower(trim($relValue))), true)) {
+            return $linkTag;
+        }
+
+        $hrefAttribute = self::getHtmlTagAttribute($linkTag, 'href');
+
+        if ($hrefAttribute === null) {
+            return $linkTag;
+        }
+
+        foreach ($replacementRules as $replacementRule) {
+            if (empty($replacementRule['source_urls']) || empty($replacementRule['optimized_url'])) {
+                continue;
+            }
+
+            $sourceUrls = (array)$replacementRule['source_urls'];
+
+            // The primary WordPress tag is commonly absolute while a custom NOSCRIPT copy is
+            // root-relative. Include its canonical path without changing primary-tag matching.
+            if (! empty($replacementRule['source_path'])) {
+                $sourceUrls[] = $replacementRule['source_path'];
+
+                // WordPress can be installed below the domain root (for example, /blog).
+                // In that case a custom fallback may include the installation prefix even
+                // though the canonical cache mapping stores a path relative to the WP root.
+                if (! empty($replacementRule['site_path']) && $replacementRule['site_path'] !== '/') {
+                    $sourceUrls[] = rtrim($replacementRule['site_path'], '/') . '/'
+                                    . ltrim($replacementRule['source_path'], '/');
+                }
+            }
+
+            foreach (array_unique($sourceUrls) as $sourceUrl) {
+                $updatedHref = self::replaceMatchingStylesheetUrl(
+                    $hrefAttribute['value'],
+                    (string)$sourceUrl,
+                    (string)$replacementRule['optimized_url']
+                );
+
+                if ($updatedHref !== $hrefAttribute['value']) {
+                    // Change only the parsed HREF value. Text such as "href=..." inside data-* attributes
+                    // must remain untouched, and preserving the rest of the tag avoids needless HTML churn.
+                    return substr_replace(
+                        $linkTag,
+                        $updatedHref,
+                        $hrefAttribute['value_offset'],
+                        $hrefAttribute['value_length']
+                    );
+                }
+            }
+        }
+
+        return $linkTag;
+    }
+
+    /**
+     * Read a quoted or unquoted HTML attribute without rebuilding the surrounding tag.
+     *
+     * @param string $htmlTag
+     * @param string $attributeName
+     *
+     * @return string|null
+     */
+    private static function getHtmlTagAttributeValue($htmlTag, $attributeName)
+    {
+        $attribute = self::getHtmlTagAttribute($htmlTag, $attributeName);
+
+        return $attribute !== null ? $attribute['value'] : null;
+    }
+
+    /**
+     * Parse one exact HTML attribute and retain its value position for a surgical replacement.
+     *
+     * A regular expression looking merely for whitespace followed by "href=" can mistake the same
+     * text inside another quoted attribute for a real attribute. This small stateful scanner skips
+     * quoted values in full and compares complete attribute names (so data-href is not href).
+     *
+     * @param string $htmlTag
+     * @param string $attributeName
+     *
+     * @return array|null Array keys: value, value_offset and value_length.
+     */
+    private static function getHtmlTagAttribute($htmlTag, $attributeName)
+    {
+        $tagLength = strlen($htmlTag);
+        $index = 1; // Skip the opening angle bracket.
+
+        // Skip the tag name. The caller already verified that this is a LINK tag.
+        while ($index < $tagLength && ! ctype_space($htmlTag[$index]) && $htmlTag[$index] !== '>') {
+            $index++;
+        }
+
+        while ($index < $tagLength) {
+            while ($index < $tagLength && ctype_space($htmlTag[$index])) {
+                $index++;
+            }
+
+            if ($index >= $tagLength || $htmlTag[$index] === '>') {
+                break;
+            }
+
+            if ($htmlTag[$index] === '/') {
+                $index++;
+                continue;
+            }
+
+            $nameOffset = $index;
+
+            while ($index < $tagLength
+                   && ! ctype_space($htmlTag[$index])
+                   && $htmlTag[$index] !== '='
+                   && $htmlTag[$index] !== '>') {
+                $index++;
+            }
+
+            $name = substr($htmlTag, $nameOffset, $index - $nameOffset);
+
+            while ($index < $tagLength && ctype_space($htmlTag[$index])) {
+                $index++;
+            }
+
+            // Boolean attributes have no value to return. Continue with the next attribute.
+            if ($index >= $tagLength || $htmlTag[$index] !== '=') {
+                continue;
+            }
+
+            $index++;
+
+            while ($index < $tagLength && ctype_space($htmlTag[$index])) {
+                $index++;
+            }
+
+            $quote = ($index < $tagLength && ($htmlTag[$index] === '"' || $htmlTag[$index] === "'"))
+                ? $htmlTag[$index++]
+                : '';
+            $valueOffset = $index;
+
+            if ($quote !== '') {
+                while ($index < $tagLength && $htmlTag[$index] !== $quote) {
+                    $index++;
+                }
+            } else {
+                while ($index < $tagLength && ! ctype_space($htmlTag[$index]) && $htmlTag[$index] !== '>') {
+                    $index++;
+                }
+            }
+
+            $valueLength = $index - $valueOffset;
+
+            if (strcasecmp($name, $attributeName) === 0) {
+                return array(
+                    'value'        => substr($htmlTag, $valueOffset, $valueLength),
+                    'value_offset' => $valueOffset,
+                    'value_length' => $valueLength,
+                );
+            }
+
+            if ($quote !== '' && $index < $tagLength) {
+                $index++; // Move beyond the closing quote before reading the next attribute.
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Replace an exact stylesheet URL or its query/fragment-bearing form.
+     *
+     * @param string $href
+     * @param string $sourceUrl
+     * @param string $optimizedUrl
+     *
+     * @return string
+     */
+    private static function replaceMatchingStylesheetUrl($href, $sourceUrl, $optimizedUrl)
+    {
+        if ($sourceUrl === '') {
+            return $href;
+        }
+
+        if ($href === $sourceUrl) {
+            return $optimizedUrl;
+        }
+
+        if (strpos($href, $sourceUrl) === 0) {
+            $suffix = substr($href, strlen($sourceUrl));
+
+            if ($suffix !== '' && ($suffix[0] === '?' || $suffix[0] === '#')) {
+                return $optimizedUrl . $suffix;
+            }
+        }
+
+        // Attribute values using "&amp;" and "&#038;" are equivalent once parsed by a browser.
+        // Compare decoded values as a fallback, then emit a safely encoded replacement.
+        $decodedHref = html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $decodedSourceUrl = html_entity_decode($sourceUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $decodedOptimizedUrl = html_entity_decode($optimizedUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        if ($decodedHref === $decodedSourceUrl) {
+            return htmlspecialchars($decodedOptimizedUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+        }
+
+        if ($decodedSourceUrl !== '' && strpos($decodedHref, $decodedSourceUrl) === 0) {
+            $suffix = substr($decodedHref, strlen($decodedSourceUrl));
+
+            if ($suffix !== '' && ($suffix[0] === '?' || $suffix[0] === '#')) {
+                return htmlspecialchars($decodedOptimizedUrl . $suffix, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+            }
+        }
+
+        return $href;
+    }
 
 	/**
 	 * @param $linkSourceTag string

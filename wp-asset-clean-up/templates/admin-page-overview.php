@@ -12,6 +12,9 @@ if ( ! isset($data) ) {
 
 include_once __DIR__ .  '/_top-area.php';
 
+// Keep WordPress admin notices below the main navigation, outside the switchable views.
+echo '<hr class="wp-header-end" />';
+
 $isEditMode = Overview::isEditMode();
 $inputStyle = Settings::getInputStyle(isset($data['input_style']) ? $data['input_style'] : Settings::INPUT_STYLE_ENHANCED);
 
@@ -226,7 +229,7 @@ if ($isEditMode) {
 <div id="wpacu-overview-start"
      class="wrap wpacu-overview-wrap <?php echo esc_attr(Settings::getInputStyleCssClasses($inputStyle)); ?><?php if ( $isEditMode ) { echo ' wpacu-edit-mode'; } ?>"
      data-wpacu-input-style="<?php echo esc_attr($inputStyle); ?>">
-    <div style="padding: 0 0 10px; line-height: 22px;">
+    <div style="padding: 0 10px 10px 0; line-height: 22px;">
         <strong>Note:</strong> This overview contains all the changes of any kind (unload rules, load exceptions, preloads, notes, async/defer SCRIPT attributes, changed positions, etc.) made via Asset CleanUp to any of the loaded (enqueued) CSS/JS files as well as the plugins (e.g. unloaded on certain pages).
         To make any changes you need to the values below, please use the "CSS &amp; JS Manager" and "Plugins Manager".
 
@@ -248,6 +251,56 @@ if ($isEditMode) {
         Overview::renderViewEditModeAreaToggleButton();
         ?>
     </div>
+    <div class="wpacu-overview-filter-bar">
+    <div class="wpacu-overview-filter-field"><label for="wpacu-overview-view"><strong><?php esc_html_e('View', 'wp-asset-clean-up'); ?></strong></label>
+        <select id="wpacu-overview-view" data-shared-control="<?php esc_attr_e('Shared control', 'wp-asset-clean-up'); ?>" data-unavailable="<?php esc_attr_e('This view could not be prepared. The original view remains available.', 'wp-asset-clean-up'); ?>">
+            <option value="assets"><?php esc_html_e('By Asset Type', 'wp-asset-clean-up'); ?></option>
+            <option value="pages"><?php esc_html_e('Sort By Pages', 'wp-asset-clean-up'); ?></option>
+        </select>
+    </div>
+    <div class="wpacu-overview-filter-field"><div class="wpacu-overview-filter-label">
+        <span class="wpacu-overview-filter-help" tabindex="0" role="img" aria-label="<?php esc_attr_e('About rule status', 'wp-asset-clean-up'); ?>" aria-describedby="wpacu-overview-rule-state-help">
+            <span aria-hidden="true">ⓘ</span>
+            <span id="wpacu-overview-rule-state-help" class="wpacu-overview-filter-tooltip" role="tooltip">
+                <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Active rules', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Enabled and relevant according to the current Overview checks. Their effect depends on the pages and conditions they target.', 'wp-asset-clean-up'); ?></span>
+                <span class="wpacu-overview-scope-separator" role="separator"></span>
+                <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Inactive rules', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Saved rules that currently have no effect, for example after a plugin or theme is deactivated, when a rule is disabled, or while Critical CSS delivery is paused.', 'wp-asset-clean-up'); ?></span>
+                <span class="wpacu-overview-scope-separator" role="separator"></span>
+                <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Orphaned load exceptions', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Also inactive: an asset or plugin has load exceptions but no unload rules left. It already loads normally, so those exceptions have nothing to override.', 'wp-asset-clean-up'); ?></span>
+            </span>
+        </span>
+        <label for="wpacu-overview-rule-state"><strong><?php esc_html_e('Rule status', 'wp-asset-clean-up'); ?></strong></label></div>
+        <select id="wpacu-overview-rule-state" aria-describedby="wpacu-overview-rule-state-help">
+            <option value="all"><?php esc_html_e('Show all rules', 'wp-asset-clean-up'); ?></option>
+            <option value="active"><?php esc_html_e('Show active rules', 'wp-asset-clean-up'); ?></option>
+            <option value="inactive"><?php esc_html_e('Show inactive rules', 'wp-asset-clean-up'); ?></option>
+        </select>
+    </div>
+    <div class="wpacu-overview-filter-field"><span class="wpacu-overview-filter-arrow" aria-hidden="true">→</span><div class="wpacu-overview-filter-label"><label for="wpacu-overview-rule-scope"><strong><?php esc_html_e('Rule scope', 'wp-asset-clean-up'); ?></strong></label>
+        <span class="wpacu-overview-filter-help" tabindex="0" role="img" aria-label="<?php esc_attr_e('About rule scope', 'wp-asset-clean-up'); ?>" aria-describedby="wpacu-overview-rule-scope-help">
+            <span aria-hidden="true">ⓘ</span>
+        <span id="wpacu-overview-rule-scope-help" class="wpacu-overview-filter-tooltip" role="tooltip">
+            <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Per-page rules', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Target a specific page, post, author or taxonomy term.', 'wp-asset-clean-up'); ?></span>
+            <span class="wpacu-overview-scope-separator" role="separator"></span>
+            <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Bulk changes', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Target multiple pages through shared conditions, including regex.', 'wp-asset-clean-up'); ?></span>
+            <span class="wpacu-overview-scope-separator" role="separator"></span>
+            <span class="wpacu-overview-scope-description"><strong><?php esc_html_e('Site-wide rules', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('Apply globally, potentially with per-page exceptions.', 'wp-asset-clean-up'); ?></span>
+            <span class="wpacu-overview-scope-separator" role="separator"></span>
+            <span class="wpacu-overview-scope-footnote"><?php esc_html_e('Filtering does not clear selections or change what will be saved.', 'wp-asset-clean-up'); ?></span>
+        </span>        </span></div>
+        <select id="wpacu-overview-rule-scope" aria-describedby="wpacu-overview-rule-scope-help">
+            <option value="all"><?php esc_html_e('Show all', 'wp-asset-clean-up'); ?></option>
+            <option value="page"><?php esc_html_e('Per-page Rules (specific targets)', 'wp-asset-clean-up'); ?></option>
+            <option value="bulk"><?php esc_html_e('Bulk Changes (multiple pages)', 'wp-asset-clean-up'); ?></option>
+            <option value="sitewide"><?php esc_html_e('Site-wide Rules (all pages)', 'wp-asset-clean-up'); ?></option>
+        </select>
+
+    </div>
+    <span class="wpacu-overview-filter-note"><?php esc_html_e('Filtering keeps your selections.', 'wp-asset-clean-up'); ?></span>
+    </div>
+    <p id="wpacu-overview-rule-scope-empty" hidden><?php esc_html_e('No rules match this filter.', 'wp-asset-clean-up'); ?></p>
+    <link rel="stylesheet" href="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.css?ver=' . filemtime(WPACU_PLUGIN_DIR . '/assets/wpacu-overview-views.min.css')); ?>" />
+    <script src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.js?ver=' . filemtime(WPACU_PLUGIN_DIR . '/assets/wpacu-overview-views.min.js')); ?>" defer></script>
     <div id="wpacu-overview-sub-wrap" style="padding: 0 10px 0 0;">
         <?php if ($isEditMode) { ?>
             <form id="wpacu-overview-edit-form" action="<?php echo admin_url('admin.php?page=wpassetcleanup_overview&wpacu_edit_mode=1'); ?>" method="post">
@@ -289,12 +342,29 @@ if ($isEditMode) {
         }
         ?>
 
+        <?php
+        $wpacuPageOptionsCount = Overview::countPagesWithOptions(isset($data['page_options_results']) ? $data['page_options_results'] : array());
+        if ($wpacuPageOptionsCount > 0) {
+            $wpacuOverviewNavItems['wpacu-overview-section-page-options'] = array(
+                'label' => __('Page Options', 'wp-asset-clean-up'),
+                'count' => $wpacuPageOptionsCount,
+                'warning_count' => true,
+            );
+        }
+        $wpacuSpecialSettingsCount = count(array_filter(Overview::getSpecialSettings()));
+        if ($wpacuSpecialSettingsCount > 0) {
+            $wpacuOverviewNavItems['wpacu-overview-section-special-settings'] = array(
+                'label' => __('Special Settings', 'wp-asset-clean-up'),
+                'count' => $wpacuSpecialSettingsCount,
+            );
+        }
+        ?>
         <nav id="wpacu-overview-navigation" class="wpacu-overview-navigation wpacu-overview-navigation-initializing" aria-label="<?php esc_attr_e('Overview sections', 'wp-asset-clean-up'); ?>">
             <div class="wpacu-overview-navigation-links">
                 <?php foreach ($wpacuOverviewNavItems as $wpacuOverviewSectionId => $wpacuOverviewNavItem) { ?>
                     <a href="#<?php echo esc_attr($wpacuOverviewSectionId); ?>" data-wpacu-overview-nav-target="<?php echo esc_attr($wpacuOverviewSectionId); ?>">
                         <?php echo esc_html($wpacuOverviewNavItem['label']); ?>
-                        <span class="wpacu-overview-navigation-count"><?php echo (int)$wpacuOverviewNavItem['count']; ?></span>
+                        <span class="wpacu-overview-navigation-count"<?php if (! empty($wpacuOverviewNavItem['warning_count'])) { ?> style="color: #cc0000;"<?php } ?>><?php echo (int)$wpacuOverviewNavItem['count']; ?></span>
                     </a>
                 <?php } ?>
             </div>
@@ -316,6 +386,65 @@ if ($isEditMode) {
 
                 var storageKey = 'wpacu_overview_navigation_sticky';
                 var storedPreference = null;
+                var scrollAnimationId = 0;
+
+                function highlightArrival(target, reduceMotion) {
+                    if (reduceMotion || ! target.classList || ! target.classList.contains('wpacu-overview-section-title')) {
+                        return;
+                    }
+
+                    target.classList.remove('wpacu-overview-section-arrival');
+                    void target.offsetWidth;
+                    target.classList.add('wpacu-overview-section-arrival');
+
+                    setTimeout(function() {
+                        target.classList.remove('wpacu-overview-section-arrival');
+                    }, 1200);
+                }
+
+                function animateScrollTo(target, instant) {
+                    var animationId = ++scrollAnimationId;
+                    var startY = window.pageYOffset;
+                    var targetStyles = window.getComputedStyle ? window.getComputedStyle(target) : null;
+                    var scrollMarginTop = targetStyles ? parseFloat(targetStyles.scrollMarginTop) || 0 : 0;
+                    // The sticky navigation can wrap to any number of rows.
+                    // Use its sticky inset, not its current document position before it sticks.
+                    var navigationStyles = window.getComputedStyle ? window.getComputedStyle(navigation) : null;
+                    if (navigationStyles && (navigationStyles.position === 'sticky' || navigationStyles.position === 'fixed')) {
+                        var navigationInset = parseFloat(navigationStyles.top) || 0;
+                        scrollMarginTop = Math.max(scrollMarginTop, navigationInset + navigation.getBoundingClientRect().height + 16);
+                    }
+                    var targetY = Math.max(0, startY + target.getBoundingClientRect().top - scrollMarginTop);
+                    var distance = targetY - startY;
+                    var duration = 280;
+                    var startTime = window.performance.now();
+                    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    if (instant || reduceMotion || distance === 0) {
+                        window.scrollTo(0, targetY);
+                        highlightArrival(target, reduceMotion);
+                        return;
+                    }
+
+                    function animate(currentTime) {
+                        if (animationId !== scrollAnimationId) {
+                            return;
+                        }
+
+                        var progress = Math.min((currentTime - startTime) / duration, 1);
+                        var easedProgress = 1 - Math.pow(1 - progress, 3);
+
+                        window.scrollTo(0, startY + (distance * easedProgress));
+
+                        if (progress < 1) {
+                            window.requestAnimationFrame(animate);
+                        } else {
+                            highlightArrival(target, reduceMotion);
+                        }
+                    }
+
+                    window.requestAnimationFrame(animate);
+                }
 
                 try {
                     storedPreference = window.localStorage.getItem(storageKey);
@@ -349,7 +478,7 @@ if ($isEditMode) {
 
                     event.preventDefault();
                     setActiveNavigationLink(link);
-                    target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                    animateScrollTo(target);
 
                     if (window.history && window.history.replaceState) {
                         window.history.replaceState(null, '', '#' + target.id);
@@ -408,19 +537,44 @@ if ($isEditMode) {
                 }
 
                 function initializeSectionTracking() {
+                    navigationLinks = Array.prototype.slice.call(navigation.querySelectorAll('a[data-wpacu-overview-nav-target]'));
                     navigationSections = navigationLinks.map(function(link) {
                         return {
                             link: link,
                             section: document.getElementById(link.getAttribute('data-wpacu-overview-nav-target'))
                         };
                     }).filter(function(item) {
-                        return item.section;
+                        return item.section && item.section.getClientRects().length > 0;
                     });
 
                     updateActiveNavigationLink();
                     window.addEventListener('scroll', queueActiveNavigationUpdate, {passive: true});
                     window.addEventListener('resize', queueActiveNavigationUpdate);
                 }
+
+                document.addEventListener('wpacu:overview-view-change', initializeSectionTracking);
+                document.addEventListener('wpacu:overview-filter-change', initializeSectionTracking);
+
+                function alignUrlAnchor() {
+                    var targetId;
+                    try { targetId = decodeURIComponent(window.location.hash.slice(1)); }
+                    catch (e) { return; }
+                    if (targetId.indexOf('wpacu-overview-') !== 0) { return; }
+                    // Let native fragment scrolling and the final navigation layout settle first.
+                    window.requestAnimationFrame(function() {
+                        window.requestAnimationFrame(function() {
+                            var target = document.getElementById(targetId);
+                            if (target && target.getClientRects().length) {
+                                animateScrollTo(target, true);
+                                queueActiveNavigationUpdate();
+                            }
+                        });
+                    });
+                }
+
+                if (document.readyState === 'complete') { alignUrlAnchor(); }
+                else { window.addEventListener('load', alignUrlAnchor, {once: true}); }
+                window.addEventListener('hashchange', alignUrlAnchor);
 
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', initializeSectionTracking);
@@ -442,7 +596,7 @@ if ($isEditMode) {
                     }
 
                     event.preventDefault();
-                    overviewStart.scrollIntoView({behavior: 'smooth', block: 'start'});
+                    animateScrollTo(overviewStart);
 
                     if (window.history && window.history.replaceState) {
                         window.history.replaceState(null, '', '#wpacu-overview-start');
@@ -452,6 +606,7 @@ if ($isEditMode) {
         </script>
 
         <?php
+        echo '<div id="wpacu-overview-display">';
         include_once __DIR__ .  '/_admin-page-overview-areas/_styles.php';
         include_once __DIR__ .  '/_admin-page-overview-areas/_critical-css.php';
 
@@ -462,6 +617,10 @@ if ($isEditMode) {
         include_once __DIR__ .  '/_admin-page-overview-areas/_page-options.php';
 
         include_once __DIR__ .  '/_admin-page-overview-areas/_special-settings.php';
+        echo '</div>';
+        echo '<template id="wpacu-overview-pages-template">';
+        \WpAssetCleanUp\Admin\OverviewByPage::render($data);
+        echo '</template>';
         ?>
 
         <?php if ($isEditMode) { ?>

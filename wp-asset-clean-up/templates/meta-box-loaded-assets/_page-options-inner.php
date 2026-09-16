@@ -35,7 +35,7 @@ if (! isset($data)) {
 	<li class="wpacu-page-option-wide">
 		<label for="wpacu_page_options_no_assets_settings">
 			<input type="checkbox" <?php if (isset($data['page_options']['no_assets_settings']) && $data['page_options']['no_assets_settings']) { echo 'checked="checked"'; } ?> id="wpacu_page_options_no_assets_settings" name="<?php echo WPACU_PLUGIN_ID; ?>_page_options[no_assets_settings]" value="1" />
-			<span><strong><?php esc_html_e('Disable all front-end optimizations', 'wp-asset-clean-up'); ?></strong><small><?php esc_html_e('Skip every Asset CleanUp optimization on this page, including all CSS and JavaScript changes.', 'wp-asset-clean-up'); ?></small></span>
+			<span><strong><?php esc_html_e('Disable all front-end optimizations', 'wp-asset-clean-up'); ?></strong><small><?php esc_html_e('Skip every Asset CleanUp optimization on this page, including CSS/JS unload rules and all other CSS and JavaScript changes.', 'wp-asset-clean-up'); ?></small></span>
 		</label>
 	</li>
 	<li class="wpacu-page-option-wide wpacu-page-option-critical">
@@ -52,23 +52,34 @@ if (! isset($data)) {
 <script>
 (function($) {
 	'use strict';
+	var disabledByPlugin = <?php echo wp_json_encode(sprintf(__('"%s" is enabled and takes precedence over all other page options. These selections are kept, but have no effect while the plugin is disabled on this page.', 'wp-asset-clean-up'), sprintf(__('Do not load %s on this page', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE))); ?>;
+	var disabledByOptimizations = <?php echo wp_json_encode(__('"Disable all front-end optimizations" is enabled and already disables minification and combination. These selections are kept, but have no additional effect while that option is enabled.', 'wp-asset-clean-up')); ?>;
 
 	function wpacuUpdatePageOptionsState() {
 		$('#wpacu-page-options-ul').each(function() {
 			var $options = $(this);
 			var $disablePlugin = $options.find('#wpacu_page_options_no_wpacu_load');
-			var disableOtherOptions = $disablePlugin.prop('checked');
+			var $disableOptimizations = $options.find('#wpacu_page_options_no_assets_settings');
 
 			$options.find('input[type="checkbox"]').not($disablePlugin).each(function() {
 				var $input = $(this);
 				var $option = $input.closest('li');
+				var disableOtherOptions = $disablePlugin.prop('checked')
+					|| ($disableOptimizations.prop('checked') && !$input.is($disableOptimizations));
 
 				$input.attr('aria-disabled', disableOtherOptions ? 'true' : 'false');
 				$option.toggleClass('wpacu-page-option-disabled', disableOtherOptions)
 					.attr('aria-disabled', disableOtherOptions ? 'true' : 'false');
+				if (disableOtherOptions) {
+					$option.attr('title', $disablePlugin.prop('checked') ? disabledByPlugin : disabledByOptimizations);
+				} else {
+					$option.removeAttr('title');
+				}
 
 				if (disableOtherOptions) {
-					if (typeof $input.attr('tabindex') !== 'undefined') {
+					if (typeof $input.attr('tabindex') !== 'undefined'
+						&& $input.attr('tabindex') !== '-1'
+						&& typeof $input.attr('data-wpacu-original-tabindex') === 'undefined') {
 						$input.attr('data-wpacu-original-tabindex', $input.attr('tabindex'));
 					}
 					$input.attr('tabindex', '-1');
@@ -91,6 +102,18 @@ if (! isset($data)) {
 		.on('change.wpacuPageOptions', '#wpacu-page-options-ul input[type="checkbox"]', wpacuUpdatePageOptionsState);
 
 	wpacuUpdatePageOptionsState();
+
+    // The admin-bar reminder opens this manager in a new tab, including after AJAX loading.
+    $(function() {
+        if (window.location.hash === '#wpacu_page_options_no_assets_settings'
+            && !window.wpacuPageOptionsAnchorHandled) {
+            var $noticeLink = $('[data-wpacu-disabled-optimizations-link]').first();
+            if ($noticeLink.length) {
+                window.wpacuPageOptionsAnchorHandled = true;
+                window.requestAnimationFrame(function() { $noticeLink.trigger('click'); });
+            }
+        }
+    });
 })(jQuery);
 </script>
 <input type="hidden" name="wpacu_page_options_area_loaded" value="1" />

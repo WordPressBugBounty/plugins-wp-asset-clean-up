@@ -23,6 +23,10 @@ $defaults = array(
     'textarea_name'          => '',
     'textarea_value'         => '',
     'textarea_placeholder'   => '',
+    'enabled_id'             => '',
+    'enabled_name'           => '',
+    'enabled_value'          => 0,
+    'enabled_label'          => __('Enable manual site-wide preloading', 'wp-asset-clean-up'),
     'field_help'             => '',
     'scan_eyebrow'           => __('Browser-assisted preload audit', 'wp-asset-clean-up'),
     'scan_title'             => __('Check whether each URL still deserves a site-wide preload', 'wp-asset-clean-up'),
@@ -63,7 +67,7 @@ $forceRiskNotice = in_array(
     array((string) $fontPreloadScanner['provider'], 'all'),
     true
 );
-$requiresRiskAcknowledgement = $forceRiskNotice || (! $legacyPanelOpen && empty($config['riskAcknowledged']));
+$requiresRiskAcknowledgement = $forceRiskNotice || (! empty($fontPreloadScanner['enabled_value']) && ! $legacyPanelOpen && empty($config['riskAcknowledged']));
 ?>
 <details id="<?php echo esc_attr($rootId); ?>"
          class="wpacu-font-preload-legacy"
@@ -97,6 +101,27 @@ $requiresRiskAcknowledgement = $forceRiskNotice || (! $legacyPanelOpen && empty(
     </summary>
 
     <div class="wpacu-font-preload-legacy__body js-wpacu-font-preload-legacy-body"<?php if ($requiresRiskAcknowledgement) { echo ' hidden'; } ?>>
+
+    <?php if ($fontPreloadScanner['enabled_name'] !== '') : ?>
+        <?php $preloadEnabledTargetId = $rootId . '-enabled-content'; ?>
+        <div class="wpacu-font-preload-legacy__enable-row">
+            <input type="hidden" name="<?php echo esc_attr($fontPreloadScanner['enabled_name']); ?>" value="0" />
+            <label class="wpacu_switch" for="<?php echo esc_attr($fontPreloadScanner['enabled_id']); ?>">
+                <input id="<?php echo esc_attr($fontPreloadScanner['enabled_id']); ?>"
+                       type="checkbox"
+                       data-target-opacity="#<?php echo esc_attr($preloadEnabledTargetId); ?>"
+                       name="<?php echo esc_attr($fontPreloadScanner['enabled_name']); ?>"
+                       value="1"
+                    <?php checked((int)$fontPreloadScanner['enabled_value'], 1); ?> />
+                <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
+            </label>
+            <div>
+                <strong><?php echo esc_html($fontPreloadScanner['enabled_label']); ?></strong>
+                <p><?php esc_html_e('Saved URLs are preserved when this is turned off.', 'wp-asset-clean-up'); ?></p>
+            </div>
+        </div>
+        <div id="<?php echo esc_attr($preloadEnabledTargetId); ?>"<?php echo empty($fontPreloadScanner['enabled_value']) ? ' style="opacity: 0.4;"' : ''; ?>>
+    <?php endif; ?>
 
     <?php if ($fontPreloadScanner['warning_text'] !== '') : ?>
         <div class="wpacu-font-preload-legacy__warning" role="note">
@@ -267,6 +292,10 @@ $requiresRiskAcknowledgement = $forceRiskNotice || (! $legacyPanelOpen && empty(
     <?php endif; ?>
 
         <script type="application/json" class="js-wpacu-font-preload-config"><?php echo $configJson; ?></script>
+
+    <?php if ($fontPreloadScanner['enabled_name'] !== '') : ?>
+        </div>
+    <?php endif; ?>
     </div>
 
     <?php if ($requiresRiskAcknowledgement) : ?>

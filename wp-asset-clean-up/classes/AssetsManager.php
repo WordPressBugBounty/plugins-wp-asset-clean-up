@@ -39,6 +39,8 @@ class AssetsManager
 	 */
 	public function __construct()
 	{
+		add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_unloaded_asset_size', array('WpAssetCleanUp\\AdminBarSavings', 'ajaxMeasure'));
+		add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_unloaded_asset_sizes', array('WpAssetCleanUp\\AdminBarSavings', 'ajaxMeasureBatch'));
 		// Send an AJAX request to get the list of the loaded hardcoded scripts and styles and print it
         // This is used only in the front-end view (bottom of the page)
 		add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_print_loaded_hardcoded_assets', array( $this, 'ajaxPrintLoadedHardcodedAssets' ) );
@@ -621,6 +623,61 @@ class AssetsManager
 	/**
 	 * Get a remote asset's size without downloading the whole file.
 	 */
+	public static function getRemoteGzipSize($url, $transfer = false)
+	{
+		// Reuse the CSS/JS Manager's bounded requests and redirect validation.
+		// A HEAD size alone cannot be converted into a reliable GZIP estimate.
+		$limit = 5 * MB_IN_BYTES;
+		// Requests may decode GZIP even when WP's decompress argument is false.
+		// Preserve the wire body for this bounded measurement only.
+		$preserveEncoding = static function (&$raw, $requestUrl, $headers) {
+			if (!is_string($raw) || !isset($headers['Accept-Encoding']) || $headers['Accept-Encoding'] !== 'br, gzip') { return; }
+			$parts = explode("\r\n\r\n", $raw, 2);
+			if (count($parts) !== 2) { return; }
+			$parts[0] = preg_replace('/^Content-Encoding:\\s*(gzip|br)\\s*$/mi', 'X-Wpacu-Wire-Encoding: $1', $parts[0]);
+			$raw = implode("\r\n\r\n", $parts);
+		};
+		if ($transfer) { add_action('requests-requests.before_parse', $preserveEncoding, 10, 3); }
+		$preserveCurlBody = static function ($handle, $request) {
+			if (isset($request['headers']['Accept-Encoding']) && $request['headers']['Accept-Encoding'] === 'br, gzip' && defined('CURLOPT_HTTP_CONTENT_DECODING')) {
+				curl_setopt($handle, CURLOPT_HTTP_CONTENT_DECODING, false);
+			}
+		};
+		if ($transfer) { add_action('http_api_curl', $preserveCurlBody, 10, 2); }
+		try {
+		$response = self::safeRemoteRequestWithValidatedRedirects($url, array(
+			'method' => 'GET', 'timeout' => 5,
+			'headers' => array('Accept-Encoding' => $transfer ? 'br, gzip' : 'identity'),
+			'decompress' => false, 'limit_response_size' => $limit + 1
+		), 2);
+		} finally {
+			if ($transfer) { remove_action('requests-requests.before_parse', $preserveEncoding, 10); }
+			if ($transfer) { remove_action('http_api_curl', $preserveCurlBody, 10); }
+		}
+		if (is_wp_error($response) || (int)wp_remote_retrieve_response_code($response) !== 200) {
+			return false;
+		}
+		if (wp_remote_retrieve_header($response, 'content-range') !== '') {
+			return false;
+		}
+		$encoding = strtolower(trim((string)wp_remote_retrieve_header($response, 'content-encoding')));
+		if ($transfer && $encoding === '') { $encoding = strtolower(trim((string)wp_remote_retrieve_header($response, 'x-wpacu-wire-encoding'))); }
+		if (!in_array($encoding, $transfer ? array('', 'identity', 'br', 'gzip') : array('', 'identity'), true)) {
+			return false;
+		}
+		if (stripos((string)wp_remote_retrieve_header($response, 'content-type'), 'text/html') !== false) {
+			return false;
+		}
+		$size = self::getRemoteFileSizeFromCompleteBody($response, $limit);
+		$length = wp_remote_retrieve_header($response, 'content-length');
+		if ($size === false || ($length !== '' && (!is_scalar($length) || !ctype_digit((string)$length) || (int)$length !== $size))) {
+			return false;
+		}
+		if ($transfer) { return array('bytes' => $size, 'encoding' => $encoding === 'identity' ? '' : $encoding); }
+		$compressed = function_exists('gzencode') ? gzencode(wp_remote_retrieve_body($response), 6) : false;
+		return $compressed === false ? false : strlen($compressed);
+	}
+
 	public function ajaxGetExternalFileSize()
 	{
 		// Check nonce

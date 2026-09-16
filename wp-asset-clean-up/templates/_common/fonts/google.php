@@ -21,7 +21,16 @@ $data['dd_options'] = array(
     <header class="wpacu-google-fonts-header">
         <div class="wpacu-google-fonts-eyebrow"><?php esc_html_e('Google Fonts control', 'wp-asset-clean-up'); ?></div>
         <h2><?php esc_html_e('Control Google Fonts delivery and removal', 'wp-asset-clean-up'); ?></h2>
-        <p><?php esc_html_e('Tune request loading and rendering, audit legacy manual preloads, or prevent Google-hosted font delivery from one focused settings area.', 'wp-asset-clean-up'); ?></p>
+        <div class="wpacu-google-fonts-header__summary">
+            <p class="wpacu-google-fonts-header__description"><?php esc_html_e('Tune request loading and rendering, audit legacy manual preloads, or prevent Google-hosted font delivery from one focused settings area.', 'wp-asset-clean-up'); ?></p>
+            <p class="wpacu-google-fonts-doc-link-wrap">
+                <a class="wpacu-google-fonts-doc-link" target="_blank" rel="noopener noreferrer" href="http://assetcleanup.com/docs/?p=2532">
+                    <span class="dashicons dashicons-book-alt" aria-hidden="true"></span>
+                    <span><?php esc_html_e('Google Fonts optimization guide', 'wp-asset-clean-up'); ?></span>
+                    <span class="wpacu-google-fonts-doc-link__external" aria-hidden="true">&#8599;</span>
+                </a>
+            </p>
+        </div>
     </header>
 
     <?php

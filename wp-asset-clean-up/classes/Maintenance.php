@@ -501,7 +501,7 @@ SQL;
 			// Check if there are too many .css /.js combined files in the caching directory and change settings
 			// to prevent the appending of the inline CSS/JS code that is likely the culprit of so many files
 			$settingsClass = new Settings();
-			$settings      = $settingsClass->getAll( true );
+			$settings      = $settingsClass->getAllStored(true);
 
             $settingsAdminClass = new SettingsAdmin();
             $settingsAdminClass::toggleAppendInlineAssocCodeHiddenSettings( $settings, true, $isDebug );
@@ -569,7 +569,7 @@ SQL;
 	public static function combineNewOptionUpdate()
 	{
 		$settingsClass = new Settings();
-		$pluginSettings = $settingsClass->getAll();
+		$pluginSettings = $settingsClass->getAllStored();
 
 		if ( ($pluginSettings['combine_loaded_css'] === 'for_admin' ||
 		     (isset($pluginSettings['combine_loaded_css_for_admin_only']) && $pluginSettings['combine_loaded_css_for_admin_only'] == 1) )
