@@ -49,8 +49,14 @@ ProPreview::renderNotice(
 
 <?php if ($data['wpacu_sub_page'] === 'manage_plugins_front') { ?>
     <div id="wpacu-plugins-manage-front-notice-top">
+        <button type="button" class="wpacu-pm-remember-toggle" hidden aria-expanded="true" aria-controls="wpacu-pm-remember-content"
+                aria-label="<?php esc_attr_e('Collapse notice', 'wp-asset-clean-up'); ?>"
+                data-collapse-label="<?php esc_attr_e('Collapse notice', 'wp-asset-clean-up'); ?>"
+                data-expand-label="<?php esc_attr_e('Expand notice', 'wp-asset-clean-up'); ?>"></button>
+        <div id="wpacu-pm-remember-content">
         <p style="margin-top: 0;"><strong><?php esc_html_e('What this Pro feature controls:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Unloading a plugin removes more than its CSS and JavaScript. Its PHP execution, HTML output, hooks, cookies and other front-end behaviour are also skipped on matching requests, much like deactivating it only for those pages.', 'wp-asset-clean-up'); ?> <a style="text-decoration: none; color: #004567;" target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/?p=372"><span class="dashicons dashicons-info"></span>&nbsp;<?php esc_html_e('Read more', 'wp-asset-clean-up'); ?></a></p>
         <p style="margin-bottom: 0;"><?php esc_html_e('The controls below are a read-only Lite preview. In Pro, front-end rules do not affect Dashboard requests, and Test Mode can be used before exposing changes to visitors.', 'wp-asset-clean-up'); ?></p>
+        </div>
     </div>
 <?php
     include_once __DIR__.'/_admin-page-plugins-manager/_front.php';

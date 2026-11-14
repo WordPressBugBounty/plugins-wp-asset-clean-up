@@ -32,7 +32,7 @@ if ( ! isset($data) ) {
 					echo ' &#10230; Total: '.count($data['plugins_with_rules'][$locationKey]);
 				}
 				?></span>
-				<a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a>
+				<a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt" aria-hidden="true"></span> <span><?php esc_html_e('Top', 'wp-asset-clean-up'); ?></span></a>
 			</h3>
 
 			<table class="wp-list-table wpacu-list-table widefat plugins striped" style="width: 100%;">

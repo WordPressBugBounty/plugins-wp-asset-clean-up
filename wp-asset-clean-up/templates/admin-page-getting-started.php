@@ -102,6 +102,8 @@ $wpacu_gs_test_mode_text    = $wpacu_gs_test_mode_enabled
     id="wpacu-getting-started-page-wrap"
     data-progress-storage-key="<?php echo esc_attr($wpacu_gs_config['progress_storage_key']); ?>"
 >
+    <?php do_action('wpacu_internal_getting_started_before_hero', $wpacu_gs_config); ?>
+
     <section class="wpacu-gs-hero" aria-labelledby="wpacu-gs-page-title">
         <div class="wpacu-gs-hero-copy">
             <div class="wpacu-gs-hero-meta">
@@ -621,6 +623,8 @@ $wpacu_gs_test_mode_text    = $wpacu_gs_test_mode_enabled
             </div>
         </div>
     </section>
+
+    <?php do_action('wpacu_internal_getting_started_before_final_cta', $wpacu_gs_config); ?>
 
     <section class="wpacu-gs-final-cta" aria-labelledby="wpacu-gs-final-title">
         <div class="wpacu-gs-final-cta-copy">

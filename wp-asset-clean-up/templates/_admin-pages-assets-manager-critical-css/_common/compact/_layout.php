@@ -36,6 +36,8 @@ if ( ! $canManageCriticalCss ) {
 
 if ($canManageCriticalCss && isset($data['for']) && $data['for']) {
     ?>
+    <fieldset id="wpacu-critical-css-content" class="wpacu-critical-css-content<?php echo ! empty($data['critical_css_is_global_disabled']) ? ' is-paused' : ''; ?>" aria-label="<?php esc_attr_e('Critical CSS configuration', 'wp-asset-clean-up'); ?>">
+        <legend class="wpacu-critical-css-paused-legend"><span><?php esc_html_e('Paused', 'wp-asset-clean-up'); ?></span></legend>
     <div id="wpacu-critical-css-main-tab-area">
     <?php
     include __DIR__ . '/_context-selector.php';
@@ -125,6 +127,7 @@ if ($canManageCriticalCss && isset($data['for']) && $data['for']) {
     }
     ?>
     </div>
+    </fieldset>
     <script>
     var wpacuStopSpinner = wpacuShowAreaSpinner(
         '#wpacu-critical-css-main-tab-area',

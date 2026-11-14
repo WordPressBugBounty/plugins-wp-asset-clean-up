@@ -104,7 +104,7 @@ if ( ! $isBase64EncodedSrc ) {
                 </div>
             </div>
         </template>
-        <script type="text/javascript">
+        <?php ob_start(); ?>
             (function () {
                 var template = document.getElementById('<?php echo esc_js($viewDecodedBase64Unique); ?>-template');
 
@@ -121,7 +121,7 @@ if ( ! $isBase64EncodedSrc ) {
                     template.parentNode.removeChild(template);
                 }
             }());
-        </script>
+        <?php echo \WpAssetCleanUp\OwnAssets::getInlineScriptTag(ob_get_clean(), array('type' => 'text/javascript')); ?>
     <?php
     }
 

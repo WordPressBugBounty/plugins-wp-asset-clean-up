@@ -94,13 +94,55 @@ class OverviewByPage
         $target = $value;
     }
 
+    /** An alternative can apply in more than one page group (OR conditions). */
+    private static function alternativeGroups($target, $value)
+    {
+        $groups = array();
+        if ($target === 'posts_page') {
+            $postsPage = (int)get_option('page_for_posts');
+            return array(get_option('show_on_front') === 'page' && $postsPage
+                ? self::scope('post', $postsPage) : self::scope('home_page'));
+        }
+        if ($target === 'archive_types') {
+            foreach (explode(',', $value) as $archive) {
+                $archive = trim($archive);
+                $groups = array_merge($groups, strpos($archive, 'cpt_') === 0
+                    ? array(self::scope('custom_post_type_archive_' . substr($archive, 4)))
+                    : self::alternativeGroups($archive, ''));
+            }
+        } elseif (in_array($target, array('post_ids', 'post_type', 'taxonomy', 'cpt_archive'), true)) {
+            foreach (explode(',', $value) as $item) {
+                $item = trim($item);
+                if ($target === 'post_ids') { $groups[] = self::scope('post', (int)$item); }
+                elseif ($target === 'post_type') { $groups[] = self::scope('post_type', $item); }
+                elseif ($target === 'taxonomy') { $groups[] = self::scope('taxonomy_all', $item . '_all'); }
+                else { $groups[] = self::scope('custom_post_type_archive_' . $item); }
+            }
+        } elseif ($target === 'taxonomy_term' && strpos($value, 'tt:') === 0) {
+            foreach (\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getTermTaxonomyIds($value) as $termId) {
+                $groups[] = self::scope('term_taxonomy', $termId);
+            }
+        } else {
+            $groups[] = self::scope($target === 'everywhere' ? 'global' : $target);
+        }
+        return array_unique($groups);
+    }
+
     public static function partition($data)
     {
         self::$groups = array();
         foreach (isset($data['handles']) ? $data['handles'] : array() as $type => $handles) {
             foreach ($handles as $handle => $rules) {
                 foreach ($rules as $key => $value) {
-                    if (in_array($key, array('unload_on_this_page', 'load_exception_on_this_page', 'script_attrs', 'attrs_no_load'), true)) {
+                    if ($key === 'alternative_assets') {
+                        foreach ($value as $alternative) {
+                            foreach (\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getRuleTargets($alternative) as $target => $targetValue) {
+                                foreach (self::alternativeGroups($target, $targetValue) as $group) {
+                                    self::put($group, $type, $handle, array($key, $alternative['id']), $alternative);
+                                }
+                            }
+                        }
+                    } elseif (in_array($key, array('unload_on_this_page', 'load_exception_on_this_page', 'script_attrs', 'attrs_no_load'), true)) {
                         foreach ($value as $scope => $items) {
                             if (in_array($scope, array('post', 'term', 'user'), true)) {
                                 foreach ($items as $index => $item) {

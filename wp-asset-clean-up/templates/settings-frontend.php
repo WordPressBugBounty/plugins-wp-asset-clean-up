@@ -13,7 +13,7 @@ if (! isset($data)) {
 ?>
 <span data-wpacu-delimiter-frontend-form-start="1" style="display:none;"></span>
 
-<form id="wpacu-frontend-form" action="#wpacu_wrap_assets" method="post">
+<form id="wpacu-frontend-form" action="<?php echo ! empty($data['frontend_manager_frame']) ? esc_url(\WpAssetCleanUp\Misc::getCurrentPageUrl(false) . '#wpacu_wrap_assets') : '#wpacu_wrap_assets'; ?>" method="post"<?php if (! empty($data['frontend_manager_frame'])) { echo ' target="_top"'; } ?>>
     <?php
     if ( isset($data['external_srcs_ref']) && $data['external_srcs_ref'] ) {
         ?>
@@ -38,7 +38,7 @@ if (! isset($data)) {
             <?php
         }
 
-        $wpacuMiscAdmin = new MiscAdmin();
+        $wpacuMiscAdmin     = new MiscAdmin();
         $activeCachePlugins = $wpacuMiscAdmin->getActiveCachePlugins();
 
         if (in_array('wp-rocket/wp-rocket.php', $activeCachePlugins)) {
@@ -103,7 +103,7 @@ if (! isset($data)) {
             <div id="wpacu-update-front-settings-area">
                 <button class="wpacu_update_btn"
                         type="submit"
-                        name="submit"><span class="dashicons dashicons-update"></span> <?php esc_attr_e('UPDATE', 'wp-asset-clean-up'); ?></button>
+                        name="submit"><?php esc_html_e('Save CSS/JS Changes', 'wp-asset-clean-up'); ?></button>
 
                 <div id="wpacu-updating-front-settings" style="display: none;">
                     <img src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" align="top" width="20" height="20" alt="" />

@@ -91,15 +91,44 @@ class CriticalCss
 		*/
 		if ( isset($_GET['wpacu_only_critical_css']) )  {
 			// For debugging purposes: preview how the page would load only with the critical CSS loaded (all LINK/STYLE CSS tags are stripped)
-            // Do not remove the admin bar's (and other marked ones) CSS as it would make sense to keep it as it is if the admin is logged-in
-			$htmlSource = preg_replace('#<link(.*?)data-wpacu-skip-preload#Umi', "<wpacu_link$1data-wpacu-skip-preload", $htmlSource);
+            // Consume complete tags and text containers so tag-like text inside attributes,
+            // comments or scripts cannot be mistaken for a stylesheet to remove.
+            // Disjoint quoted/unquoted tokens need no backtracking. Possessive
+            // repetition keeps long tags off PCRE1's native recursion stack.
+            $tagAttributesPattern = '(?:[^<>"\']++|"[^"]*"|\'[^\']*\')*+';
+            $htmlTokenPattern     = '#<!--.*?(?:-->|$)'
+                . '|<(?P<raw>script|style|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=\s|/?>)' . $tagAttributesPattern . '>(?:.*?</(?P=raw)\s*>|.*\z)'
+                . '|<plaintext(?=\s|/?>)' . $tagAttributesPattern . '>.*\z'
+                . '|<[a-z][a-z0-9:-]*(?=\s|/?>)' . $tagAttributesPattern . '>#is';
 
-			$htmlSource = preg_replace('#<link[^>]*(stylesheet|(as(\s+|)=(\s+|)(|"|\')style(|"|\')))[^>]*(>)#Umi', '', $htmlSource);
-			$htmlSource = preg_replace('@(<style[^>]*?>).*?</style>@si', '', $htmlSource);
+            $htmlSourceCleaned = preg_replace_callback($htmlTokenPattern, static function($matches) {
+                if (isset($matches['raw']) && strcasecmp($matches['raw'], 'style') === 0) {
+                    return preg_match('#</style\s*>\z#i', $matches[0]) ? '' : $matches[0];
+                }
+
+                if ( ! preg_match('#^<link(?=\s|/?>)#i', $matches[0])) {
+                    return $matches[0];
+                }
+
+                $linkTag    = $matches[0];
+                $attributes = array_change_key_case(wp_kses_hair(substr($linkTag, 5, -1), array('http', 'https')), CASE_LOWER);
+
+                // Preserve admin-bar CSS and any other explicitly marked LINK tag.
+                if (isset($attributes['data-wpacu-skip-preload'])) {
+                    return $linkTag;
+                }
+
+                $rel = isset($attributes['rel']['value']) ? strtolower(html_entity_decode($attributes['rel']['value'], ENT_QUOTES, 'UTF-8')) : '';
+                $as  = isset($attributes['as']['value']) ? strtolower(html_entity_decode($attributes['as']['value'], ENT_QUOTES, 'UTF-8')) : '';
+
+                return in_array('stylesheet', preg_split('/\s+/', trim($rel)), true) || trim($as) === 'style' ? '' : $linkTag;
+            }, $htmlSource);
+
+            // Preserve the page if PCRE cannot process a large or malformed document.
+            if ($htmlSourceCleaned !== null) {
+                $htmlSource = $htmlSourceCleaned;
+            }
 			$htmlSource = str_replace(Misc::preloadAsyncCssFallbackOutput(true), '', $htmlSource);
-
-			// Restore any LINKs to admin-bar and others (if any)
-			$htmlSource = preg_replace('#<wpacu_link(.*?)data-wpacu-skip-preload#Umi', "<link$1data-wpacu-skip-preload", $htmlSource);
 		} else {
 			// Convert render-blocking LINK CSS tags into non-render blocking ones
 			$cleanerHtmlSource = preg_replace( '/<!--(.|\s)*?-->/', '', $htmlSource );

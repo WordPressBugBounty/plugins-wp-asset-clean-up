@@ -22,7 +22,7 @@ global $wp_version;
 
 $data['wp_version'] = $wp_version; // in case there is no version of a CSS/JS WordPress appends its latest version to "ver"
 
-$isLiteProPreview = ! defined('WPACU_PRO_PLUGIN_VERSION') && ! empty($data['lite_pro_preview_mode']);
+$isLiteProPreview  = ! defined('WPACU_PRO_PLUGIN_VERSION') && ! empty($data['lite_pro_preview_mode']);
 $metaBoxLoadedFine = ! (isset($data['is_dashboard_view'], $data['is_wp_error']) && $data['is_dashboard_view'] && $data['is_wp_error']);
 
 if ( ! $metaBoxLoadedFine ) {
@@ -66,107 +66,79 @@ if ( ! empty($data['wp_remote_post']) ) {
     }
 }
 
+// Keep the page context and its type together when the URL is already shown above.
+$calledFromOwnPluginAssetsManagerPage = isset($_POST['called_from_plugin_own_asset_manager']) && $_POST['called_from_plugin_own_asset_manager'];
+$wpacuSummaryUrl                     = !empty($data['fetch_url']) ? $data['fetch_url'] : '';
+if (!is_admin() && is_search() && !$calledFromOwnPluginAssetsManagerPage) {
+    // Display the actual search request without changing the asset-fetch/save URL.
+    $wpacuSummaryUrl = remove_query_arg(array(
+        'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
+        'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
+        'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
+    ), \WpAssetCleanUp\Misc::getCurrentPageUrl(false));
+}
+$wpacuShowSummaryUrl = !$calledFromOwnPluginAssetsManagerPage && $wpacuSummaryUrl !== '' && !is_404();
+// The dedicated singular-page header already includes the type before fetching assets.
+$wpacuTypeShownInHeader = $calledFromOwnPluginAssetsManagerPage && !empty($data['post_id'])
+    && $data['bulk_unloaded_type'] === 'post_type';
+$wpacuShowSummaryType       = $data['bulk_unloaded_type'] === 'post_type' && !$wpacuTypeShownInHeader;
+$wpacuInlinePageSummary     = !$wpacuShowSummaryUrl && $wpacuShowSummaryType;
+$wpacuUseFrontendSummary    = !is_admin() && ($wpacuShowSummaryUrl || $wpacuShowSummaryType);
+$wpacuContextParagraphStyle = $wpacuInlinePageSummary ? ' style="margin: 0;"' : '';
+if ($wpacuInlinePageSummary) {
+    echo '<div class="wpacu-page-context" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 0 0 14px;">';
+}
+
 if (is_admin()) {
     // Dashboard edit view
     if (get_option('show_on_front') === 'page') {
         if (get_option('page_on_front') == $data['post_id']) {
         ?>
-            <p><span style="color: #0f6cab;" class="dashicons dashicons-admin-home"></span> <?php echo sprintf(__('This page was set as the home page in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
+            <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-home"></span> <?php echo sprintf(__('This page was set as the home page in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
 	    <?php
         } elseif (get_option('page_for_posts') == $data['post_id']) {
         ?>
-            <p><span style="color: #0f6cab;" class="dashicons dashicons-admin-post"></span> <?php echo sprintf(__('This page was set to show the latest posts in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
+            <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-post"></span> <?php echo sprintf(__('This page was set to show the latest posts in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
         <?php
         }
     }
-} else {
+} elseif (!$wpacuUseFrontendSummary) {
     // Front-end view
     if (MainFront::isBlogPage()) {
         ?>
-        <p><span style="color: #0f6cab;" class="dashicons dashicons-admin-post"></span> <?php _e('You are currently viewing the page that shows your latest posts.', 'wp-asset-clean-up'); ?></p>
+        <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-post"></span> <?php _e('You are currently viewing the page that shows your latest posts.', 'wp-asset-clean-up'); ?></p>
         <?php
     } elseif (MainFront::isHomePage()) {
         ?>
-        <p><span style="color: #0f6cab;" class="dashicons dashicons-admin-home"></span> <?php _e('You are currently viewing the home page.', 'wp-asset-clean-up'); ?></p>
+        <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-home"></span> <?php _e('You are currently viewing the home page.', 'wp-asset-clean-up'); ?></p>
         <?php
     }
 }
 
-if ($data['bulk_unloaded_type'] === 'post_type') {
-	$isWooPage = $iconShown = false;
-
-	if (
-        (function_exists('is_woocommerce') && is_woocommerce()) ||
-        (function_exists('is_cart') && is_cart()) ||
-        (function_exists('is_product_tag') && is_product_tag()) ||
-        (function_exists('is_product_category') && is_product_category()) ||
-        (function_exists('is_checkout') && is_checkout())
-    ) {
-        $isWooPage = true;
-        $iconShown = WPACU_PLUGIN_URL . '/assets/icons/woocommerce-icon-logo.svg';
-    }
-
-    if (! $iconShown) {
-	    switch ( $data['post_type'] ) {
-		    case 'post':
-			    $dashIconPart = 'post';
-			    break;
-		    case 'page':
-			    $dashIconPart = 'page';
-			    break;
-		    case 'attachment':
-			    $dashIconPart = 'media';
-			    break;
-		    default:
-			    $dashIconPart = 'post';
-	    }
-    }
-    ?>
-    <p>
-	<?php if ($isWooPage) { ?>
-        <img src="<?php echo esc_url($iconShown); ?>" alt="" style="height: 40px !important; margin-top: -6px; margin-right: 5px;" align="middle" /> <strong>WooCommerce</strong>
-    <?php } ?>
-        <?php if (! $iconShown) { ?><span style="color: #0f6cab;" class="dashicons dashicons-admin-<?php echo esc_attr($dashIconPart); ?>"></span> <?php } ?> <u><?php echo esc_html($data['post_type']); ?></u> <?php if ($data['post_type'] !== 'post') {  echo 'post'; } ?> type.
-    </p>
-    <?php
+if ($wpacuShowSummaryUrl || $wpacuShowSummaryType) {
+    $wpacuPageSummary = array(
+        'inline' => $wpacuInlinePageSummary,
+        'frontend' => $wpacuUseFrontendSummary,
+        'is_homepage' => $wpacuUseFrontendSummary && MainFront::isHomePage(),
+        'is_blog_page' => $wpacuUseFrontendSummary && MainFront::isBlogPage(),
+        'post_id' => $wpacuUseFrontendSummary && !empty($data['post_id']) ? (int)$data['post_id'] : 0,
+        'url' => $wpacuShowSummaryUrl ? $wpacuSummaryUrl : '',
+        'title' => $wpacuShowSummaryUrl && !empty($data['post_id']) ? get_the_title($data['post_id']) : '',
+        'post_type' => $wpacuShowSummaryType ? $data['post_type'] : '',
+        'redirected_url' => $wpacuShowSummaryUrl && !empty($data['redirected_to_url']) ? $data['redirected_to_url'] : '',
+        'woocommerce' => (function_exists('is_woocommerce') && is_woocommerce())
+            || (function_exists('is_cart') && is_cart())
+            || (function_exists('is_product_tag') && is_product_tag())
+            || (function_exists('is_product_category') && is_product_category())
+            || (function_exists('is_checkout') && is_checkout())
+    );
+    include WPACU_PLUGIN_DIR.'/templates/_common/asset-manager/page-summary.php';
+}
+if ($wpacuInlinePageSummary) {
+    echo '</div>';
 }
 
-// Prevent double printing of the fetching URL
-$calledFromOwnPluginAssetsManagerPage = isset($_POST['called_from_plugin_own_asset_manager']) && $_POST['called_from_plugin_own_asset_manager'];
-
-if ( ! $calledFromOwnPluginAssetsManagerPage && isset($data['fetch_url']) && $data['fetch_url'] && ! is_404() ) {
-    ?>
-    <div class="wpacu_verified">
-        <strong>Page URL:</strong> <a target="_blank" href="<?php echo esc_url($data['fetch_url']); ?>"><span><?php echo esc_url($data['fetch_url']); ?></span></a>
-        <?php if ( ! empty($data['redirected_to_url']) ) { ?>
-            <div class="wpacu-redirected-fetch-url-reminder" style="margin-top: 10px;">
-                <strong><span class="dashicons dashicons-migrate"></span> <?php esc_html_e('Redirected to:', 'wp-asset-clean-up'); ?></strong>
-                <a target="_blank" href="<?php echo esc_url($data['redirected_to_url']); ?>"><span><?php echo esc_url($data['redirected_to_url']); ?></span></a>
-            </div>
-        <?php } ?>
-    </div>
-    <?php
-}
-
-if (isset($data['page_template'])) {
-	?>
-    <p>
-        <strong><?php if ($data['post_type'] === 'page') { echo 'Page'; } elseif ($data['post_type'] === 'post') { echo 'Post'; } ?>
-            Template:</strong>
-		<?php
-		if (isset($data['all_page_templates'][$data['page_template']])) { ?>
-            <u><?php echo esc_html($data['all_page_templates'][$data['page_template']]); ?></u>
-		<?php } ?>
-
-        (<?php echo esc_html($data['page_template']);
-
-		if (isset($data['page_template_path'])) {
-			echo '&nbsp; &#10230; &nbsp;<em>'.esc_html($data['page_template_path']).'</em>';
-		}
-		?>)
-    </p>
-	<?php
-}
+include WPACU_PLUGIN_DIR.'/templates/_common/asset-manager/page-template.php';
 
 // [wpacu_pro]
 $wpacuQueriedObjForCustomPostType = defined('WPACU_PRO_PLUGIN_VERSION') ? MainPro::isCustomPostTypeArchivePage() : false;
@@ -247,7 +219,7 @@ if ( ! is_admin() && \WpAssetCleanUp\MainFront::isSingularPage() ) {
 }
 
 // e.g. Unload on this page, Unload on this product page (depending on the page where the assets are managed)
-$data = AssetsManager::textRulesToShowInCssJsManager($data);
+$data       = AssetsManager::textRulesToShowInCssJsManager($data);
 $inputStyle = Settings::getInputStyle($data['plugin_settings']);
 ?>
 <div<?php if ($isLiteProPreview) { ?> data-wpacu-lite-lock-controls="1"<?php } ?>

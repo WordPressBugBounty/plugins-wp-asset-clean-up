@@ -159,7 +159,7 @@
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] table td.wpacu_plugin_details .wpacu_plugin_title {
   color: #1d2327;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 650;
   line-height: 1.45;
 }
@@ -203,6 +203,10 @@
   padding: 2px 8px;
 }
 
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-count-badge[hidden] {
+  display: none !important;
+}
+
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-status-badge--unload,
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-count-badge--unload {
   border-color: #edc9c9;
@@ -219,7 +223,7 @@
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-plugin-editor {
   clear: both;
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap,
@@ -373,6 +377,7 @@
   border-bottom: 1px solid #eef0f1;
   line-height: 1.45;
   white-space: normal;
+  position: relative;
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list > li.wpacu_plugin_rule_item:last-child {
@@ -380,13 +385,23 @@
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list > li.wpacu-pm-rule-is-active-unload {
-  box-shadow: inset 3px 0 0 #d63638;
+  box-shadow: inset 3px 0 0 var(--wpacu-pm-unload);
   background: var(--wpacu-pm-unload-soft);
 }
 
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap ul.wpacu-pm-rule-list > li.wpacu_plugin_rule_item:not(.wpacu-pm-rule-is-active-unload):has(> label:hover),
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap ul.wpacu-pm-rule-list > li.wpacu_plugin_rule_item:not(.wpacu-pm-rule-is-active-unload):has(> .wpacu-specific-author-archive-rule-controls > label:hover) {
+  box-shadow: inset 1px 0 0 var(--wpacu-pm-unload);
+}
+
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list > li.wpacu-pm-rule-is-active-load {
-  box-shadow: inset 3px 0 0 #2a9148;
+  box-shadow: inset 3px 0 0 var(--wpacu-pm-load);
   background: var(--wpacu-pm-load-soft);
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_load_exception_options_wrap ul.wpacu-pm-rule-list > li.wpacu_plugin_rule_item:not(.wpacu-pm-rule-is-active-load):has(> label:hover),
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_load_exception_options_wrap ul.wpacu-pm-rule-list > li.wpacu_plugin_rule_item:not(.wpacu-pm-rule-is-active-load):has(> .wpacu-specific-author-archive-rule-controls > label:hover) {
+  box-shadow: inset 1px 0 0 var(--wpacu-pm-load);
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list--site {
@@ -401,7 +416,7 @@
   width: auto;
   padding: 3px 0;
   border: 0;
-  box-shadow: none;
+  box-shadow: none !important;
   background: transparent;
 }
 
@@ -426,12 +441,39 @@
   font-size: 14px;
   line-height: 1.45;
   vertical-align: top;
+  cursor: pointer;
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list label > input[type=checkbox],
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list .wpacu-specific-author-archive-rule-controls > label > input[type=checkbox] {
   flex: 0 0 auto;
   margin: 1px 0 0;
+  cursor: pointer;
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list:not(.wpacu-pm-rule-list--site) > li.wpacu_plugin_rule_item > label,
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list:not(.wpacu-pm-rule-list--site) > li.wpacu_plugin_rule_item > .wpacu-specific-author-archive-rule-controls > label {
+  width: calc(100% + 20px);
+  max-width: none;
+  margin: -9px -10px;
+  padding: 9px 34px 9px 10px;
+  box-sizing: border-box;
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap label:hover > input.wpacu_plugin_unload_rule_input[type=checkbox]:not(:disabled),
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap label:focus-within > input.wpacu_plugin_unload_rule_input[type=checkbox]:not(:disabled) {
+  border-color: var(--wpacu-pm-unload);
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_load_exception_options_wrap label:hover > input.wpacu_plugin_load_rule_input[type=checkbox]:not(:disabled),
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_load_exception_options_wrap label:focus-within > input.wpacu_plugin_load_rule_input[type=checkbox]:not(:disabled) {
+  border-color: var(--wpacu-pm-load);
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] input.wpacu_plugin_unload_rule_input[type=checkbox]:focus,
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] input.wpacu_plugin_load_rule_input[type=checkbox]:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_unload_rules_options_wrap input.wpacu_plugin_unload_rule_input[type=checkbox]:checked {
@@ -459,6 +501,14 @@
   margin: 1px 0 0 3px;
   line-height: 20px;
   vertical-align: top;
+}
+
+#wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list:not(.wpacu-pm-rule-list--site) > li.wpacu_plugin_rule_item > .help_link {
+  position: absolute;
+  z-index: 1;
+  top: 9px;
+  right: 10px;
+  margin: 0;
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list .help_link .dashicons {
@@ -672,9 +722,9 @@
 }
 
 #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-save-dock {
-  position: sticky;
+  position: relative;
   z-index: 1000;
-  bottom: 0;
+  bottom: auto;
   display: grid;
   grid-template-columns: minmax(330px, 1fr) auto minmax(330px, 1fr);
   min-height: 72px;
@@ -683,10 +733,9 @@
   margin: 26px 0 0;
   padding: 11px 14px;
   border: 1px solid #cfd3d7;
-  border-bottom: 0;
-  border-radius: 7px 7px 0 0;
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 -4px 14px rgba(29, 35, 39, 0.08);
+  box-shadow: 0 3px 14px rgba(29, 35, 39, 0.09);
   backdrop-filter: blur(5px);
 }
 
@@ -773,6 +822,45 @@
   }
 }
 @media screen and (max-width: 782px) {
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] ul.wpacu-pm-rule-list--site {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-rule-card-header {
+    position: relative;
+  }
+
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_rule_group_help {
+    position: static;
+  }
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_rule_group_help::after {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    visibility: hidden;
+    transform: translateY(4px);
+  }
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_rule_group_help:hover::after, #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_rule_group_help:focus::after {
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu-pm-plugin-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] table td.wpacu_plugin_details .wpacu_plugin_path {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] .wpacu_plugin_title {
+    overflow-wrap: anywhere;
+  }
+
   #wpacu-plugins-load-manager-wrap[data-wpacu-layout=compact-grid] {
     width: 100%;
   }
@@ -832,5 +920,3 @@
     transition: none;
   }
 }
-
-/*# sourceMappingURL=compact-grid.css.map */

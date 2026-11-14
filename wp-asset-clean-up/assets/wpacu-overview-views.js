@@ -1,5 +1,18 @@
 (function () {
     'use strict';
+    function initializeClearAllConfirmation() {
+        // Capture submission before other handlers disable controls or show a
+        // busy state. Delegation also covers controls moved between views.
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!form || form.id !== 'wpacu-overview-edit-form') { return; }
+            var selected = form.querySelector('input[data-wpacu-clear-all-confirm]:checked:not(:disabled)');
+            if (selected && !window.confirm(selected.getAttribute('data-wpacu-clear-all-confirm'))) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true);
+    }
     function initializeScopeFilter() {
         var select = document.getElementById('wpacu-overview-rule-scope');
         var stateSelect = document.getElementById('wpacu-overview-rule-state');
@@ -207,7 +220,16 @@
         if (!initialView) { try { initialView = window.sessionStorage.getItem(storageKey); } catch (error) {} }
         if (initialView === 'pages') { changeView('pages'); }
     }
-    function start() { initialize(); initializeScopeFilter(); }
+    function start() {
+        try {
+            initializeClearAllConfirmation();
+            initialize();
+            initializeScopeFilter();
+        } finally {
+            var bar = document.querySelector('.wpacu-overview-filter-bar');
+            if (bar && typeof bar.wpacuFinishInitialFilters === 'function') { bar.wpacuFinishInitialFilters(); }
+        }
+    }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', start); }
     else { start(); }
 }());

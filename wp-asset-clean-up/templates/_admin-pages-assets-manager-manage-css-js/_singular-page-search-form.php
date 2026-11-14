@@ -13,21 +13,25 @@ if (! isset($data)) {
 $loadSearchFormForPages = true; // default
 $showAllResultsOnFocus  = false;
 $showAllResultsIfCountIsUpTo = 0;
+?>
+<div class="wpacu-assets-context-picker">
+<?php
 
 if (isset($data['for']) && $data['for'] === 'custom_post_types') {
-    $postTypesList = AssetsManagerAdmin::getCustomPostTypesWithPosts();
+    $postTypesList = AssetsManagerAdmin::getCustomPostTypesWithPosts(true);
 
     if (empty($postTypesList)) {
         $loadSearchFormForPages = false;
         ?>
         <div style="padding: 10px; background: white; border-radius: 10px; border: 1px solid #c3c4c7;">
             <span class="dashicons dashicons-warning" style="color: #004567;"></span>
-            <?php esc_html_e('There are no public custom post types with published or private entries available.', 'wp-asset-clean-up'); ?>
+            <?php esc_html_e('There are no public custom post types available.', 'wp-asset-clean-up'); ?>
         </div>
         <?php
     } else {
         if (empty($data['post_type']) || ! isset($postTypesList[$data['post_type']])) {
-            $data['post_type'] = AssetsManagerAdmin::getDefaultCustomPostTypeWithPosts();
+            reset($postTypesList);
+            $data['post_type'] = key($postTypesList);
         }
 
         $selectedPostTypeData = $postTypesList[$data['post_type']];
@@ -37,8 +41,8 @@ if (isset($data['for']) && $data['for'] === 'custom_post_types') {
         <form id="wpacu-custom-post-type-form" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="margin: 0 0 15px;">
             <input type="hidden" name="page" value="<?php echo esc_attr(WPACU_PLUGIN_ID); ?>_assets_manager" />
             <input type="hidden" name="wpacu_for" value="custom_post_types" />
-            <?php esc_html_e('Choose the custom post type first, then search within its entries:', 'wp-asset-clean-up'); ?>
-            <select id="wpacu-custom-post-type-choice" name="wpacu_post_type" onchange="this.form.submit();">
+            <?php esc_html_e('Choose the custom post type first, then search within its entries', 'wp-asset-clean-up'); ?>:
+            <select id="wpacu-custom-post-type-choice" name="wpacu_post_type" data-wpacu-taxonomy-picker>
                 <?php foreach ($postTypesList as $postTypeKey => $postTypeData) { ?>
                     <?php
                     $postsCountText = sprintf(
@@ -46,13 +50,20 @@ if (isset($data['for']) && $data['for'] === 'custom_post_types') {
                         number_format_i18n($postTypeData['count'])
                     );
                     ?>
-                    <option <?php selected($data['post_type'], $postTypeKey); ?> value="<?php echo esc_attr($postTypeKey); ?>">
+                    <option <?php selected($data['post_type'], $postTypeKey); ?> value="<?php echo esc_attr($postTypeKey); ?>"<?php if ($postTypeData['count'] < 1) { ?> data-empty="1" style="color: #8c8f94; opacity: .6;"<?php } ?>>
                         <?php echo esc_html($postTypeData['label']); ?> (<?php echo esc_html($postTypeKey); ?>, <?php echo esc_html($postsCountText); ?>)
                     </option>
                 <?php } ?>
             </select>
+            <noscript><button type="submit" class="button"><?php esc_html_e('Load CSS/JS Manager', 'wp-asset-clean-up'); ?></button></noscript>
         </form>
         <?php
+        if ((int)$selectedPostTypeData['count'] < 1) {
+            $loadSearchFormForPages = false;
+            ?>
+            <p><?php esc_html_e('There are no published or private entries in this post type. The search bar will be available after at least one entry is added.', 'wp-asset-clean-up'); ?></p>
+            <?php
+        }
     }
 } elseif (isset($data['for']) && $data['for'] === 'posts') {
     $wpCountPosts = wp_count_posts('post');
@@ -134,16 +145,22 @@ if ($loadSearchFormForPages) {
         );
     }
     ?>
-    <form id="wpacu-search-form-assets-manager">
-        <?php esc_html_e('Load assets manager for:', 'wp-asset-clean-up'); ?>
+    <form id="wpacu-search-form-assets-manager" class="wpacu-assets-entry-search">
+        <span class="wpacu-assets-search-caption"><?php esc_html_e('Load assets manager for', 'wp-asset-clean-up'); ?>:</span>
+        <span class="wpacu-assets-search-input-wrap">
         <input type="text"
                class="search-field"
                value=""
+               data-wpacu-search-context-type="post_type"
+               data-wpacu-search-context-value="<?php echo esc_attr($data['post_type']); ?>"
+               aria-describedby="wpacu-assets-search-note"
                data-wpacu-show-all-on-focus="<?php echo $showAllResultsOnFocus ? '1' : '0'; ?>"
                data-wpacu-show-all-limit="<?php echo esc_attr($showAllResultsIfCountIsUpTo); ?>"
                placeholder="<?php echo esc_attr($searchPlaceholderText); ?>"
                style="max-width: 800px; width: 100%; padding-right: 15px;" />
-        * <small><?php esc_html_e('Once the entry is selected, the CSS & JS manager will load to manage its assets.', 'wp-asset-clean-up'); ?></small>
+            <img class="wpacu-assets-context-loader" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/loader-horizontal.svg'); ?>" width="90" height="20" alt="" aria-hidden="true" hidden />
+        </span>
+        <small id="wpacu-assets-search-note" class="wpacu-assets-search-note"><?php esc_html_e('Select an entry to manage its CSS/JS.', 'wp-asset-clean-up'); ?></small>
         <div style="display: none; padding: 10px; color: #cc0000;" id="wpacu-search-form-assets-manager-no-results">
             <span class="dashicons dashicons-warning"></span>
             <?php esc_html_e('There are no results based on your search.', 'wp-asset-clean-up'); ?>
@@ -160,3 +177,5 @@ if ($loadSearchFormForPages) {
     </div>
     <?php
 }
+?>
+</div>

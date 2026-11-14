@@ -18,11 +18,12 @@ if (! isset($data)) {
 	if (isset($data['handles']['scripts']) && count($data['handles']['scripts']) > 0) {
 		echo ' &#10230; Total handles with rules: '.count($data['handles']['scripts']);
 	}
-	?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
+	?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt" aria-hidden="true"></span> <span><?php esc_html_e('Top', 'wp-asset-clean-up'); ?></span></a></h3>
 <?php
 if ( ! empty($data['handles']['scripts']) ) {
+    require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/rules-paused-notice.php';
 	?>
-	<table class="wp-list-table wpacu-overview-list-table widefat fixed striped">
+	<table class="wp-list-table wpacu-overview-list-table widefat fixed striped"<?php if (! \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled()) { ?> style="border: 2px solid #f0b849;"<?php } ?>>
 		<thead>
 		<tr class="wpacu-top">
 			<td><strong>Handle</strong></td>

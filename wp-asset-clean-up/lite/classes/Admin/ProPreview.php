@@ -56,11 +56,15 @@ class ProPreview
                 <strong><?php echo esc_html($title); ?></strong>
                 <span><?php echo esc_html($message); ?></span>
             </div>
-            <a class="button button-primary wpacu-lite-pro-preview-cta"
+            <a class="wpacu-lite-pm-upgrade-button wpacu-lite-pro-preview-cta"
                target="_blank"
                rel="noopener noreferrer"
                href="<?php echo esc_url(self::getUpgradeUrl($context)); ?>">
-                <?php esc_html_e('Get Asset CleanUp Pro', 'wp-asset-clean-up'); ?>
+                <span class="dashicons dashicons-unlock" aria-hidden="true"></span>
+                <span class="wpacu-lite-pm-upgrade-button-copy">
+                    <strong><?php esc_html_e('Get Asset CleanUp Pro', 'wp-asset-clean-up'); ?></strong>
+                    <small><?php esc_html_e('View pricing and choose the right plan', 'wp-asset-clean-up'); ?></small>
+                </span>
             </a>
         </div>
         <?php
@@ -77,13 +81,34 @@ class ProPreview
     }
 
     /**
-     * Load the lightweight preview layer only on Asset CleanUp admin pages.
+     * @param string $context
+     * @return array
+     */
+    public static function getAlertSettings($context = 'dashboard_preview')
+    {
+        return array(
+            'title'   => __('Available in Asset CleanUp Pro', 'wp-asset-clean-up'),
+            'message' => __('This control is part of the Pro preview. Asset CleanUp Lite does not save or apply these rules. Upgrade to Pro to use this feature.', 'wp-asset-clean-up'),
+            'confirm' => __('Back to Preview', 'wp-asset-clean-up'),
+            'link'    => __('Explore Pro Features', 'wp-asset-clean-up'),
+            'url'     => esc_url_raw(add_query_arg(array(
+                'utm_campaign' => 'asset_cleanup_pro',
+                'utm_content'  => sanitize_key($context)
+            ), self::getUpgradeUrl('locked_control')))
+        );
+    }
+
+    /**
+     * Load the preview layer on Asset CleanUp admin pages, with alerts only
+     * where locked controls and their SweetAlert dependency are available.
      *
      * @return void
      */
     public static function enqueueAssets()
     {
-        if ( ! Menu::isPluginPage() ) {
+        $pluginPage = Menu::isPluginPage();
+
+        if ( ! $pluginPage ) {
             return;
         }
 
@@ -108,6 +133,18 @@ class ProPreview
             true
         );
 
+        if (in_array($pluginPage, array('settings', 'assets_manager', 'plugins_manager'), true)) {
+            $alertRelPath = '/lite/assets/pro-preview-alert.js';
+            $alertHandle  = WPACU_PLUGIN_ID . '-lite-pro-preview-alert';
+            wp_enqueue_script(
+                $alertHandle,
+                plugins_url($alertRelPath, WPACU_PLUGIN_FILE),
+                array(WPACU_PLUGIN_ID . '-sweetalert2-js', WPACU_PLUGIN_ID . '-lite-pro-preview'),
+                (string)filemtime(WPACU_PLUGIN_DIR . $alertRelPath),
+                true
+            );
+            wp_localize_script($alertHandle, 'wpacuLiteProPreviewAlertSettings', self::getAlertSettings());
+        }
 
         self::enqueuePluginsManagerPreviewStyles();
     }

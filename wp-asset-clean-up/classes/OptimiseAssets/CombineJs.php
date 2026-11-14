@@ -38,8 +38,6 @@ class CombineJs
 
 		$combineLevel = 2;
 
-		$isDeferAppliedOnBodyCombineGroupNo = false;
-
 		// $uriToFinalJsFile will always be relative ONLY within WP_CONTENT_DIR . self::getRelPathJsCacheDir()
 		// which is usually "wp-content/cache/asset-cleanup/js/"
 
@@ -47,6 +45,11 @@ class CombineJs
 		// for DEV purposes ONLY as it uses more resources
 		$finalCacheList = array();
 		$skipCache = false;
+        $sourceHashes = $inertSources = $sourceFiles = $registeredInline = array();
+        // Resolve translations once for this operation, including missing payloads.
+        // A subsequent combine starts fresh for file edits, locale or registry changes.
+        $resolvedTranslations = array();
+        $documentSignature = sha1('js-data-boundary-v1' . OptimizeCommon::getCombineDocumentSignature($htmlSource));
 
 		if (isset($_GET['wpacu_no_cache']) || wpacuIsDefinedConstant('WPACU_NO_CACHE')) {
 			$skipCache = true;
@@ -55,11 +58,30 @@ class CombineJs
         // If the cache is not skipped, read the information from the cache as it's much faster
         if (! $skipCache) {
 			// Speed up processing by getting the already existing final JS file URI
-			// This will avoid parsing the HTML DOM and determine the combined URI paths for all the JS files
+			// Reuse bundle metadata only after validating the current document and source contents.
 			$finalCacheList = OptimizeCommon::getAssetCachedData( self::$jsonStorageFile, OptimizeJs::getRelPathJsCacheDir(), 'js' );
 		}
 
+        // Forced body defer depends on current registered inline code and skip filters;
+        // keep its live DOM analysis rather than caching that policy decision.
+        if (Main::instance()->settings['combine_loaded_js_defer_body']
+            || ! OptimizeCommon::combineCacheMatchesDocument($finalCacheList, $documentSignature, 'js', $sourceHashes, $resolvedTranslations)) {
+            $domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'combineJs');
+            $sourceSignature = sha1('js-data-boundary-v1' . OptimizeCommon::getCombineSourceSignature($domTag, 'js', $sourceHashes, $inertSources, $sourceFiles, $registeredInline, $resolvedTranslations));
+            if (! OptimizeCommon::combineCacheMatchesSource($finalCacheList, $sourceSignature)) {
+                $finalCacheList = array();
+            }
+        }
+
 		if ( $skipCache || empty($finalCacheList) ) {
+            $preserveInlineHandles = array();
+            foreach ((new \DOMXPath($domTag))->query('//script[not(@src) and not(ancestor::template)]') as $inlineTag) {
+                $inlineHandle = self::getInlineScriptHandle($inlineTag);
+                if ($inlineHandle && isset($wpacuRegisteredScripts[$inlineHandle])
+                    && ! self::isAttachedInlineScript($inlineTag, $wpacuRegisteredScripts, $resolvedTranslations)) {
+                    $preserveInlineHandles[$inlineHandle] = true;
+                }
+            }
 			/*
 			 * NO CACHING TRANSIENT; Parse the DOM
 			*/
@@ -71,39 +93,18 @@ class CombineJs
 			$jQueryMigrateInBody = false;
 			$jQueryLibInBodyCount = 0;
 
-			$minifyJsInlineTagsIsNotEnabled = ! (in_array(Main::instance()->settings['minify_loaded_js_for'], array('inline', 'all')) && MinifyJs::isMinifyJsEnabled());
-
-			if ($minifyJsInlineTagsIsNotEnabled) {
-				$domTag = Misc::initDOMDocument();
-
-				// Strip irrelevant tags to boost the speed of the parser (e.g. NOSCRIPT / SCRIPT(inline) / STYLE)
-				// Sometimes, inline CODE can be too large, and it takes extra time for loadHTML() to parse
-				$htmlSourceAlt = preg_replace( '@<script(| (type=(\'|"|)text/(javascript|template|html)(\'|"|)))>.*?</script>@si', '', $htmlSource );
-				$htmlSourceAlt = preg_replace( '@<(style|noscript)[^>]*?>.*?</\\1>@si', '', $htmlSourceAlt );
-				$htmlSourceAlt = preg_replace( '#<link([^<>]+)/?>#iU', '', $htmlSourceAlt );
-
-				if (Main::instance()->isFrontendEditView) {
-                    $htmlSourceAlt = OptimizeCommon::clearFrontendFormFromHtmlSourceForProcessing($htmlSourceAlt);
-				}
-
-				if ($htmlSourceAlt === '') {
-					$htmlSourceAlt = $htmlSource;
-				}
-
-				$domTag->loadHTML( $htmlSourceAlt );
-			} else {
-				$domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'combineJs');
-			}
+			// Reuse the parsed document, including inline scripts which delimit groups.
 
 			// Only keep combinable JS files
 			foreach ( array( 'head', 'body' ) as $docLocationScript ) {
 				$groupIndex = 1;
+				$previousGroupType = null;
 
 				$docLocationElements = $domTag->getElementsByTagName($docLocationScript)->item(0);
 				if ($docLocationElements === null) { continue; }
 
 				// High accuracy (e.g. it ignores tags inside HTML comments, conditional or not)
-				$scriptTags = $docLocationElements->getElementsByTagName('script');
+				$scriptTags = (new \DOMXPath($domTag))->query('.//script[not(ancestor::template)]', $docLocationElements);
 				if ($scriptTags === null) { continue; }
 
 				if (Main::instance()->settings['combine_loaded_js_defer_body']) {
@@ -142,47 +143,19 @@ class CombineJs
 					}
 
 					$handleToCheck  = isset($scriptAttributes['data-wpacu-script-handle']) ? $scriptAttributes['data-wpacu-script-handle'] : ''; // Maybe: JS Inline (Before, After)
+                    if (isset($preserveInlineHandles[$handleToCheck])) { $scriptNotCombinable = true; }
                     $hasSrc         = isset($scriptAttributes['src']) && trim($scriptAttributes['src']); // No valid SRC attribute? It's not combinable (e.g. an inline tag)
                     $src            = $hasSrc ? (string)$scriptAttributes['src'] : '';
+                    if ($hasSrc && isset($inertSources[OptimizeCommon::getCombineSourceKey($src)])) { $scriptNotCombinable = true; }
                     $isPluginScript = isset($scriptAttributes['data-wpacu-plugin-script']); // Only of the user is logged-in (skip it as it belongs to the Asset CleanUp (Pro) plugin)
 
 					if (! $scriptNotCombinable && (! $hasSrc || $isPluginScript)) {
-						// Inline tag? Skip it in the BODY
-						if ($docLocationScript === 'body') {
-							continue;
-						}
-
-						// Because of jQuery, we will not have the list of all inline scripts and then the combined files as it is in BODY
-						if ($docLocationScript === 'head') {
-							if ($handleToCheck === '' && isset($scriptAttributes['id'])) {
-								$replaceToGetHandle = '';
-								if (strpos($scriptAttributes['id'], '-js-extra') !== false)        { $replaceToGetHandle = '-js-extra';        }
-								if (strpos($scriptAttributes['id'], '-js-before') !== false)       { $replaceToGetHandle = '-js-before';       }
-								if (strpos($scriptAttributes['id'], '-js-after') !== false)        { $replaceToGetHandle = '-js-after';        }
-								if (strpos($scriptAttributes['id'], '-js-translations') !== false) { $replaceToGetHandle = '-js-translations'; }
-
-								if ($replaceToGetHandle) {
-									$handleToCheck = str_replace( $replaceToGetHandle, '', $scriptAttributes['id'] ); // Maybe: JS Inline (Data)
-								}
-								}
-
-							// Once an inline SCRIPT (with few exceptions below), except the ones associated with an enqueued script tag (with "src") is stumbled upon, a new combined group in the HEAD tag will be formed
-							if ($handleToCheck && OptimizeCommon::appendInlineCodeToCombineAssetType('js')) {
-								$getInlineAssociatedWithHandle = OptimizeJs::getInlineAssociatedWithScriptHandle($handleToCheck, $wpacuRegisteredScripts, 'handle');
-
-								if ( ($getInlineAssociatedWithHandle['data'] || $getInlineAssociatedWithHandle['before'] || $getInlineAssociatedWithHandle['after'])
-								     || in_array(trim($tagObject->nodeValue), array($getInlineAssociatedWithHandle['data'], $getInlineAssociatedWithHandle['before'], $getInlineAssociatedWithHandle['after']))
-								     || (strncmp(trim($tagObject->nodeValue), '/* <![CDATA[ */', 15) === 0 && Misc::endsWith(trim($tagObject->nodeValue), '/* ]]> */')) ) {
-
-									// It's associated with the enqueued scripts, or it's a (standalone) CDATA inline tag added via wp_localize_script()
-									// Skip it instead and if the CDATA is not standalone (e.g. not associated with any script tag), the loop will "stay" in the same combined group
-									continue;
-								}
-							}
-
-							$scriptNotCombinable = true;
-						}
-					}
+                        if (! $hasSrc && self::isAttachedInlineScript($tagObject, $wpacuRegisteredScripts, $resolvedTranslations)) {
+                            continue;
+                        }
+                        // Independent inline code must run between the same external scripts.
+                        $scriptNotCombinable = true;
+                    }
 
 					$isInGroupType = 'standard';
 					$isJQueryLib = $isJQueryMigrate = false;
@@ -217,26 +190,28 @@ class CombineJs
 						} elseif (isset($scriptAttributes['async'])) { // Has only "async"
 							$isInGroupType = 'async';
 						} elseif (isset($scriptAttributes['defer'])) { // Has only "defer"
-							// Does it have "defer" attribute, it's combinable (all checks were already done), loads in the BODY tag and "combine_loaded_js_defer_body" is ON? Keep it to the combination list
-							$isCombinableWithBodyDefer = (! $scriptNotCombinable && $docLocationScript === 'body' && Main::instance()->settings['combine_loaded_js_defer_body']);
-
-							if (! $isCombinableWithBodyDefer) {
-								$isInGroupType = 'defer'; // Otherwise, add it to the "defer" group type
-							}
+							// Preserve an original defer strategy while groups are built. BODY defer is applied
+							// positionally only after the final HTML is known, so synchronous and deferred
+							// scripts that precede a surviving inline boundary are never collapsed together.
+							$isInGroupType = 'defer';
 						}
 					}
 
 					if ( ! $scriptNotCombinable ) {
 						// It also checks the domain name to make sure no external scripts would be added to the list
 						if ( $localAssetPath = OptimizeCommon::getLocalAssetPath( $src, 'js' ) ) {
+							// Keep program-level strict mode isolated; wrapping would change global bindings.
+							if (self::hasStrictModeDirective(FileSystem::fileGetContents($localAssetPath))) {
+								$groupIndex++;
+								$previousGroupType = null;
+								continue;
+							}
 							$scriptExtra = array();
 
 							if ( isset( $scriptAttributes['data-wpacu-script-handle'], $wpacuRegisteredScripts[ $scriptAttributes['data-wpacu-script-handle'] ]->extra ) && OptimizeCommon::appendInlineCodeToCombineAssetType('js') ) {
 								$scriptExtra = $wpacuRegisteredScripts[ $scriptAttributes['data-wpacu-script-handle'] ]->extra;
 
-								$anyScriptTranslations = method_exists('wp_scripts', 'print_translations')
-									? wp_scripts()->print_translations( $scriptAttributes['data-wpacu-script-handle'], false )
-									: false;
+								$anyScriptTranslations = OptimizeJs::getScriptTranslations($scriptAttributes['data-wpacu-script-handle'], $resolvedTranslations);
 
 								if ( $anyScriptTranslations ) {
 									$scriptExtra['translations'] = $anyScriptTranslations;
@@ -244,7 +219,9 @@ class CombineJs
 							}
 
 							// Standard (could be multiple groups per $docLocationScript), Async & Defer, Async, Defer
-							$groupByType = ($isInGroupType === 'standard') ? $groupIndex : $isInGroupType;
+							if ($previousGroupType !== $isInGroupType) { $groupIndex++; }
+							$previousGroupType = $isInGroupType;
+							$groupByType = $groupIndex.'|'.$isInGroupType;
 
 							if ($docLocationScript === 'body') {
 								if ($isJQueryLib || strpos($localAssetPath, '/wp-includes/js/jquery/jquery.js') !== false) {
@@ -271,9 +248,14 @@ class CombineJs
 								$jQueryLibInBodyCount = 0; // reset it
 								$groupIndex ++; // a new JS group will be created if jQuery & jQuery Migrate are combined in the BODY
 							}
+						} else {
+							// A remote or unresolved script must keep its position between local groups.
+							$groupIndex++;
+							$previousGroupType = null;
 						}
 					} else {
 						$groupIndex ++; // a new JS group will be created (applies to "standard" ones only)
+						$previousGroupType = null;
 					}
 				}
 			}
@@ -289,6 +271,7 @@ class CombineJs
 				$groupNo = 1;
 
 				foreach ($combinableListGroups as $groupType => $groupFiles) {
+					list(, $groupType) = explode('|', $groupType, 2);
 					// Any groups having one file? Then it's not really a group and the file should load on its own
 					// Could be one extra file besides the jQuery & jQuery Migrate group or the only JS file called within the HEAD
 					if (count($groupFiles) < 2) {
@@ -339,7 +322,7 @@ class CombineJs
                             $localFilePath = OptimizeCommon::getLocalAssetPath($src, 'js');
 
                             // Unique Mark: SHA1 of the file contents + a unique ID (in rare cases when a different file has the same content)
-                            $indexKey      = sha1_file($localFilePath) . '_'. uniqid('', true);
+                            $indexKey      = OptimizeCommon::getCombineFileHash($localFilePath, $sourceHashes) . '_'. uniqid('', true);
                         }
 
                         $src = str_replace('{site_url}', '', OptimizeCommon::getSourceRelPath($src, true));
@@ -349,6 +332,7 @@ class CombineJs
                     }
 
 					$finalCacheList[$docLocationScript][$groupNo] = array(
+						'source_signature' => $sourceSignature,
 						'uri_to_final_js_file' => $uriToFinalJsFile,
 						'script_srcs'          => $groupScriptSrcs
 					);
@@ -362,20 +346,17 @@ class CombineJs
 						}
 					}
 
-					// Apply 'defer="defer"' to combined JS files from the BODY tag (if enabled), except the combined jQuery & jQuery Migrate Group
-					if ($docLocationScript === 'body' && ! $jQueryIsIncludedInGroup && Main::instance()->settings['combine_loaded_js_defer_body']) {
-						if ($isDeferAppliedOnBodyCombineGroupNo === false) {
-							// Only record the first one
-							$isDeferAppliedOnBodyCombineGroupNo = $groupNo;
-						}
-
-						$finalCacheList[$docLocationScript][$groupNo]['extra_attributes'][] = 'defer';
+					// BODY defer is applied after the groups have been materialized in the final HTML.
+					// Keep a private marker for the jQuery group, which intentionally remains blocking.
+					if ($docLocationScript === 'body' && $jQueryIsIncludedInGroup) {
+						$finalCacheList[$docLocationScript][$groupNo]['skip_positional_body_defer'] = true;
 					}
 
 					$groupNo ++;
 				}
 			}
 
+			OptimizeCommon::attachCombineValidation($finalCacheList, $documentSignature, $sourceFiles, $registeredInline);
 			OptimizeCommon::setAssetCachedData(self::$jsonStorageFile, OptimizeJs::getRelPathJsCacheDir(), wp_json_encode($finalCacheList));
 		}
 
@@ -401,6 +382,10 @@ class CombineJs
 					$finalJsTagAttrsOutput = '';
 					$extraAttrs = array();
 
+					if (Main::instance()->settings['combine_loaded_js_defer_body'] && ! empty($cachedValues['skip_positional_body_defer']) ) {
+						$finalJsTagAttrsOutput .= ' data-wpacu-skip-positional-body-defer=\'1\' ';
+					}
+
 					if ( ! empty($cachedValues['extra_attributes']) ) {
 						$extraAttrs = $cachedValues['extra_attributes'];
 						foreach ($extraAttrs as $finalJsTagAttr) {
@@ -410,8 +395,8 @@ class CombineJs
 					}
 
 					// No async or defer? Add the preloading for the combined JS from the BODY
-					if ( ! $finalJsTagAttrsOutput && $docLocationScript === 'body' ) {
-						$finalJsTagAttrsOutput = ' data-wpacu-to-be-preloaded-basic=\'1\' ';
+					if (empty($extraAttrs) && $docLocationScript === 'body' ) {
+						$finalJsTagAttrsOutput .= ' data-wpacu-to-be-preloaded-basic=\'1\' ';
                         wpacuDefineConstant('WPACU_REAPPLY_PRELOADING_FOR_COMBINED_JS');
 					}
 
@@ -449,7 +434,7 @@ class CombineJs
                             strpos($srcRelCleanPath, OptimizeCommon::getRelPathPluginCacheDir()) === false) {
                             list($sha1File) = explode('_', $indexKey);
 
-                            if ($sha1File !== sha1_file(OptimizeCommon::getLocalAssetPath($srcRelCleanPath, 'js'))) {
+                            if ($sha1File !== OptimizeCommon::getCombineFileHash(OptimizeCommon::getLocalAssetPath($srcRelCleanPath, 'js'), $sourceHashes)) {
                                 // The contents of one of the files from the combined CSS were changed
                                 $clearCombinedJsCache = true;
                                 break 3;
@@ -458,7 +443,7 @@ class CombineJs
 
 						// 1) Strip any inline code associated with tag
 						// 2) Finally, strip the actual tag
-						$htmlSource = self::stripTagAndAnyInlineAssocCode( $scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource );
+						$htmlSource = self::stripTagAndAnyInlineAssocCode( $scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource, $resolvedTranslations );
 
 						if ($htmlSource !== $htmlSourceBeforeTagReplacement) {
 							$scriptTagsStrippedNo ++;
@@ -480,115 +465,12 @@ class CombineJs
                 }
 		}
 
-		// Only relevant if "Defer loading JavaScript combined files from <body>" in "Settings" - "Combine CSS & JS Files" - "Combine loaded JS (JavaScript) into fewer files"
-		// and there is at least one combined deferred tag
-
+		// Apply BODY defer only after bundle replacement, when we know which inline scripts
+		// actually survived in the document. This preserves the original execution order
+		// across synchronous inline boundaries without letting unrelated inline code disable
+		// defer for the whole BODY.
 		if ( ! empty($finalCacheList['body']) && Main::instance()->settings['combine_loaded_js_defer_body'] ) {
-            $htmlAfterFirstCombinedDeferScript = ''; // default
-
-			// CACHE RE-BUILT
-			if ($isDeferAppliedOnBodyCombineGroupNo > 0 && $domTag = ObjectCache::wpacu_cache_get('wpacu_html_dom_body_tag_for_js')) {
-				$strPart = "id='wpacu-combined-js-body-group-".$isDeferAppliedOnBodyCombineGroupNo."' ";
-
-				if (strpos($htmlSource, $strPart) === false) {
-					return $htmlSource; // something is funny, do not continue
-				}
-
-				list(,$htmlAfterFirstCombinedDeferScript) = explode($strPart, $htmlSource);
-				$htmlAfterFirstCombinedDeferScriptMaybeChanged = $htmlAfterFirstCombinedDeferScript;
-				$scriptTags = $domTag->getElementsByTagName('script');
-			} else {
-				// FROM THE CACHE
-				foreach ($finalCacheList['body'] as $bodyCombineGroupNo => $values) {
-					if (isset($values['extra_attributes']) && in_array('defer', $values['extra_attributes'])) {
-						$isDeferAppliedOnBodyCombineGroupNo = $bodyCombineGroupNo;
-						break;
-					}
-				}
-
-				if (! $isDeferAppliedOnBodyCombineGroupNo) {
-					// Not applicable to any combined group
-					return $htmlSource;
-				}
-
-				$strPart = 'id=\'wpacu-combined-js-body-group-'.$isDeferAppliedOnBodyCombineGroupNo.'\'';
-
-				$htmlAfterFirstCombinedDeferScriptMaybeChanged = false;
-
-				if (strpos($htmlSource, $strPart) !== false) {
-					list( , $htmlAfterFirstCombinedDeferScript ) = explode( $strPart, $htmlSource );
-					$htmlAfterFirstCombinedDeferScriptMaybeChanged = $htmlAfterFirstCombinedDeferScript;
-				}
-
-				// e.g. only one JS file loaded in the HEAD and one in the BODY
-				if ( ! $htmlAfterFirstCombinedDeferScript ) {
-					return $htmlSource;
-				}
-
-				$domTag = Misc::initDOMDocument();
-
-				// Strip irrelevant tags to boost the speed of the parser (e.g. NOSCRIPT / SCRIPT(inline) / STYLE)
-				// Sometimes, inline CODE can be too large, and it takes extra time for loadHTML() to parse
-				$htmlSourceAlt = preg_replace( '@<script(| type=\'text/javascript\'| type="text/javascript")>.*?</script>@si', '', $htmlAfterFirstCombinedDeferScript );
-				$htmlSourceAlt = preg_replace( '@<(style|noscript)[^>]*?>.*?</\\1>@si', '', $htmlSourceAlt );
-				$htmlSourceAlt = preg_replace( '#<link([^<>]+)/?>#iU', '', $htmlSourceAlt );
-
-				if (Main::instance()->isFrontendEditView) {
-					$htmlSourceAlt = OptimizeCommon::clearFrontendFormFromHtmlSourceForProcessing($htmlSourceAlt);
-				}
-
-				// No other SCRIPT left, stop here in this case
-				if (strpos($htmlSourceAlt, '<script') === false) {
-					return $htmlSource;
-				}
-
-				$domTag->loadHTML( $htmlSourceAlt );
-				$scriptTags = $domTag->getElementsByTagName('script');
-			}
-
-			if ( $scriptTags === null ) {
-				return $htmlSource;
-			}
-
-			foreach ($scriptTags as $tagObject) {
-				if (empty($tagObject->attributes)) { continue; }
-
-				$scriptAttributes = array();
-
-				foreach ( $tagObject->attributes as $attrObj ) {
-					$scriptAttributes[ $attrObj->nodeName ] = trim( $attrObj->nodeValue );
-				}
-
-				// No "src" attribute? Skip it (most likely an inline script tag)
-				if (! (isset($scriptAttributes['src']) && $scriptAttributes['src'])) {
-					continue;
-				}
-
-				// Skip it as "defer" is already set
-				if (isset($scriptAttributes['defer'])) {
-					continue;
-				}
-
-                $scriptType = isset($scriptAttributes['type']) ? $scriptAttributes['type'] : '';
-
-                // Do not rewrite module/import-map/speculation tags or nomodule fallbacks.
-                if ( ! Misc::isClassicScriptType($scriptType) || isset($scriptAttributes['nomodule']) ) {
-                    continue;
-                }
-
-				// Has "src" attribute and "defer" is not applied? Add it
-				if ($htmlAfterFirstCombinedDeferScriptMaybeChanged !== false) {
-					$htmlAfterFirstCombinedDeferScriptMaybeChanged = trim( preg_replace(
-						'#\ssrc(\s+|)=(\s+|)(|"|\'|\s+)(' . preg_quote( $scriptAttributes['src'], '/' ) . ')(\3)#si',
-						' src=\3\4\3 defer=\'defer\'',
-						$htmlAfterFirstCombinedDeferScriptMaybeChanged
-					) );
-				}
-			}
-
-			if ($htmlAfterFirstCombinedDeferScriptMaybeChanged && $htmlAfterFirstCombinedDeferScriptMaybeChanged !== $htmlAfterFirstCombinedDeferScript) {
-				$htmlSource = str_replace($htmlAfterFirstCombinedDeferScript, $htmlAfterFirstCombinedDeferScriptMaybeChanged, $htmlSource);
-			}
+			$htmlSource = self::applyPositionalBodyDefer($htmlSource);
 		}
 
 		libxml_clear_errors();
@@ -596,6 +478,98 @@ class CombineJs
 		// Finally, return the HTML source
 		return $htmlSource;
 	}
+
+
+    /**
+     * Add defer only to eligible BODY scripts that occur after the last surviving
+     * synchronous classic inline script. Existing defer/async strategies are preserved.
+     *
+     * The decision is deliberately made on the final HTML: registered inline code that
+     * was absorbed into a real bundle is gone and cannot create a false boundary, while
+     * an attached `after` block whose handle stayed standalone is still present and keeps
+     * its external script blocking.
+     *
+     * @param string $htmlSource
+     * @return string
+     */
+    public static function applyPositionalBodyDefer($htmlSource)
+    {
+        $scripts = HtmlCleanup::getBodyScriptTokens($htmlSource);
+        if ($scripts === false) {
+            return $htmlSource;
+        }
+
+        $lastBarrierEnd = 0;
+        foreach ($scripts as $script) {
+            if ($script['manager']) {
+                continue;
+            }
+            $attributes = $script['attributes'];
+            $src        = isset($attributes['src']) ? trim($attributes['src']) : '';
+            $type       = isset($attributes['type']) ? trim($attributes['type']) : '';
+
+            if ($src !== '') {
+                // An explicitly synchronous skipped script must not overtake a dependency.
+                if ( ! isset($attributes['defer']) && ! isset($attributes['async'])
+                    && isset($attributes['data-wpacu-skip']) && ! isset($attributes['data-wpacu-plugin-script'])) {
+                    $lastBarrierEnd = $script['offset'] + $script['length'];
+                }
+                continue;
+            }
+            if (isset($attributes['data-wpacu-own-inline-script']) || ! Misc::isClassicScriptType($type)) {
+                continue;
+            }
+            if (trim($script['content']) !== '') {
+                $lastBarrierEnd = $script['offset'] + $script['length'];
+            }
+        }
+
+        $replacements = array();
+        foreach ($scripts as $script) {
+            if ($script['manager']) {
+                continue;
+            }
+            $attributes = $script['attributes'];
+            $src        = isset($attributes['src']) ? trim($attributes['src']) : '';
+            $type       = isset($attributes['type']) ? trim($attributes['type']) : '';
+            $addDefer   = $script['offset'] >= $lastBarrierEnd && $src !== '' && Misc::isClassicScriptType($type);
+            foreach (array('defer', 'async', 'nomodule', 'data-wpacu-skip', 'data-wpacu-plugin-script', 'data-wpacu-skip-positional-body-defer') as $name) {
+                if (isset($attributes[$name])) {
+                    $addDefer = false;
+                }
+            }
+
+            $opening = $script['opening'];
+            $insert  = strlen($opening) - 1;
+            $ranges  = $script['attribute_ranges'];
+            $last    = $ranges ? end($ranges) : null;
+            // A slash in an unquoted value belongs to that value, not to '/>'.
+            if (substr($opening, -2) === '/>' && ( ! $last || $last['offset'] + $last['length'] <= $insert - 1)) {
+                --$insert;
+            }
+            for ($i = count($ranges) - 1; $i >= 0; --$i) {
+                $range = $ranges[$i];
+                if ($range['name'] === 'data-wpacu-skip-positional-body-defer'
+                    || ($addDefer && $range['name'] === 'data-wpacu-to-be-preloaded-basic')) {
+                    $opening = substr_replace($opening, '', $range['offset'], $range['length']);
+                    $insert -= $range['length'];
+                }
+            }
+            if ($addDefer) {
+                $opening = substr_replace($opening, " defer='defer'", $insert, 0);
+            }
+            if ($opening !== $script['opening']) {
+                $replacements[] = array($script['offset'], strlen($script['opening']), $opening);
+            }
+        }
+
+        // Replace only complete opening tags, from the end, preserving every other byte.
+        for ($i = count($replacements) - 1; $i >= 0; --$i) {
+            list($offset, $length, $opening) = $replacements[$i];
+            $htmlSource = substr_replace($htmlSource, $opening, $offset, $length);
+        }
+        return $htmlSource;
+    }
 
 	/**
 	 * @param string $src
@@ -798,17 +772,17 @@ JS;
 	 *
 	 * @return mixed
 	 */
-	public static function stripTagAndAnyInlineAssocCode($scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource)
+	public static function stripTagAndAnyInlineAssocCode($scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource, &$resolvedTranslations = null)
 	{
 		if (OptimizeCommon::appendInlineCodeToCombineAssetType('js')) {
-			$scriptExtrasValue      = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'value');
+			$scriptExtrasValue      = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'value', $resolvedTranslations);
 
 			$scriptExtraTranslationsValue  = (isset($scriptExtrasValue['translations']) && $scriptExtrasValue['translations']) ? $scriptExtrasValue['translations']   : '';
 			$scriptExtraCdataValue         = (isset($scriptExtrasValue['data'])   && $scriptExtrasValue['data'])   ? $scriptExtrasValue['data']   : '';
 			$scriptExtraBeforeValue        = (isset($scriptExtrasValue['before']) && $scriptExtrasValue['before']) ? $scriptExtrasValue['before'] : '';
 			$scriptExtraAfterValue         = (isset($scriptExtrasValue['after'])  && $scriptExtrasValue['after'])  ? $scriptExtrasValue['after']  : '';
 
-			$scriptExtrasHtml       = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'html');
+			$scriptExtrasHtml       = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'html', $resolvedTranslations);
 			preg_match_all('#data-wpacu-script-handle=([\'])' . '(.*)' . '(\1)#Usmi', $scriptTag, $outputMatches);
 			$scriptHandle = (isset($outputMatches[2][0]) && $outputMatches[2][0]) ? trim($outputMatches[2][0], '"\'') : '';
 
@@ -857,6 +831,105 @@ JS;
 		// Finally, strip/replace the tag
 		return str_replace( array($scriptTag."\n", $scriptTag), $replaceWith, $htmlSource );
 	}
+
+    /**
+     * Registered extras may enter a bundle even if an HTML filter removes their inline
+     * tag's handle/id. Match appendToCombineJs() eligibility, retaining translations too.
+     * @return string
+     */
+    public static function getRegisteredInlineSignature($handle, $registeredScripts, &$resolvedTranslations = null)
+    {
+        $parts = array();
+        if (OptimizeCommon::appendInlineCodeToCombineAssetType('js') && isset($registeredScripts[$handle]->extra)) {
+            $extra = $registeredScripts[$handle]->extra;
+            if (! empty($extra['data']) && self::isInlineJsCombineable($extra['data']) && trim($extra['data']) !== '') {
+                $parts['data'] = $extra['data'];
+            }
+            foreach (array('before', 'after') as $position) {
+                if (empty($extra[$position])) { continue; }
+                foreach ($extra[$position] as $code) {
+                    if (! is_bool($code) && self::isInlineJsCombineable($code)) {
+                        $parts[$position][] = $code;
+                    }
+                }
+            }
+            $translations = isset($extra['translations']) ? $extra['translations'] : false;
+            $printedTranslations = OptimizeJs::getScriptTranslations($handle, $resolvedTranslations);
+            if ($printedTranslations) { $translations = $printedTranslations; }
+            if ($translations) { $parts['translations'] = $translations; }
+        }
+        return sha1(wp_json_encode($parts));
+    }
+
+    /**
+     * Inline tags are movable only when WordPress registered their content for a handle.
+     * Nonces and other inline code explicitly excluded from combination remain boundaries.
+     *
+     * @param \DOMElement $tag
+     * @param array $registeredScripts
+     * @param array|null $resolvedTranslations
+     *
+     * @return bool
+     */
+    public static function isAttachedInlineScript($tag, $registeredScripts, &$resolvedTranslations = null)
+    {
+        if (! OptimizeCommon::appendInlineCodeToCombineAssetType('js') || $tag->hasAttribute('nonce')
+            || $tag->hasAttribute('data-wpacu-skip')
+            || ! Misc::isClassicScriptType($tag->getAttribute('type'))) { return false; }
+        $attributes = array();
+        foreach ($tag->attributes as $attribute) { $attributes[$attribute->nodeName] = trim($attribute->nodeValue); }
+        if (apply_filters('wpacu_internal_combine_js_skip_script_tag', false, $attributes)) { return false; }
+        $handle = self::getInlineScriptHandle($tag);
+        if (! isset($registeredScripts[$handle])) { return false; }
+        $extras = OptimizeJs::getInlineAssociatedWithScriptHandle($handle, $registeredScripts, 'handle', 'value', $resolvedTranslations);
+
+        // Keep printed data with its original handle. Its serialization can differ
+        // from the reconstructed tag (for example, WordPress sourceURL comments),
+        // otherwise the same data can execute once here and again in the bundle.
+        if ($tag->getAttribute('id') === $handle . '-js-extra' && ! empty($extras['data'])) {
+            return false;
+        }
+
+        return (bool)array_filter($extras)
+            && self::isInlineJsCombineable($tag->nodeValue)
+            && ! self::hasStrictModeDirective($tag->nodeValue);
+    }
+
+    /** @return string */
+    public static function getInlineScriptHandle($tag)
+    {
+        $handle = $tag->getAttribute('data-wpacu-script-handle');
+        if ($handle) { return $handle; }
+        $id = $tag->getAttribute('id');
+        $handle = preg_replace('/-js-(before|after|extra|translations)$/', '', $id);
+        return $handle !== $id ? $handle : '';
+    }
+
+    /**
+     * Detect strict mode in a script's directive prologue, including leading comments
+     * and preceding string directives. Function-local directives do not affect combining.
+     */
+    public static function hasStrictModeDirective($code)
+    {
+        $code = preg_replace('/\A\xEF\xBB\xBF/', '', (string)$code);
+        while ($code !== '') {
+            $code = preg_replace('~\A(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r\n|\r|\n|\z))+~s', '', $code);
+            if (! preg_match('~\A(?:"((?:\\\\.|[^"\\\\\r\n])*)"|\'((?:\\\\.|[^\'\\\\\r\n])*)\')~s', $code, $match)) {
+                return false;
+            }
+            $tail = substr($code, strlen($match[0]));
+            preg_match('~\A(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r\n|\r|\n|\z))*~s', $tail, $spacing);
+            $tail = substr($tail, strlen($spacing[0]));
+            if ($tail !== '' && $tail[0] !== ';' && strpbrk($spacing[0], "\r\n") === false) {
+                return false;
+            }
+            if ((isset($match[1]) && $match[1] === 'use strict') || (isset($match[2]) && $match[2] === 'use strict')) {
+                return true;
+            }
+            $code = ($tail !== '' && $tail[0] === ';') ? substr($tail, 1) : $tail;
+        }
+        return false;
+    }
 
 	/**
 	 * This is to prevent certain inline JS to be appended to the combined JS files in order to avoid lots of disk space (sometimes a few GB) of JS combined files

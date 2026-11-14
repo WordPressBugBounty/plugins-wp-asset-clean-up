@@ -12,6 +12,26 @@ class PluginsManagerAdmin
      */
     public $data = array();
 
+    /** Visibility is separate from permission to use Asset CleanUp and from saved rule delivery. */
+    public static function currentUserCanViewManager()
+    {
+        if (!\WpAssetCleanUp\Menu::userCanAccessPlugin()) {
+            return false;
+        }
+        $settings = \WpAssetCleanUp\Main::instance()->settings;
+        $policy = isset($settings['plugins_manager_visibility']) ? $settings['plugins_manager_visibility'] : array();
+        if (!is_array($policy) || !isset($policy['scope']) || $policy['scope'] !== 'selected') {
+            return true;
+        }
+        $roles = !empty($policy['roles_enabled']) && !empty($policy['roles']) ? (array)$policy['roles'] : array();
+        $users = !empty($policy['users_enabled']) && !empty($policy['users']) ? array_map('intval', (array)$policy['users']) : array();
+        if (!$roles && !$users) {
+            return true; // Same empty-selection fallback as CSS/JS Manager.
+        }
+        $user = wp_get_current_user();
+        return (bool)array_intersect($roles, (array)$user->roles) || in_array((int)$user->ID, $users, true);
+    }
+
     /**
      * Make sure there is a status for the rule, otherwise it's likely set to "Load it",
      * thus the rule wouldn't count
@@ -212,6 +232,9 @@ class PluginsManagerAdmin
 	 */
 	public function page()
     {
+        if (!self::currentUserCanViewManager()) {
+            wp_die(esc_html__('Plugins Manager is hidden for your account by its visibility preferences.', 'wp-asset-clean-up'), '', array('response'=>403));
+        }
     	// Get active plugins and their basic information
 	    $this->data['active_plugins'] = self::getActivePlugins();
 	    $this->data['plugins_icons']  = MiscAdmin::getAllActivePluginsIcons();
@@ -230,16 +253,37 @@ class PluginsManagerAdmin
 	/**
 	 * @return array
 	 */
-	public static function getActivePlugins()
+	public static function getActivePlugins($includeUnloaded = false)
 	{
 		$activePluginsFinal = array();
 
 		// Get active plugins and their basic information
         $activePlugins = wp_get_active_and_valid_plugins();
+        if ($includeUnloaded) {
+            $activePlugins = array();
+            foreach ((array)wpacuGetAllActivePluginsFromDbOptionsTable() as $plugin) {
+                if (is_string($plugin) && !validate_file($plugin) && substr($plugin, -4) === '.php' && is_file(WP_PLUGIN_DIR.'/'.$plugin)) {
+                    $activePlugins[] = WP_PLUGIN_DIR.'/'.$plugin;
+                }
+            }
+        }
 
         // Also check any network activated plugins in case we're dealing with a MultiSite setup
 		if ( is_multisite() ) {
 			$activeNetworkPlugins = wp_get_active_network_plugins();
+            if ($includeUnloaded) {
+                global $wpdb;
+                $networkPlugins = maybe_unserialize($wpdb->get_var($wpdb->prepare(
+                    "SELECT meta_value FROM {$wpdb->sitemeta} WHERE site_id = %d AND meta_key = %s",
+                    get_current_network_id(), 'active_sitewide_plugins'
+                )));
+                $activeNetworkPlugins = array();
+                foreach (array_keys((array)$networkPlugins) as $plugin) {
+                    if (!validate_file($plugin) && substr($plugin, -4) === '.php' && is_file(WP_PLUGIN_DIR.'/'.$plugin)) {
+                        $activeNetworkPlugins[] = WP_PLUGIN_DIR.'/'.$plugin;
+                    }
+                }
+            }
 
 			if ( ! empty( $activeNetworkPlugins ) ) {
 				foreach ( $activeNetworkPlugins as $activeNetworkPlugin ) {
@@ -264,6 +308,7 @@ class PluginsManagerAdmin
 
 			$activePluginsFinal[] = array(
                 'title'             => $pluginData['Name'],
+                'version'           => $pluginData['Version'],
                 'path'              => $pluginRelPath,
                 'network_activated' => $networkActivated
 			);

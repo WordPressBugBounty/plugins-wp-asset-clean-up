@@ -35,6 +35,36 @@ class SettingsAdminOnlyForAdmin
 
 
     /**
+     * Keep the administrator-owned policy unchanged when delegated managers save
+     * settings, including requests with omitted or manually supplied fields.
+     * Read storage directly so runtime defaults and user-specific filters cannot
+     * accidentally replace the saved policy.
+     *
+     * @param array $settings
+     * @return array
+     */
+    public static function preserveManagerVisibilityForNonAdmins($settings)
+    {
+        if (current_user_can(Menu::$defaultAccessRole)) {
+            return $settings;
+        }
+
+        $stored = get_option(WPACU_PLUGIN_ID . '_settings');
+        $stored = is_string($stored) ? json_decode($stored, true) : $stored;
+        $stored = is_array($stored) ? $stored : array();
+
+        foreach (array('allow_manage_assets_to', 'allow_manage_assets_to_list', 'allow_manage_assets_to_roles', 'allow_manage_assets_via_roles', 'allow_manage_assets_via_users', 'plugins_manager_visibility') as $key) {
+            if (array_key_exists($key, $stored)) {
+                $settings[$key] = $stored[$key];
+            } else {
+                unset($settings[$key]);
+            }
+        }
+
+        return $settings;
+    }
+
+    /**
      * @return void
      */
     public function init()
@@ -48,7 +78,7 @@ class SettingsAdminOnlyForAdmin
     /**
      * @return void
      */
-    public static function filterSettingsOnFormSubmit()
+    public static function filterSettingsOnFormSubmit($settings = array())
     {
         $triggerIf = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && ! empty($_POST['wpacu_selected_tab_area']) && current_user_can(Menu::$defaultAccessRole);
 
@@ -72,10 +102,10 @@ DELETE FROM `{$wpdb->usermeta}` WHERE meta_key='{$metaKeyTargeted}';
 SQL;
         $wpdb->query($clearQuery);
 
-        if (isset($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to'], $_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list']) &&
-            in_array($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to'], array('chosen', 'selected'), true) &&
-            ! empty($_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list'])) {
-            $allowManageAssetsTo = $_POST[WPACU_PLUGIN_ID . '_settings']['allow_manage_assets_to_list'];
+        if (isset($settings['allow_manage_assets_to'], $settings['allow_manage_assets_to_list']) &&
+            in_array($settings['allow_manage_assets_to'], array('chosen', 'selected'), true) &&
+            ! empty($settings['allow_manage_assets_to_list'])) {
+            $allowManageAssetsTo = $settings['allow_manage_assets_to_list'];
 
             foreach ($allowManageAssetsTo as $specificUserId) {
                 delete_user_meta($specificUserId, $metaKeyTargeted);

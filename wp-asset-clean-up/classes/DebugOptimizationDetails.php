@@ -219,16 +219,14 @@ class DebugOptimizationDetails
         try {
             $result = $type === 'css' ? MinifyCss::applyMinification($content) : MinifyJs::applyMinification($content);
         } catch (\Throwable $error) {
-            self::record($type, $asset, 'Minification', 'Failed',
-                __('The minifier raised an error.', 'wp-asset-clean-up'));
+            self::record($type, $asset, 'Minification', 'Failed', __('The minifier raised an error.', 'wp-asset-clean-up'));
             throw $error;
         }
 
         $minifierClass = $type === 'css' ? '\\MatthiasMullieWpacu\\Minify\\CSS' : '\\MatthiasMullieWpacu\\Minify\\JS';
 
         if ( ! class_exists($minifierClass)) {
-            self::record($type, $asset, 'Minification', 'Failed',
-                __('The minification library was unavailable.', 'wp-asset-clean-up'));
+            self::record($type, $asset, 'Minification', 'Failed', __('The minification library was unavailable.', 'wp-asset-clean-up'));
         } elseif (trim($content) === trim((string)$result)) {
             self::record($type, $asset, 'Minification', 'No change needed', self::$cachedMinification
                 ? __('A previous check of this exact content found no minification changes. That result was reused.',

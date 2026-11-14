@@ -4,7 +4,7 @@ if (! isset($data)) {
 	exit;
 }
 ?>
-<script type="text/javascript" data-wpacu-own-inline-script="true">
+<?php ob_start(); ?>
     function wpacuCollapsibleInit()
     {
         var wpacuContentLinks = document.getElementsByClassName('wpacu-assets-collapsible'),
@@ -27,6 +27,8 @@ if (! isset($data)) {
                     //assetsListContent.style.maxHeight = assetsListContent.scrollHeight + "px";
                     assetsListContent.style.maxHeight = 'inherit';
                 }
+
+                wpacuRefreshAssetGroupActions();
             });
         }
 
@@ -74,26 +76,39 @@ if (! isset($data)) {
             });
         }
 
-        // Check if the contract / expand buttons exist (e.g. in view-default.php)
-        var $wpacuContractAllBtn = document.getElementById('wpacu-assets-contract-all'),
-            $wpacuExpandAllBtn = document.getElementById('wpacu-assets-expand-all');
-
-        if (typeof ($wpacuContractAllBtn) != 'undefined' && $wpacuContractAllBtn != null) {
-            $wpacuContractAllBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                wpacuContractAllMainAreas();
-            });
-        }
-
-        if (typeof ($wpacuExpandAllBtn) != 'undefined' && $wpacuExpandAllBtn != null) {
-            $wpacuExpandAllBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                wpacuExpandAllMainAreas();
-            });
-        }
+        wpacuRefreshAssetGroupActions();
     }
 
     setTimeout(wpacuCollapsibleInit, 1000);
+
+    function wpacuRefreshAssetGroupActions()
+    {
+        var area = document.getElementById('wpacu-assets-groups-change-state-area');
+
+        if (! area) {
+            return;
+        }
+
+        var links = document.getElementsByClassName('wpacu-assets-collapsible'),
+            expandButton = document.getElementById('wpacu-assets-expand-all'),
+            contractButton = document.getElementById('wpacu-assets-contract-all'),
+            saving = area.getAttribute('data-wpacu-groups-saving') === '1',
+            expanded = 0;
+
+        for (var index = 0; index < links.length; index++) {
+            if (links[index].classList.contains('wpacu-assets-collapsible-active')) {
+                expanded++;
+            }
+        }
+
+        if (expandButton) {
+            expandButton.disabled = saving || links.length === 0 || expanded === links.length;
+        }
+
+        if (contractButton) {
+            contractButton.disabled = saving || expanded === 0;
+        }
+    }
 
     function wpacuExpandAllMainAreas() {
         var wpacuI, assetsListContent, wpacuContentLinks = document.getElementsByClassName('wpacu-assets-collapsible');
@@ -104,6 +119,8 @@ if (! isset($data)) {
             assetsListContent.style.maxHeight = 'inherit';
             assetsListContent.classList.remove('wpacu-open');
         }
+
+        wpacuRefreshAssetGroupActions();
     }
 
     function wpacuContractAllMainAreas() {
@@ -114,6 +131,8 @@ if (! isset($data)) {
             assetsListContent = wpacuContentLinks[wpacuI].nextElementSibling;
             assetsListContent.style.maxHeight = null;
         }
+
+        wpacuRefreshAssetGroupActions();
     }
 
     function wpacuExpandAllInlineCodeAreas()
@@ -237,7 +256,7 @@ if (! isset($data)) {
     ?>
     document.querySelectorAll('.wpacu-manage-hardcoded-assets-requires-pro-popup').forEach(function(element) {
         element.addEventListener('click', function() {
-            window.location.assign('<?php echo esc_js($upgradeToProLink); ?>');
+            window.top.location.assign(<?php echo wp_json_encode($upgradeToProLink, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
         });
     });
     <?php } ?>
@@ -275,4 +294,4 @@ if (! isset($data)) {
             overlay.classList.toggle('wpacu-has-visible-tooltip', tooltip.classList.contains('wpacu-is-click-visible'));
         }
     }, true);
-</script>
+<?php echo \WpAssetCleanUp\OwnAssets::getInlineScriptTag(ob_get_clean(), array('type' => 'text/javascript', 'data-wpacu-own-inline-script' => 'true')); ?>

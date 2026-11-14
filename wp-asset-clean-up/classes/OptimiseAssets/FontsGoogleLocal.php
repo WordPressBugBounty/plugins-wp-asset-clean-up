@@ -402,16 +402,17 @@ class FontsGoogleLocal
     {
         $content = self::discoverContent($content, $context);
 
-        if (! is_string($content)
-            || $content === ''
-            || stripos($content, 'fonts.googleapis.com') === false
-            || ! self::isEnabled()
-            || self::preventRuntimeChange()
+        if ( ! is_string($content)
+             || $content === ''
+             || stripos($content, 'fonts.googleapis.com') === false
+             || ! self::isEnabled()
+             || self::preventRuntimeChange()
         ) {
             return $content;
         }
 
         $references = FontsGoogleLocalUrl::extractStylesheetReferences($content, $context === 'html');
+
         if (empty($references)) {
             return $content;
         }
@@ -424,15 +425,21 @@ class FontsGoogleLocal
 
             if (apply_filters('wpacu_google_fonts_local_should_skip_url', false, $stylesheetUrl, $context)) {
                 if (isset($_GET['wpacu_debug'])) {
-                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug('css', (object)array('src' => $stylesheetUrl), 'Local Google Fonts', 'Skipped',
-                        __('Excluded from local hosting and automatic processing by a configured exclusion.', 'wp-asset-clean-up'));
+                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug(
+                        'css',
+                        (object)array('src' => $stylesheetUrl),
+                        'Local Google Fonts',
+                        'Skipped',
+                        __('Excluded from local hosting and automatic processing by a configured exclusion.', 'wp-asset-clean-up')
+                    );
                 }
+
                 continue;
             }
 
             $discovery = FontsGoogleLocalRegistry::discover($stylesheetUrl, $userAgent, $requestPath, 'php');
-            $key = isset($discovery['key']) ? $discovery['key'] : '';
-            $entry = $key !== '' ? FontsGoogleLocalRegistry::getEntry($key) : array();
+            $key       = isset($discovery['key']) ? $discovery['key'] : '';
+            $entry     = $key !== '' ? FontsGoogleLocalRegistry::getEntry($key) : array();
 
             $localCssUrl = FontsGoogleLocalRegistry::getReadyLocalCssUrl($stylesheetUrl);
 
@@ -446,10 +453,9 @@ class FontsGoogleLocal
             // Re-notify once per PHP request while an entry remains eligible.
             // This repairs a queue dispatch that was lost, blocked or cleared
             // without adding a browser AJAX request on every page view.
-            if ($key !== ''
-                && self::entryNeedsAutomaticProcessing($entry)
-                && empty(self::$processingNotifications[$key])
-            ) {
+            if ( $key !== ''
+                 && self::entryNeedsAutomaticProcessing($entry)
+                 && empty(self::$processingNotifications[$key]) ) {
                 self::$processingNotifications[$key] = true;
 
                 do_action(
@@ -464,18 +470,33 @@ class FontsGoogleLocal
             if ($localCssUrl !== '') {
                 $content = FontsGoogleLocalUrl::replaceReference($content, $reference, $localCssUrl);
                 if (isset($_GET['wpacu_debug'])) {
-                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug('css', (object)array('src' => $stylesheetUrl), 'Local Google Fonts', 'Cached',
-                        sprintf(__('The Google Fonts stylesheet was replaced with its ready local cache URL: %s', 'wp-asset-clean-up'), $localCssUrl));
+                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug(
+                        'css',
+                        (object)array('src' => $stylesheetUrl),
+                        'Local Google Fonts',
+                        'Cached',
+                        sprintf(__('The Google Fonts stylesheet was replaced with its ready local cache URL: %s', 'wp-asset-clean-up'), $localCssUrl)
+                    );
                 }
-            } elseif (!empty($entry['last_error']) && isset($entry['status']) && $entry['status'] === 'error') {
+            } elseif ( ! empty($entry['last_error']) && isset($entry['status']) && $entry['status'] === 'error' ) {
                 if (isset($_GET['wpacu_debug'])) {
-                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug('css', (object)array('src' => $stylesheetUrl), 'Local Google Fonts', 'Failed',
-                        sprintf(__('The last local-hosting attempt failed: %s The original Google Fonts URL is retained.', 'wp-asset-clean-up'), $entry['last_error']));
+                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug(
+                        'css',
+                        (object)array('src' => $stylesheetUrl),
+                        'Local Google Fonts',
+                        'Failed',
+                        sprintf(__('The last local-hosting attempt failed: %s The original Google Fonts URL is retained.', 'wp-asset-clean-up'), $entry['last_error'])
+                    );
                 }
             } else {
                 if (isset($_GET['wpacu_debug'])) {
-                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug('css', (object)array('src' => $stylesheetUrl), 'Local Google Fonts', 'Skipped',
-                        __('A usable local cache file is not ready yet. The original Google Fonts URL is retained.', 'wp-asset-clean-up'));
+                    \WpAssetCleanUp\DebugOptimizationDetails::recordDebug(
+                        'css',
+                        (object)array('src' => $stylesheetUrl),
+                        'Local Google Fonts',
+                        'Skipped',
+                        __('A usable local cache file is not ready yet. The original Google Fonts URL is retained.', 'wp-asset-clean-up')
+                    );
                 }
             }
         }

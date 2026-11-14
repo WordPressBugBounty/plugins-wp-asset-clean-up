@@ -12,7 +12,6 @@ if (! isset($data)) {
 $settingsName                = WPACU_PLUGIN_ID . '_settings';
 $postTypesList               = isset($data['post_types_list']) && is_array($data['post_types_list']) ? $data['post_types_list'] : array();
 $useEnhancedInputs           = Settings::useEnhancedInputs($data);
-$dashboardEnabled            = ! empty($data['dashboard_show']);
 $frontendEnabled             = ! empty($data['frontend_show']);
 $showAssetsMetaBox           = ! empty($data['show_assets_meta_box']);
 $hideCoreFiles               = ! empty($data['hide_core_files']);
@@ -21,25 +20,28 @@ $domGetType                  = isset($data['dom_get_type']) && in_array($data['d
 $assetsListShowStatus        = isset($data['assets_list_show_status']) && $data['assets_list_show_status'] === 'fetch_on_click' ? 'fetch_on_click' : 'default';
 $hideMetaBoxesForPostTypes   = isset($data['hide_meta_boxes_for_post_types']) && is_array($data['hide_meta_boxes_for_post_types']) ? $data['hide_meta_boxes_for_post_types'] : array();
 $frontendShowExceptions      = isset($data['frontend_show_exceptions']) ? (string) $data['frontend_show_exceptions'] : '';
-$allowManageAssetsTo         = isset($data['allow_manage_assets_to']) && in_array($data['allow_manage_assets_to'], array('selected', 'chosen', 'selected_roles'), true) ? 'selected' : 'any_admin';
+$allowManageAssetsTo         = isset($data['allow_manage_assets_to']) && in_array($data['allow_manage_assets_to'], array('selected', 'chosen', 'selected_roles'), true) ? $data['allow_manage_assets_to'] : 'any_admin';
 $allowManageAssetsToList     = isset($data['allow_manage_assets_to_list']) && is_array($data['allow_manage_assets_to_list']) ? array_map('intval', $data['allow_manage_assets_to_list']) : array();
 $allowManageAssetsToRoles    = isset($data['allow_manage_assets_to_roles']) && is_array($data['allow_manage_assets_to_roles']) ? array_map('sanitize_key', $data['allow_manage_assets_to_roles']) : array();
-$rolesVisibilityEnabled      = ! empty($data['allow_manage_assets_via_roles']) || in_array($allowManageAssetsTo, array('selected', 'selected_roles'), true);
-$usersVisibilityEnabled      = ! empty($data['allow_manage_assets_via_users']) || in_array($allowManageAssetsTo, array('selected', 'chosen'), true);
+$rolesVisibilityEnabled      = ! empty($allowManageAssetsToRoles) && (! empty($data['allow_manage_assets_via_roles']) || in_array($allowManageAssetsTo, array('selected', 'selected_roles'), true));
+$usersVisibilityEnabled      = ! empty($allowManageAssetsToList) && (! empty($data['allow_manage_assets_via_users']) || in_array($allowManageAssetsTo, array('selected', 'chosen'), true));
+$selectedVisibilityEnabled   = $rolesVisibilityEnabled || $usersVisibilityEnabled;
 $assetsListLayout            = isset($data['assets_list_layout']) ? (string) $data['assets_list_layout'] : 'by-location';
 $pluginAreaStatus            = isset($data['assets_list_layout_plugin_area_status']) && $data['assets_list_layout_plugin_area_status'] === 'contracted' ? 'contracted' : 'expanded';
 $groupsStatus                = isset($data['assets_list_layout_areas_status']) && $data['assets_list_layout_areas_status'] === 'contracted' ? 'contracted' : 'expanded';
 $inlineCodeStatus            = isset($data['assets_list_inline_code_status']) && $data['assets_list_inline_code_status'] === 'contracted' ? 'contracted' : 'expanded';
 $fetchCachedFilesDetailsFrom = isset($data['fetch_cached_files_details_from']) && in_array($data['fetch_cached_files_details_from'], array('disk', 'db', 'db_disk'), true) ? $data['fetch_cached_files_details_from'] : 'disk';
 $clearCachedFilesAfter       = isset($data['clear_cached_files_after']) ? max(1, (int) $data['clear_cached_files_after']) : 14;
+$cssJsRulesEnabled           = ! isset($data['css_js_manager_rules_status']) || $data['css_js_manager_rules_status'] !== 'off';
 $criticalCssEnabled          = ! isset($data['critical_css_status']) || $data['critical_css_status'] !== 'off';
+$cssJsThirdTab               = isset($_GET['wpacu_selected_sub_sub_tab_area']) && in_array($_GET['wpacu_selected_sub_sub_tab_area'], array('critical-css', 'alternative-assets'), true) ? $_GET['wpacu_selected_sub_sub_tab_area'] : 'manage-css-js';
 $criticalCssRuleStats        = isset($data['critical_css_rule_stats']) && is_array($data['critical_css_rule_stats'])
     ? $data['critical_css_rule_stats']
     : array();
-$criticalCssSavedRules       = isset($criticalCssRuleStats['total_count']) ? (int)$criticalCssRuleStats['total_count'] : 0;
-$criticalCssEnabledRules     = isset($criticalCssRuleStats['enabled_count']) ? (int)$criticalCssRuleStats['enabled_count'] : 0;
-$manageCriticalCssUrl        = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager&wpacu_sub_page=manage_critical_css');
-$criticalCssRulesSummary     = $criticalCssSavedRules > 0
+$criticalCssSavedRules   = isset($criticalCssRuleStats['total_count']) ? (int)$criticalCssRuleStats['total_count'] : 0;
+$criticalCssEnabledRules = isset($criticalCssRuleStats['enabled_count']) ? (int)$criticalCssRuleStats['enabled_count'] : 0;
+$manageCriticalCssUrl    = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager&wpacu_sub_page=manage_critical_css');
+$criticalCssRulesSummary = $criticalCssSavedRules > 0
     ? sprintf(
         __('%1$s saved · %2$s enabled', 'wp-asset-clean-up'),
         number_format_i18n($criticalCssSavedRules),
@@ -49,12 +51,15 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
 ?>
 
 <main id="wpacu-css-js-manager-settings" class="wpacu-cssjs-page">
-    <section class="wpacu-cssjs-panel" aria-labelledby="wpacuCssJsTitle">
+    <section class="wpacu-cssjs-panel" aria-label="<?php esc_attr_e('CSS/JS Manager preferences', 'wp-asset-clean-up'); ?>">
+        <div class="wpacu-cssjs-body">
+            <?php require __DIR__ . '/css-js-settings-tabs.php'; ?>
+            <div id="wpacu-cssjs-settings-manage-css-js" role="tabpanel" aria-labelledby="wpacu-cssjs-tab-manage-css-js" data-wpacu-cssjs-settings-panel="manage-css-js" <?php if ($cssJsThirdTab !== 'manage-css-js') { echo 'hidden'; } ?>>
         <header class="wpacu-cssjs-header">
             <div class="wpacu-cssjs-header__copy">
                 <div class="wpacu-cssjs-eyebrow"><?php esc_html_e('CSS/JS Manager setup', 'wp-asset-clean-up'); ?></div>
                 <h2 id="wpacuCssJsTitle"><?php esc_html_e('Choose where and how you manage page assets', 'wp-asset-clean-up'); ?></h2>
-                <p><?php esc_html_e('Configure the Dashboard and front-end workspaces, Critical CSS rule delivery, who can use the manager, how asset lists open, and where optimized-file lookup data is stored. These preferences do not delete existing rules.', 'wp-asset-clean-up'); ?></p>
+                <p><?php esc_html_e('Choose where the CSS/JS Manager appears, who can use it, how asset lists open, and where optimized-file lookup data is stored. Control whether saved CSS/JS asset rules take effect without deleting them.', 'wp-asset-clean-up'); ?></p>
             </div>
             <div class="wpacu-cssjs-header__actions">
                 <span class="wpacu-cssjs-header__badge"><?php esc_html_e('Manager preferences', 'wp-asset-clean-up'); ?></span>
@@ -65,17 +70,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             </div>
         </header>
 
-        <div class="wpacu-cssjs-body">
-            <section class="wpacu-cssjs-intro" aria-labelledby="wpacuCssJsIntroTitle">
-                <span class="wpacu-cssjs-intro__icon" aria-hidden="true"><span class="dashicons dashicons-admin-generic"></span></span>
-                <div>
-                    <h3 id="wpacuCssJsIntroTitle"><?php esc_html_e('Use the Dashboard for complete page-type coverage', 'wp-asset-clean-up'); ?></h3>
-                    <p><?php esc_html_e('The Dashboard CSS/JS Manager can load singular pages, taxonomy archives, author and date archives, search results, and the active theme’s 404 template. Front-end management is optional and is useful when you want to inspect a page in place.', 'wp-asset-clean-up'); ?></p>
-                </div>
-            </section>
-
             <nav class="wpacu-cssjs-quick-nav" aria-label="<?php esc_attr_e('CSS/JS Manager settings sections', 'wp-asset-clean-up'); ?>">
-                <span class="wpacu-cssjs-quick-nav__label wpacu-cssjs-quick-nav__label--manager"><?php esc_html_e('Manage CSS/JS', 'wp-asset-clean-up'); ?></span>
                 <a href="#wpacu-cssjs-management-locations"><span class="dashicons dashicons-visibility" aria-hidden="true"></span><?php esc_html_e('Workspaces', 'wp-asset-clean-up'); ?></a>
                 <?php if ($canConfigureAdminAccess) { ?>
                     <a href="#wpacu-cssjs-access"><span class="dashicons dashicons-visibility" aria-hidden="true"></span><?php esc_html_e('Visibility', 'wp-asset-clean-up'); ?></a>
@@ -83,8 +78,10 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                 <a href="#wpacu-cssjs-list-appearance"><span class="dashicons dashicons-layout" aria-hidden="true"></span><?php esc_html_e('List appearance', 'wp-asset-clean-up'); ?></a>
                 <a href="#wpacu-cssjs-optimized-cache"><span class="dashicons dashicons-database" aria-hidden="true"></span><?php esc_html_e('Optimized cache', 'wp-asset-clean-up'); ?></a>
                 <span class="wpacu-cssjs-quick-nav__divider" aria-hidden="true"></span>
-                <span class="wpacu-cssjs-quick-nav__label wpacu-cssjs-quick-nav__label--critical"><?php esc_html_e('Critical CSS', 'wp-asset-clean-up'); ?></span>
-                <a class="wpacu-cssjs-quick-nav__link--critical" href="#wpacu-cssjs-critical-css"><span class="dashicons dashicons-admin-appearance" aria-hidden="true"></span><?php esc_html_e('Delivery', 'wp-asset-clean-up'); ?></a>
+                <a id="wpacu-cssjs-rule-status-link" href="#wpacu-cssjs-rule-delivery"<?php if (!$cssJsRulesEnabled) { ?> class="is-paused"<?php } ?>>
+                    <span class="dashicons <?php echo $cssJsRulesEnabled ? 'dashicons-controls-play' : 'dashicons-controls-pause'; ?>" aria-hidden="true"></span><?php esc_html_e('Apply CSS/JS rules', 'wp-asset-clean-up'); ?>
+                    <span class="wpacu-cssjs-rule-status-badge<?php if ($cssJsRulesEnabled) { ?> is-active<?php } ?>" aria-live="polite" data-active-label="<?php esc_attr_e('ON', 'wp-asset-clean-up'); ?>" data-paused-label="<?php esc_attr_e('Paused', 'wp-asset-clean-up'); ?>"><?php echo $cssJsRulesEnabled ? esc_html__('ON', 'wp-asset-clean-up') : esc_html__('Paused', 'wp-asset-clean-up'); ?></span>
+                </a>
             </nav>
 
             <div class="wpacu-cssjs-manager-wrap">
@@ -102,36 +99,22 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                     <span class="wpacu-cssjs-section__number" aria-hidden="true">1</span>
                     <div>
                         <h3 id="wpacuCssJsLocationsTitle"><?php esc_html_e('Management locations', 'wp-asset-clean-up'); ?></h3>
-                        <p><?php esc_html_e('Enable one or both workspaces. Both manage the same saved asset rules, and disabling a view does not delete those rules.', 'wp-asset-clean-up'); ?></p>
+                        <p><?php esc_html_e('The dedicated Dashboard manager is always available to users allowed by Manager visibility. View and manage the same CSS/JS rules in additional locations below.', 'wp-asset-clean-up'); ?></p>
                     </div>
                 </div>
 
                 <article class="wpacu-cssjs-workspace" aria-labelledby="wpacuCssJsDashboardTitle">
+                    <input type="hidden" name="<?php echo esc_attr($settingsName); ?>[dashboard_show]" value="1" />
                     <div class="wpacu-cssjs-master-row">
-                        <div class="wpacu-cssjs-master-row__control">
-                            <label class="wpacu_switch" for="wpacu_dashboard">
-                                <input id="wpacu_dashboard"
-                                       data-target-opacity="#wpacu_manage_dashboard_assets_list"
-                                       type="checkbox"
-                                       name="<?php echo esc_attr($settingsName); ?>[dashboard_show]"
-                                       value="1"
-                                    <?php checked($dashboardEnabled); ?> />
-                                <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
-                            </label>
-                            <label class="wpacu-cssjs-control-label" for="wpacu_dashboard">
-                                <strong><?php esc_html_e('Enable Dashboard management', 'wp-asset-clean-up'); ?></strong>
-                                <span><?php esc_html_e('Required for the dedicated wp-admin manager.', 'wp-asset-clean-up'); ?></span>
-                            </label>
-                        </div>
-                        <div class="wpacu-cssjs-master-row__copy">
-                            <span class="wpacu-cssjs-kicker"><?php esc_html_e('Recommended workspace', 'wp-asset-clean-up'); ?></span>
+                        <div class="wpacu-cssjs-master-row__copy" style="grid-column: 1 / -1; padding: 4px 0; border: 0;">
+                            <span class="wpacu-cssjs-kicker"><?php esc_html_e('Dedicated workspace', 'wp-asset-clean-up'); ?></span>
                             <h4 id="wpacuCssJsDashboardTitle"><?php esc_html_e('Dashboard CSS/JS Manager', 'wp-asset-clean-up'); ?></h4>
-                            <p><?php esc_html_e('Manage assets from the dedicated CSS/JS Manager page in wp-admin. This setting also allows the embedded manager on eligible edit screens when that option is enabled below.', 'wp-asset-clean-up'); ?></p>
+                            <p><?php esc_html_e('Manage assets from the dedicated CSS/JS Manager page in wp-admin, independently of the additional locations below.', 'wp-asset-clean-up'); ?></p>
                         </div>
                     </div>
 
-                    <div id="wpacu_manage_dashboard_assets_list" class="wpacu-cssjs-workspace__configuration" style="opacity: <?php echo $dashboardEnabled ? '1' : '0.4'; ?>;">
-                        <section id="wpacu-settings-assets-retrieval-mode" class="wpacu-cssjs-config-block" aria-labelledby="wpacuCssJsRetrievalTitle"<?php echo $dashboardEnabled ? '' : ' style="display: none;"'; ?>>
+                    <div id="wpacu_manage_dashboard_assets_list" class="wpacu-cssjs-workspace__configuration">
+                        <section id="wpacu-settings-assets-retrieval-mode" class="wpacu-cssjs-config-block" aria-labelledby="wpacuCssJsRetrievalTitle">
                             <div class="wpacu-cssjs-block-heading">
                                 <span class="wpacu-cssjs-block-heading__icon" aria-hidden="true"><span class="dashicons dashicons-download"></span></span>
                                 <div>
@@ -193,80 +176,80 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                             </details>
                         </section>
 
-                        <fieldset class="wpacu-cssjs-embedded-manager"<?php echo $dashboardEnabled ? '' : ' style="display: none;"'; ?>>
-                            <legend class="screen-reader-text"><?php esc_html_e('Manager on edit screens', 'wp-asset-clean-up'); ?></legend>
-                            <input type="hidden" name="<?php echo esc_attr($settingsName); ?>[show_assets_meta_box]" value="0" />
+                    </div>
+                </article>
 
-                            <div class="wpacu-cssjs-master-row wpacu-cssjs-master-row--nested">
-                                <div class="wpacu-cssjs-master-row__control">
-                                    <label class="wpacu_switch" for="wpacu-show-assets-meta-box-checkbox">
-                                        <input id="wpacu-show-assets-meta-box-checkbox"
-                                               type="checkbox"
-                                               name="<?php echo esc_attr($settingsName); ?>[show_assets_meta_box]"
-                                               value="1"
-                                            <?php checked($showAssetsMetaBox); ?> />
-                                        <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
-                                    </label>
-                                    <label class="wpacu-cssjs-control-label" for="wpacu-show-assets-meta-box-checkbox">
-                                        <strong><?php esc_html_e('Show the manager on edit screens', 'wp-asset-clean-up'); ?></strong>
-                                        <span><?php esc_html_e('Interface only; saved rules remain active.', 'wp-asset-clean-up'); ?></span>
-                                    </label>
-                                </div>
-                                <div class="wpacu-cssjs-master-row__copy">
-                                    <span class="wpacu-cssjs-kicker"><?php esc_html_e('Dashboard integration', 'wp-asset-clean-up'); ?></span>
-                                    <h5><?php esc_html_e('Manager on eligible content edit screens', 'wp-asset-clean-up'); ?></h5>
-                                    <p><?php esc_html_e('Show an Asset CleanUp CSS/JS Manager panel while editing eligible posts, pages, public custom post types, categories, tags, and custom taxonomy terms. Turn this off if you work only from the dedicated CSS/JS Manager page.', 'wp-asset-clean-up'); ?></p>
-                                </div>
+                <article class="wpacu-cssjs-workspace" aria-labelledby="wpacuCssJsEditScreensTitle">
+                    <input type="hidden" name="<?php echo esc_attr($settingsName); ?>[show_assets_meta_box]" value="0" />
+
+                    <div class="wpacu-cssjs-master-row">
+                        <div class="wpacu-cssjs-master-row__control">
+                            <label class="wpacu_switch" for="wpacu-show-assets-meta-box-checkbox">
+                                <input id="wpacu-show-assets-meta-box-checkbox"
+                                       type="checkbox"
+                                       name="<?php echo esc_attr($settingsName); ?>[show_assets_meta_box]"
+                                       value="1"
+                                    <?php checked($showAssetsMetaBox); ?> />
+                                <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
+                            </label>
+                            <label class="wpacu-cssjs-control-label" for="wpacu-show-assets-meta-box-checkbox">
+                                <strong><?php esc_html_e('Show the manager on edit screens', 'wp-asset-clean-up'); ?></strong>
+                                <span><?php esc_html_e('Enabled by default. Hiding the panel keeps saved rules active.', 'wp-asset-clean-up'); ?></span>
+                            </label>
+                        </div>
+                        <div class="wpacu-cssjs-master-row__copy">
+                            <span class="wpacu-cssjs-kicker"><?php esc_html_e('Additional location', 'wp-asset-clean-up'); ?></span>
+                            <h4 id="wpacuCssJsEditScreensTitle"><?php esc_html_e('Manager on eligible content edit screens', 'wp-asset-clean-up'); ?></h4>
+                            <p><?php esc_html_e('Show an Asset CleanUp CSS/JS Manager panel while editing eligible posts, pages, public custom post types, categories, tags, and custom taxonomy terms. Turn this off if you work only from the dedicated CSS/JS Manager page.', 'wp-asset-clean-up'); ?></p>
+                        </div>
+                    </div>
+
+                    <div id="wpacu-show-assets-enabled-area" class="wpacu-cssjs-embedded-manager__options" style="<?php echo $showAssetsMetaBox ? '' : 'display: none;'; ?>">
+                        <div class="wpacu-cssjs-field-group">
+                            <div class="wpacu-cssjs-field-heading">
+                                <strong><?php esc_html_e('Asset list loading', 'wp-asset-clean-up'); ?></strong>
+                                <span><?php esc_html_e('Choose when the embedded panel retrieves the page assets.', 'wp-asset-clean-up'); ?></span>
                             </div>
+                            <fieldset class="wpacu-cssjs-choice-group wpacu-cssjs-choice-group--compact">
+                                <legend class="screen-reader-text"><?php esc_html_e('Embedded asset list loading behavior', 'wp-asset-clean-up'); ?></legend>
+                                <label class="wpacu-cssjs-choice" for="assets_list_show_status_default">
+                                    <input id="assets_list_show_status_default" type="radio" name="<?php echo esc_attr($settingsName); ?>[assets_list_show_status]" value="default" <?php checked($assetsListShowStatus, 'default'); ?> />
+                                    <span class="wpacu-cssjs-choice__body"><span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Load automatically', 'wp-asset-clean-up'); ?></strong><span class="wpacu-cssjs-choice__badge"><?php esc_html_e('Default', 'wp-asset-clean-up'); ?></span></span><small><?php esc_html_e('Fetch the asset list when the edit screen opens.', 'wp-asset-clean-up'); ?></small></span>
+                                </label>
+                                <label class="wpacu-cssjs-choice" for="assets_list_show_status_fetch_on_click">
+                                    <input id="assets_list_show_status_fetch_on_click" type="radio" name="<?php echo esc_attr($settingsName); ?>[assets_list_show_status]" value="fetch_on_click" <?php checked($assetsListShowStatus, 'fetch_on_click'); ?> />
+                                    <span class="wpacu-cssjs-choice__body"><span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Load on demand', 'wp-asset-clean-up'); ?></strong></span><small><?php esc_html_e('Wait until you click the fetch button. This reduces initial requests and keeps edit screens lighter.', 'wp-asset-clean-up'); ?></small></span>
+                                </label>
+                            </fieldset>
+                        </div>
 
-                            <div id="wpacu-show-assets-enabled-area" class="wpacu-cssjs-embedded-manager__options" style="<?php echo $showAssetsMetaBox ? '' : 'display: none;'; ?>">
-                                <div class="wpacu-cssjs-field-group">
-                                    <div class="wpacu-cssjs-field-heading">
-                                        <strong><?php esc_html_e('Asset list loading', 'wp-asset-clean-up'); ?></strong>
-                                        <span><?php esc_html_e('Choose when the embedded panel retrieves the page assets.', 'wp-asset-clean-up'); ?></span>
-                                    </div>
-                                    <fieldset class="wpacu-cssjs-choice-group wpacu-cssjs-choice-group--compact">
-                                        <legend class="screen-reader-text"><?php esc_html_e('Embedded asset list loading behavior', 'wp-asset-clean-up'); ?></legend>
-                                        <label class="wpacu-cssjs-choice" for="assets_list_show_status_default">
-                                            <input id="assets_list_show_status_default" type="radio" name="<?php echo esc_attr($settingsName); ?>[assets_list_show_status]" value="default" <?php checked($assetsListShowStatus, 'default'); ?> />
-                                            <span class="wpacu-cssjs-choice__body"><span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Load automatically', 'wp-asset-clean-up'); ?></strong><span class="wpacu-cssjs-choice__badge"><?php esc_html_e('Default', 'wp-asset-clean-up'); ?></span></span><small><?php esc_html_e('Fetch the asset list when the edit screen opens.', 'wp-asset-clean-up'); ?></small></span>
-                                        </label>
-                                        <label class="wpacu-cssjs-choice" for="assets_list_show_status_fetch_on_click">
-                                            <input id="assets_list_show_status_fetch_on_click" type="radio" name="<?php echo esc_attr($settingsName); ?>[assets_list_show_status]" value="fetch_on_click" <?php checked($assetsListShowStatus, 'fetch_on_click'); ?> />
-                                            <span class="wpacu-cssjs-choice__body"><span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Load on demand', 'wp-asset-clean-up'); ?></strong></span><small><?php esc_html_e('Wait until you click the fetch button. This reduces initial requests and keeps edit screens lighter.', 'wp-asset-clean-up'); ?></small></span>
-                                        </label>
-                                    </fieldset>
-                                </div>
+                        <div id="wpacu-settings-hide-meta-boxes" class="wpacu-cssjs-field-group">
+                            <label class="wpacu-cssjs-field-label" for="wpacu-hide-meta-boxes-for-post-types">
+                                <strong><?php esc_html_e('Hide on selected post types', 'wp-asset-clean-up'); ?></strong>
+                                <span><?php esc_html_e('Hide only the embedded panel. These post types remain available in the dedicated CSS/JS Manager.', 'wp-asset-clean-up'); ?></span>
+                            </label>
+                            <select id="wpacu-hide-meta-boxes-for-post-types"
+                                <?php if ($useEnhancedInputs) { ?>
+                                    class="wpacu_chosen_select"
+                                    data-placeholder="<?php esc_attr_e('Choose post types', 'wp-asset-clean-up'); ?>"
+                                <?php } ?>
+                                    multiple="multiple"
+                                    name="<?php echo esc_attr($settingsName); ?>[hide_meta_boxes_for_post_types][]">
+                                <?php foreach ($postTypesList as $postTypeKey => $postTypeValue) {
+                                    $postTypeObject = get_post_type_object($postTypeKey);
+                                    $postTypeLabel  = isset($postTypeObject->labels->singular_name) ? $postTypeObject->labels->singular_name : $postTypeValue;
+                                    $postTypeOption = sprintf('%1$s (%2$s)', $postTypeLabel, $postTypeKey);
+                                    ?>
+                                    <option value="<?php echo esc_attr($postTypeKey); ?>" <?php selected(in_array($postTypeKey, $hideMetaBoxesForPostTypes, true)); ?>><?php echo esc_html($postTypeOption); ?></option>
+                                <?php } ?>
+                            </select>
+                            <p id="wpacu-hide-meta-boxes-for-post-types-info" class="wpacu-cssjs-field-help"><?php esc_html_e('No selection keeps the embedded manager available for every supported public post type.', 'wp-asset-clean-up'); ?></p>
+                        </div>
+                    </div>
 
-                                <div id="wpacu-settings-hide-meta-boxes" class="wpacu-cssjs-field-group">
-                                    <label class="wpacu-cssjs-field-label" for="wpacu-hide-meta-boxes-for-post-types">
-                                        <strong><?php esc_html_e('Hide on selected post types', 'wp-asset-clean-up'); ?></strong>
-                                        <span><?php esc_html_e('Hide only the embedded panel. These post types remain available in the dedicated CSS/JS Manager.', 'wp-asset-clean-up'); ?></span>
-                                    </label>
-                                    <select id="wpacu-hide-meta-boxes-for-post-types"
-                                        <?php if ($useEnhancedInputs) { ?>
-                                            class="wpacu_chosen_select"
-                                            data-placeholder="<?php esc_attr_e('Choose post types', 'wp-asset-clean-up'); ?>"
-                                        <?php } ?>
-                                            multiple="multiple"
-                                            name="<?php echo esc_attr($settingsName); ?>[hide_meta_boxes_for_post_types][]">
-                                        <?php foreach ($postTypesList as $postTypeKey => $postTypeValue) {
-                                            $postTypeObject = get_post_type_object($postTypeKey);
-                                            $postTypeLabel  = isset($postTypeObject->labels->singular_name) ? $postTypeObject->labels->singular_name : $postTypeValue;
-                                            $postTypeOption = sprintf('%1$s (%2$s)', $postTypeLabel, $postTypeKey);
-                                            ?>
-                                            <option value="<?php echo esc_attr($postTypeKey); ?>" <?php selected(in_array($postTypeKey, $hideMetaBoxesForPostTypes, true)); ?>><?php echo esc_html($postTypeOption); ?></option>
-                                        <?php } ?>
-                                    </select>
-                                    <p id="wpacu-hide-meta-boxes-for-post-types-info" class="wpacu-cssjs-field-help"><?php esc_html_e('No selection keeps the embedded manager available for every supported public post type.', 'wp-asset-clean-up'); ?></p>
-                                </div>
-                            </div>
-
-                            <div id="wpacu-show-assets-disabled-area" class="wpacu-cssjs-empty-state" style="<?php echo $showAssetsMetaBox ? 'display: none;' : ''; ?>">
-                                <span class="dashicons dashicons-hidden" aria-hidden="true"></span>
-                                <p><strong><?php esc_html_e('The edit-screen manager is hidden.', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Enable it above to configure loading and post-type exclusions. The dedicated Dashboard manager remains available.', 'wp-asset-clean-up'); ?></p>
-                            </div>
-                        </fieldset>
+                    <div id="wpacu-show-assets-disabled-area" class="wpacu-cssjs-empty-state" style="margin-top: 18px; <?php echo $showAssetsMetaBox ? 'display: none;' : ''; ?>">
+                        <span class="dashicons dashicons-hidden" aria-hidden="true"></span>
+                        <p><strong><?php esc_html_e('The edit-screen manager is hidden.', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Enable it above to configure loading and post-type exclusions. The dedicated Dashboard manager remains available.', 'wp-asset-clean-up'); ?></p>
                     </div>
                 </article>
 
@@ -283,21 +266,16 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                                 <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
                             </label>
                             <label class="wpacu-cssjs-control-label" for="wpacu_frontend">
-                                <strong><?php esc_html_e('Enable front-end management', 'wp-asset-clean-up'); ?></strong>
+                                <strong><?php esc_html_e('Show the manager on the front-end', 'wp-asset-clean-up'); ?></strong>
                                 <span><?php esc_html_e('Useful for inspecting a page in place.', 'wp-asset-clean-up'); ?></span>
                             </label>
                         </div>
                         <div class="wpacu-cssjs-master-row__copy">
-                            <span class="wpacu-cssjs-kicker"><?php esc_html_e('Optional workspace', 'wp-asset-clean-up'); ?></span>
+                            <span class="wpacu-cssjs-kicker"><?php esc_html_e('Additional location', 'wp-asset-clean-up'); ?></span>
                             <h4 id="wpacuCssJsFrontendTitle"><?php esc_html_e('Front-end CSS/JS Manager', 'wp-asset-clean-up'); ?></h4>
                             <p><?php esc_html_e('Append the manager below the current public page for authorized logged-in users. Regular visitors never see it.', 'wp-asset-clean-up'); ?></p>
                         </div>
                     </div>
-
-                    <aside class="wpacu-cssjs-callout wpacu-cssjs-callout--success">
-                        <span class="dashicons dashicons-saved" aria-hidden="true"></span>
-                        <p><strong><?php esc_html_e('Not required for special page types.', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Search results, author archives, date archives, and 404 pages can be managed from the Dashboard CSS/JS Manager.', 'wp-asset-clean-up'); ?></p>
-                    </aside>
 
                     <div id="wpacu_frontend_manage_assets_list" class="wpacu-cssjs-workspace__configuration" style="opacity: <?php echo $frontendEnabled ? '1' : '0.4'; ?>;">
                         <details class="wpacu-cssjs-details wpacu-cssjs-details--standalone">
@@ -329,7 +307,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             </section>
 
             <?php if ($canConfigureAdminAccess) {
-                $currentUserId = get_current_user_id();
+                $currentUserId    = get_current_user_id();
                 $allEligibleUsers = SettingsAdminOnlyForAdmin::getAllUsersWithPluginAccess();
                 $allEligibleRoles = SettingsAdminOnlyForAdmin::getAllRolesWithPluginAccess();
                 ?>
@@ -348,6 +326,24 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                             <div><span class="wpacu-cssjs-kicker"><?php esc_html_e('Optimization workflow', 'wp-asset-clean-up'); ?></span><h4><?php esc_html_e('Who should see and use the CSS/JS Manager?', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('This preference applies to the manager in wp-admin, edit screens, and the front-end view.', 'wp-asset-clean-up'); ?></p></div>
                         </div>
 
+                        <fieldset class="wpacu-cssjs-choice-group wpacu-cssjs-choice-group--compact">
+                            <legend class="screen-reader-text"><?php esc_html_e('Who should see and use the CSS/JS Manager?', 'wp-asset-clean-up'); ?></legend>
+                            <label class="wpacu-cssjs-choice" for="wpacu-cssjs-visibility-all">
+                                <input id="wpacu-cssjs-visibility-all" type="radio" name="wpacu_cssjs_visibility_scope" value="all" aria-controls="wpacu-cssjs-selected-visibility" <?php checked(! $selectedVisibilityEnabled); ?> />
+                                <span class="wpacu-cssjs-choice__body">
+                                    <span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Everyone with Asset CleanUp access', 'wp-asset-clean-up'); ?></strong><span class="wpacu-cssjs-choice__badge"><?php esc_html_e('Default', 'wp-asset-clean-up'); ?></span></span>
+                                    <small><?php esc_html_e('Show the manager to everyone already allowed to use the plugin.', 'wp-asset-clean-up'); ?></small>
+                                </span>
+                            </label>
+                            <label class="wpacu-cssjs-choice" for="wpacu-cssjs-visibility-selected">
+                                <input id="wpacu-cssjs-visibility-selected" type="radio" name="wpacu_cssjs_visibility_scope" value="selected" aria-controls="wpacu-cssjs-selected-visibility" <?php checked($selectedVisibilityEnabled); ?> />
+                                <span class="wpacu-cssjs-choice__body">
+                                    <span class="wpacu-cssjs-choice__top"><strong><?php esc_html_e('Only selected roles or specific users', 'wp-asset-clean-up'); ?></strong></span>
+                                    <small><?php esc_html_e('Choose who sees the manager from those who already have plugin access.', 'wp-asset-clean-up'); ?></small>
+                                </span>
+                            </label>
+                        </fieldset>
+                        <div id="wpacu-cssjs-selected-visibility"<?php echo $selectedVisibilityEnabled ? '' : ' class="wpacu_hide"'; ?>>
                         <div class="wpacu-cssjs-access-fields">
                             <input id="wpacu-allow-manage-assets-to-select" type="hidden" name="<?php echo esc_attr($settingsName); ?>[allow_manage_assets_to]" value="<?php echo esc_attr($allowManageAssetsTo); ?>" />
                             <input type="hidden" name="<?php echo esc_attr($settingsName); ?>[allow_manage_assets_via_roles]" value="0" />
@@ -365,7 +361,13 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                                             <option value="<?php echo esc_attr($roleSlug); ?>" <?php selected(in_array($roleSlug, $allowManageAssetsToRoles, true)); ?>><?php echo esc_html($roleName); ?></option>
                                         <?php } ?>
                                     </select>
-                                    <p class="wpacu-cssjs-field-help"><?php esc_html_e('Only roles already granted Asset CleanUp access are listed. This selection controls manager visibility and does not grant new plugin access.', 'wp-asset-clean-up'); ?></p>
+                                    <p class="wpacu-cssjs-field-help"><?php
+                                        printf(
+                                            /* translators: %s: Link to Plugin Access settings. */
+                                            esc_html__('Only roles with Asset CleanUp access are listed. To grant access to other roles, use %s.', 'wp-asset-clean-up'),
+                                            '<a data-wpacu-vertical-link-target="wpacu-setting-plugin-usage-settings" data-wpacu-sub-tab-target="wpacu-plugin-usage-settings-access" href="'.esc_url(admin_url('admin.php?page='.WPACU_PLUGIN_ID.'_settings&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-access')).'">'.esc_html__('Plugin Access', 'wp-asset-clean-up').'</a>'
+                                        );
+                                    ?></p>
                                 </div>
                             </section>
 
@@ -394,7 +396,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                                                 $userRoleLabels[$userRoleSlug] = translate_user_role(wp_roles()->roles[$userRoleSlug]['name']);
                                             }
                                         }
-                                        $userRolesLabel = implode('/', array_values($userRoleLabels));
+                                        $userRolesLabel     = implode('/', array_values($userRoleLabels));
                                         $userLabelWithRoles = $userLabel . ($userRolesLabel !== '' ? ' — ' . $userRolesLabel : '');
                                         ?>
                                         <option value="<?php echo esc_attr($user->ID); ?>"
@@ -408,7 +410,8 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                                 </div>
                             </section>
 
-                            <p class="wpacu-cssjs-field-help wpacu-cssjs-visibility-summary"><?php esc_html_e('Leave both options unchecked to show the manager to everyone with Asset CleanUp access.', 'wp-asset-clean-up'); ?></p>
+                            <p class="wpacu-cssjs-field-help wpacu-cssjs-visibility-summary"><?php esc_html_e('Select roles, specific users, or both. Without a selection, the manager remains visible to everyone with Asset CleanUp access.', 'wp-asset-clean-up'); ?></p>
+                        </div>
                         </div>
 
                         <aside class="wpacu-cssjs-callout wpacu-cssjs-callout--neutral">
@@ -420,6 +423,8 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                 <script>
                     jQuery(function ($) {
                         var $policy = $('#wpacu-allow-manage-assets-to-select');
+                        var $scope = $('input[name="wpacu_cssjs_visibility_scope"]');
+                        var $selectedVisibility = $('#wpacu-cssjs-selected-visibility');
                         var $roles = $('#wpacu-allow-manage-assets-to-roles');
                         var $users = $('#wpacu-allow-manage-assets-to-select-list');
                         var $rolesCheckbox = $('#wpacu-allow-manage-assets-via-roles');
@@ -429,6 +434,12 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                         var $allRolesNotice = $('#wpacu-all-roles-selected-notice');
 
                         function updateSelectedVisibility() {
+                            var selectedVisibility = $scope.filter(':checked').val() === 'selected';
+                            $selectedVisibility.toggleClass('wpacu_hide', ! selectedVisibility);
+                            $selectedVisibility.find('input, select').prop('disabled', ! selectedVisibility);
+                            if (! selectedVisibility) {
+                                return;
+                            }
                             var rolesEnabled = $rolesCheckbox.is(':checked');
                             var usersEnabled = $usersCheckbox.is(':checked');
                             var selectedRoles = $roles.val() || [];
@@ -484,6 +495,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                             $users.trigger('chosen:updated');
                         }
 
+                        $scope.on('change.wpacuSelectedVisibility', updateSelectedVisibility);
                         $rolesCheckbox.on('change.wpacuSelectedVisibility', updateSelectedVisibility);
                         $usersCheckbox.on('click.wpacuSelectedVisibility', function (event) {
                             if ($usersCheckboxLabel.hasClass('is-visually-disabled')) {
@@ -492,6 +504,15 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                         });
                         $usersCheckbox.on('change.wpacuSelectedVisibility', updateSelectedVisibility);
                         $roles.on('change.wpacuSelectedVisibility', updateSelectedVisibility);
+                        $scope.closest('form').on('submit.wpacuSelectedVisibility', function () {
+                            var hasRoles = $rolesCheckbox.is(':checked') && ($roles.val() || []).length > 0;
+                            var hasUsers = $usersCheckbox.is(':checked') && ($users.val() || []).length > 0;
+                            if (!hasRoles && !hasUsers) {
+                                $('#wpacu-cssjs-visibility-all').prop('checked', true);
+                                $policy.val('any_admin');
+                                updateSelectedVisibility();
+                            }
+                        });
                         updateSelectedVisibility();
                     });
                 </script>
@@ -506,8 +527,9 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                 <article class="wpacu-cssjs-setting-card wpacu-cssjs-layout-card">
                     <div class="wpacu-cssjs-setting-row wpacu-cssjs-setting-row--layout">
                         <div class="wpacu-cssjs-setting-row__copy"><span class="wpacu-cssjs-card-heading__icon" aria-hidden="true"><span class="dashicons dashicons-screenoptions"></span></span><div><h4><?php esc_html_e('Group and sort assets', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('Choose how CSS and JavaScript handles are arranged whenever the manager opens.', 'wp-asset-clean-up'); ?></p></div></div>
-                        <div class="wpacu-cssjs-field"><label for="wpacu_assets_list_layout"><?php esc_html_e('Grouping strategy', 'wp-asset-clean-up'); ?></label><?php echo SettingsAdmin::generateAssetsListLayoutDropDown($assetsListLayout, $settingsName . '[assets_list_layout]'); ?></div>
+                        <div class="wpacu-cssjs-field"><label for="wpacu_assets_list_layout"><?php esc_html_e('Grouping strategy', 'wp-asset-clean-up'); ?></label><div class="wpacu-grouping-control"><?php echo SettingsAdmin::generateAssetsListLayoutDropDown($assetsListLayout, $settingsName . '[assets_list_layout]'); ?><button type="button" class="wpacu-grouping-preview-open" aria-haspopup="dialog" aria-controls="wpacu-grouping-preview" title="<?php esc_attr_e('Preview this grouping', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-visibility" aria-hidden="true"></span><span class="screen-reader-text"><?php esc_html_e('Preview this grouping', 'wp-asset-clean-up'); ?></span></button></div></div>
                     </div>
+                    <?php require __DIR__ . '/assets-grouping-preview.php'; ?>
 
                     <div id="wpacu-assets-list-by-location-selected" class="wpacu-cssjs-setting-row wpacu-cssjs-setting-row--conditional" style="<?php echo $assetsListLayout === 'by-location' ? '' : 'display: none;'; ?>">
                         <div class="wpacu-cssjs-setting-row__copy"><span class="wpacu-cssjs-card-heading__icon" aria-hidden="true"><span class="dashicons dashicons-admin-plugins"></span></span><div><h4><?php esc_html_e('Plugin sections', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('When assets are grouped by location, choose whether each plugin section starts open.', 'wp-asset-clean-up'); ?></p></div></div>
@@ -552,7 +574,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                 <article class="wpacu-cssjs-setting-card wpacu-cssjs-cache-card">
                     <div class="wpacu-cssjs-card-heading">
                         <span class="wpacu-cssjs-card-heading__icon" aria-hidden="true"><span class="dashicons dashicons-database"></span></span>
-                        <div><span class="wpacu-cssjs-kicker"><?php esc_html_e('Generated assets', 'wp-asset-clean-up'); ?></span><h4><?php esc_html_e('Lookup storage and file retention', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('These settings matter when Asset CleanUp creates an altered file—for example after minification, combination, or a content rewrite. They do not configure your page-cache plugin.', 'wp-asset-clean-up'); ?></p></div>
+                        <div><span class="wpacu-cssjs-kicker"><?php esc_html_e('Generated assets', 'wp-asset-clean-up'); ?></span><h4><?php esc_html_e('Lookup storage and file retention', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('These settings matter when Asset CleanUp creates an altered file—for example after minification, combination, a content rewrite, or creating an alternative asset. They do not configure your page-cache plugin.', 'wp-asset-clean-up'); ?></p></div>
                     </div>
 
                     <div class="wpacu-cssjs-cache-fields">
@@ -581,7 +603,8 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                         <div class="wpacu-cssjs-field wpacu-cssjs-field--retention">
                             <label for="wpacu_clear_cached_files_after"><?php esc_html_e('Retain generated files for', 'wp-asset-clean-up'); ?></label>
                             <div class="wpacu-cssjs-number-field"><input id="wpacu_clear_cached_files_after" type="number" min="1" name="<?php echo esc_attr($settingsName); ?>[clear_cached_files_after]" value="<?php echo esc_attr($clearCachedFilesAfter); ?>" /><span><?php esc_html_e('days', 'wp-asset-clean-up'); ?></span></div>
-                            <p class="wpacu-cssjs-field-help"><?php esc_html_e('When cache cleanup runs, generated CSS/JS files older than this value are removed and can be rebuilt if needed. Keep this period longer than the longest page or CDN cache lifetime.', 'wp-asset-clean-up'); ?></p>
+                            <p class="wpacu-cssjs-field-help"><?php esc_html_e('When cache cleanup runs, generated CSS/JS files older than this value are removed. Keep this period longer than the longest page or CDN cache lifetime.', 'wp-asset-clean-up'); ?></p>
+                            <p class="wpacu-cssjs-field-help"><?php esc_html_e('Alternative Assets use this same retention period. Saving, enabling/disabling, or deleting an alternative restarts it for existing generated files, so cached pages can still load their CSS/JS.', 'wp-asset-clean-up'); ?></p>
                         </div>
 
                         <div class="wpacu-cssjs-cache-path"><span class="dashicons dashicons-open-folder" aria-hidden="true"></span><span><strong><?php esc_html_e('Generated files directory', 'wp-asset-clean-up'); ?></strong><code><?php echo esc_html(OptimizeCommon::getRelPathPluginCacheDir()); ?></code></span></div>
@@ -591,6 +614,24 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             </section>
             </div>
 
+            <?php require __DIR__ . '/css-js-rule-delivery.php'; ?>
+            </div>
+
+            <div id="wpacu-cssjs-settings-critical-css" role="tabpanel" aria-labelledby="wpacu-cssjs-tab-critical-css" data-wpacu-cssjs-settings-panel="critical-css" <?php if ($cssJsThirdTab !== 'critical-css') { echo 'hidden'; } ?>>
+            <header class="wpacu-cssjs-header">
+                <div class="wpacu-cssjs-header__copy">
+                    <div class="wpacu-cssjs-eyebrow"><?php esc_html_e('Critical CSS setup', 'wp-asset-clean-up'); ?></div>
+                    <h2 id="wpacuCriticalCssSettingsTitle"><?php esc_html_e('Control how saved Critical CSS rules take effect', 'wp-asset-clean-up'); ?></h2>
+                    <p><?php esc_html_e('Enable or pause Critical CSS output on the front end while keeping your saved rules. Create, edit, and assign rules to pages in the dedicated Critical CSS manager.', 'wp-asset-clean-up'); ?></p>
+                </div>
+                <div class="wpacu-cssjs-header__actions">
+                    <span class="wpacu-cssjs-header__badge"><?php esc_html_e('Rule delivery preferences', 'wp-asset-clean-up'); ?></span>
+                    <a class="wpacu-cssjs-header__action wpacu-new-style-external-link" href="<?php echo esc_url($manageCriticalCssUrl); ?>" target="_blank" rel="noopener noreferrer">
+                        <span class="wpacu-new-style-external-link__text"><?php esc_html_e('Open Critical CSS Manager', 'wp-asset-clean-up'); ?></span>
+                        <span class="dashicons dashicons-external" aria-hidden="true"></span>
+                    </a>
+                </div>
+            </header>
             <div class="wpacu-cssjs-critical-css-wrap">
             <section class="wpacu-cssjs-scope-heading wpacu-cssjs-scope-heading--critical" aria-labelledby="wpacuCriticalCssPreferencesTitle">
                 <span class="wpacu-cssjs-scope-heading__icon" aria-hidden="true"><span class="dashicons dashicons-admin-appearance"></span></span>
@@ -602,13 +643,6 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             </section>
 
             <section id="wpacu-cssjs-critical-css" class="wpacu-cssjs-section wpacu-cssjs-section--scope-child" aria-labelledby="wpacuCssJsCriticalCssTitle">
-                <div class="wpacu-cssjs-section__heading wpacu-cssjs-section__heading--unnumbered">
-                    <div>
-                        <h3 id="wpacuCssJsCriticalCssTitle"><?php esc_html_e('Rule delivery', 'wp-asset-clean-up'); ?></h3>
-                        <p><?php esc_html_e('Pause all Critical CSS output without deleting or changing saved rules.', 'wp-asset-clean-up'); ?></p>
-                    </div>
-                </div>
-
                 <article class="wpacu-cssjs-setting-card wpacu-cssjs-critical-css-card <?php echo $criticalCssEnabled ? 'is-active' : 'is-paused'; ?>">
                     <div class="wpacu-cssjs-master-row wpacu-cssjs-critical-css-master-row">
                         <div class="wpacu-cssjs-master-row__control">
@@ -629,7 +663,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
 
                         <div class="wpacu-cssjs-master-row__copy">
                             <span class="wpacu-cssjs-kicker"><?php esc_html_e('Main setting', 'wp-asset-clean-up'); ?></span>
-                            <h4><?php esc_html_e('Keep saved Critical CSS rules enabled', 'wp-asset-clean-up'); ?></h4>
+                            <h4 id="wpacuCssJsCriticalCssTitle"><?php esc_html_e('Keep saved Critical CSS rules enabled', 'wp-asset-clean-up'); ?></h4>
                             <p><?php esc_html_e('Turn this off temporarily while checking first-render, layout, or styling problems. The same switch appears above the rules in Manage Critical CSS.', 'wp-asset-clean-up'); ?></p>
 
                             <div class="wpacu-cssjs-critical-css-meta">
@@ -653,6 +687,10 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             </section>
             </div>
 
+            </div>
+            <div id="wpacu-cssjs-settings-alternative-assets" role="tabpanel" aria-labelledby="wpacu-cssjs-tab-alternative-assets" data-wpacu-cssjs-settings-panel="alternative-assets" <?php if ($cssJsThirdTab !== 'alternative-assets') { echo 'hidden'; } ?>>
+                <?php require __DIR__ . '/alternative-assets-rule-delivery.php'; ?>
+            </div>
             <aside class="wpacu-cssjs-footer-note">
                 <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
                 <p><strong><?php esc_html_e('These preferences do not delete saved asset rules.', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Save the page, then open the CSS/JS Manager to confirm that the selected workspace and list appearance match the way you intend to work.', 'wp-asset-clean-up'); ?></p>
@@ -691,9 +729,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
             syncStatus();
         }
 
-        function initQuickNavScrollspy() {
-            var nav = document.querySelector('#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav');
-
+        function initQuickNavScrollspy(nav) {
             if (! nav || nav.getAttribute('data-scrollspy-initialized') === '1') {
                 return;
             }
@@ -751,10 +787,18 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
                 var activeItem = items[0];
 
                 items.forEach(function (item) {
-                    if (item.section.getBoundingClientRect().top <= activationLine) {
+                    // Browsers can round scroll offsets while section positions retain subpixels.
+                    if (item.section.getBoundingClientRect().top <= activationLine + 1) {
                         activeItem = item;
                     }
                 });
+
+                // A short final section cannot always reach the anchor line at the bottom of the page.
+                var lastItem = items[items.length - 1];
+                if (Math.ceil(window.pageYOffset + window.innerHeight) >= document.documentElement.scrollHeight
+                    && lastItem.section.getBoundingClientRect().top < window.innerHeight) {
+                    activeItem = lastItem;
+                }
 
                 setActiveItem(activeItem);
                 updateQueued = false;
@@ -821,7 +865,7 @@ $criticalCssRulesSummary     = $criticalCssSavedRules > 0
 
         function initCssJsManagerPreferences() {
             initCriticalCssPreferenceStatus();
-            initQuickNavScrollspy();
+            Array.prototype.forEach.call(document.querySelectorAll('#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav, #wpacu-plugins-manager-preferences .wpacu-cssjs-quick-nav'), initQuickNavScrollspy);
         }
 
         if (document.readyState === 'loading') {

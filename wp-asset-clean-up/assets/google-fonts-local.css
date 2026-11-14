@@ -209,13 +209,27 @@
 .wpacu-google-fonts-local-action__help.is-danger:focus-visible { border-color: #d63638; color: #9b2526; background: #fff3f3; box-shadow: 0 0 0 2px rgba(214, 54, 56, .1); }
 
 .wpacu-google-fonts-cache-modal__content { max-width: 720px; }
-.wpacu-google-fonts-cache-modal__body ul { margin: 18px 0 0 20px; }
+.wpacu-google-fonts-cache-modal__body ul { margin: 8px 0 0 20px; }
 .wpacu-google-fonts-cache-modal__body li { margin-bottom: 10px; color: #52616c; line-height: 1.55; }
+.wpacu-google-fonts-cache-modal__body li:last-child { margin-bottom: 0; }
 .wpacu-google-fonts-cache-modal__warning { display: flex; gap: 11px; align-items: flex-start; padding: 14px 15px; border: 1px solid #efc2c2; border-radius: 8px; color: #812f30; background: #fff3f3; }
 .wpacu-google-fonts-cache-modal__warning > .dashicons { flex: 0 0 auto; margin-top: 1px; color: #b32d2e; }
 .wpacu-google-fonts-cache-modal__warning strong,
 .wpacu-google-fonts-cache-modal__warning span { display: block; }
 .wpacu-google-fonts-cache-modal__warning span { margin-top: 3px; line-height: 1.5; }
+.wpacu-google-fonts-cache-modal__replacement { margin-top: 4px; padding-top: 12px; border-top: 1px solid #dce5e8; }
+.wpacu-google-fonts-cache-modal__replacement h3 { margin: 0 0 5px; color: #203743; font-size: 15px; }
+.wpacu-google-fonts-cache-modal__replacement > p { margin: 0; color: #52616c; line-height: 1.5; }
+.wpacu-google-fonts-cache-modal__code-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 13px; }
+.wpacu-google-fonts-cache-modal__code-example { min-width: 0; padding: 12px; border: 1px solid #dce4e8; border-radius: 8px; background: #f8fafb; }
+.wpacu-google-fonts-cache-modal__code-example > strong { display: block; margin-bottom: 8px; color: #425662; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.wpacu-google-fonts-cache-modal__code-example code { display: block; color: #34434c; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+.wpacu-google-fonts-cache-modal__changed-url { padding: 2px 4px; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.wpacu-google-fonts-cache-modal__changed-url.is-remote { color: #8a3b24; background: #fff0e9; box-shadow: inset 0 0 0 1px #f1c9b9; }
+.wpacu-google-fonts-cache-modal__changed-url.is-local { color: #12603f; background: #e7f6ed; box-shadow: inset 0 0 0 1px #b9dfc8; }
+@media screen and (max-width: 782px) {
+    .wpacu-google-fonts-cache-modal__code-comparison { grid-template-columns: 1fr; }
+}
 
 .wpacu-google-fonts-pending-scan-note {
     display: none;
@@ -716,6 +730,27 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
+}
+
+.wpacu-google-fonts-local-pro__browser-discovery-heading {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.wpacu-google-fonts-local-pro__browser-discovery-heading label {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wpacu-google-fonts-local-pro__browser-discovery-heading .wpacu-google-fonts-local-action__help {
+    flex: 0 0 24px;
+    margin-top: -3px;
+}
+
+.wpacu-google-fonts-local-pro__browser-discovery > small {
+    margin-left: 26px;
 }
 
 .wpacu-google-fonts-local-pro__control input[type="checkbox"] {

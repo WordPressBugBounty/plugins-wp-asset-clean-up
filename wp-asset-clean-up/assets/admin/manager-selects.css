@@ -1,0 +1,4 @@
+.wpacu-wrap select:not([multiple]):not([size]),
+#wpacu-plugins-load-manager-wrap select:not([multiple]):not([size]) {
+  padding-right: 36px;
+}

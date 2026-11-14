@@ -67,7 +67,7 @@ if (! empty($data['all']['styles']) || ! empty($data['all']['scripts'])) {
     |
     <a class="wpacu-area-expand-all-assets wpacu_area_handles_row_expand_contract"
        data-wpacu-area="{$locationMain}" href="#">Expand</a>
-    All Assets
+    All&nbsp;Assets
 </div>
 HTML;
             ob_start();
@@ -82,18 +82,22 @@ HTML;
 
             <div class="wpacu-assets-collapsible-content <?php if ($listAreaStatus !== 'contracted') { ?>wpacu-open<?php } ?>">
             <?php if ($locationMain === 'external') { ?>
-                <div class="wpacu-assets-note wpacu-with-toggle-all-assets"><strong>Note:</strong> External .css and .js assets are considered
-                    those who are hosted on a different domain (e.g. Google Font API, assets loaded from external
-                    CDNs) and the ones outside the WordPress "plugins" (usually /wp-content/plugins/), "themes"
-                    (usually /wp-content/themes/) and "uploads" (usually /wp-content/uploads/) directories.</div>
-	            <?php if (count($values) > 0) { echo $contractExpandAllAssetsHtml; } ?>
+                <div class="wpacu-assets-note-row">
+                    <div class="wpacu-assets-note wpacu-with-toggle-all-assets"><strong>Note:</strong> External .css and .js assets are considered
+                        those who are hosted on a different domain (e.g. Google Font API, assets loaded from external
+                        CDNs) and the ones outside the WordPress "plugins" (usually /wp-content/plugins/), "themes"
+                        (usually /wp-content/themes/) and "uploads" (usually /wp-content/uploads/) directories.</div>
+                    <?php if (count($values) > 0) { echo $contractExpandAllAssetsHtml; } ?>
+                </div>
             <?php
                 // WP Core CSS/JS list is visible
             } elseif ($locationMain === 'wp_core' && ! $data['plugin_settings']['hide_core_files']) { ?>
-                <div class="wpacu-assets-note wpacu-with-toggle-all-assets"><span style="color: red;" class="dashicons dashicons-warning"></span> <strong>Warning:</strong> Please be careful when doing any changes to the
-                    following core assets as they can break the functionality of the front-end website. If you're
-                    not sure about unloading any asset, just leave it loaded.</div>
-                <?php if (count($values) > 0) { echo $contractExpandAllAssetsHtml; } ?>
+                <div class="wpacu-assets-note-row">
+                    <div class="wpacu-assets-note wpacu-with-toggle-all-assets"><span style="color: red;" class="dashicons dashicons-warning"></span> <strong>Warning:</strong> Please be careful when doing any changes to the
+                        following core assets as they can break the functionality of the front-end website. If you're
+                        not sure about unloading any asset, just leave it loaded.</div>
+                    <?php if (count($values) > 0) { echo $contractExpandAllAssetsHtml; } ?>
+                </div>
             <?php
                 // WP Core CSS/JS list is hidden
             } elseif ($locationMain === 'wp_core' && $data['plugin_settings']['hide_core_files']) {

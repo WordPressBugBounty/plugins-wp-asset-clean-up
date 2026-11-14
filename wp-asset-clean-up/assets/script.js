@@ -2,6 +2,39 @@
 // [START] Core file
 //
 
+// Shared by CSS/JS and Plugins Manager settings. Interrupt an unfinished
+// transition at its current position, so repeated toggles never queue up.
+window.wpacuAnimateSettingsPanel = function ($panel, visible, animate) {
+    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $panel.each(function () {
+        var $element = jQuery(this);
+        var properties = ['height', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom', 'opacity'];
+        var original = $element.data('wpacuSettingsPanelStyles');
+        $element.stop(true, false);
+        if (!original) {
+            original = {overflow: this.style.overflow, transition: this.style.transition};
+            properties.forEach(function (property) { original[property] = $element[0].style[property]; });
+        }
+        if (animate === false || reducedMotion) {
+            $element.css(original).toggle(visible).removeData('wpacuSettingsPanelStyles');
+            return;
+        }
+
+        var hidden = $element.css('display') === 'none';
+        var start = {}, end = {};
+        properties.forEach(function (property) { start[property] = hidden ? 0 : $element.css(property); });
+        // Measure the natural size without painting the intermediate state.
+        // Retain original inline styles across interrupted transitions.
+        // Avoid a CSS opacity transition competing with the animation frames.
+        $element.css(original).css('transition', 'none').show();
+        properties.forEach(function (property) { end[property] = visible ? $element.css(property) : 0; });
+        $element.data('wpacuSettingsPanelStyles', original).css(start).css('overflow', 'hidden');
+        $element.animate(end, 300, 'swing', function () {
+            $element.toggle(visible).css(original).removeData('wpacuSettingsPanelStyles');
+        });
+    });
+};
+
 /*
  * Shared interface helpers
  *
@@ -232,7 +265,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let metaBoxContent = '#wpacu_meta_box_content';
 
             return {
-                getParameterByName: function (name, url = window.location.href) {
+                getParameterByName: function (name, url = (wpacu_object.frontend_manager_url || window.location.href)) {
                     // Source: https://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
                     name = name.replace(/[\[\]]/g, '\\$&');
                     var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
@@ -1411,7 +1444,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     if (dataCurrentState === newState) {
                         $('#' + btnIdClicked).prop('disabled', false);
+
+                        if (typeof window.wpacuRefreshAssetGroupActions === 'function') {
+                            window.wpacuRefreshAssetGroupActions();
+                        }
+
                         return;
+                    }
+
+                    $stateArea.attr('data-wpacu-groups-saving', '1');
+                    $('#' + btnIdClicked).attr('aria-busy', 'true');
+
+                    if (typeof window.wpacuRefreshAssetGroupActions === 'function') {
+                        window.wpacuRefreshAssetGroupActions();
                     }
 
                     let dataUpdateSetting = {
@@ -1445,7 +1490,12 @@ document.addEventListener("DOMContentLoaded", function () {
                             }
                         }
 
-                        $('#' + btnIdClicked).prop('disabled', false);
+                        $('#' + btnIdClicked).prop('disabled', false).removeAttr('aria-busy');
+                        $stateArea.removeAttr('data-wpacu-groups-saving');
+
+                        if (typeof window.wpacuRefreshAssetGroupActions === 'function') {
+                            window.wpacuRefreshAssetGroupActions();
+                        }
                     });
                 },
 
@@ -1612,8 +1662,27 @@ document.addEventListener("DOMContentLoaded", function () {
                     * Settings: A link is clicked that should trigger a vertical menu link from the plugin
                      */
                     $(document).on('click', 'a[data-wpacu-vertical-link-target]', function (e) {
+                        // Keep normal new-tab navigation and the URL fallback when a target is absent.
+                        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || (e.which && e.which !== 1)) {
+                            return;
+                        }
+                        var target = document.getElementById($(this).attr('data-wpacu-vertical-link-target'));
+                        var subTabId = $(this).attr('data-wpacu-sub-tab-target');
+                        var subTab = subTabId ? document.getElementById(subTabId + '-tab-item') : null;
+                        if (!target || (subTabId && (!subTab || !target.contains(subTab)))) {
+                            return;
+                        }
                         e.preventDefault();
-                        $.fn.wpAssetCleanUpSettingsArea().tabOpenSettingsArea(e, $(this).attr('data-wpacu-vertical-link-target'));
+                        $.fn.wpAssetCleanUpSettingsArea().tabOpenSettingsArea(e, target.id);
+                        if (subTab) {
+                            $(subTab).prop('checked', true).trigger('click');
+                            var label = document.querySelector('label[for="' + subTab.id + '"]');
+                            if (label) {
+                                label.setAttribute('tabindex', '-1');
+                                label.focus({preventScroll: true});
+                                label.scrollIntoView({block: 'center'});
+                            }
+                        }
                     });
 
                     /*
@@ -1832,14 +1901,9 @@ document.addEventListener("DOMContentLoaded", function () {
                         });
                     });
 
-                    $('#wpacu-show-assets-meta-box-checkbox').on('click change', function () {
-                        if ($(this).prop('checked')) {
-                            $('#wpacu-show-assets-enabled-area').show();
-                            $('#wpacu-show-assets-disabled-area').hide();
-                        } else {
-                            $('#wpacu-show-assets-enabled-area').hide();
-                            $('#wpacu-show-assets-disabled-area').show();
-                        }
+                    $('#wpacu-show-assets-meta-box-checkbox').on('change', function () {
+                        window.wpacuAnimateSettingsPanel($('#wpacu-show-assets-enabled-area'), this.checked);
+                        window.wpacuAnimateSettingsPanel($('#wpacu-show-assets-disabled-area'), !this.checked);
                     });
 
                     // "Combine JS Files" - "Select a combination method:"
@@ -2475,8 +2539,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     function wpacuUpdateResetSubmitButton() {
                         let wpacuResetAction = $(wpacuResetDdSelector).val();
                         let wpacuNeedsExplicitConfirmation = wpacuResetAction === 'reset_everything' ||
-                            wpacuResetAction === 'remove_all_data_for_uninstall';
+                            wpacuResetAction === 'remove_all_data_for_uninstall' || wpacuResetAction === 'clear_pro_traces';
                         let wpacuCanSubmit = wpacuResetAction !== '' &&
+                            (wpacuResetAction !== 'clear_pro_traces' || $('#wpacu-warning-clear-pro-traces').attr('data-can-clear') === '1') &&
                             ( ! wpacuNeedsExplicitConfirmation || $wpacuResetConfirm.is(':checked'));
 
                         $wpacuResetSubmitButton.prop('disabled', ! wpacuCanSubmit)
@@ -2489,7 +2554,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         let wpacuResetAction = $(this).val();
                         let wpacuIsResetEverything = wpacuResetAction === 'reset_everything';
                         let wpacuNeedsExplicitConfirmation = wpacuIsResetEverything ||
-                            wpacuResetAction === 'remove_all_data_for_uninstall';
+                            wpacuResetAction === 'remove_all_data_for_uninstall' || wpacuResetAction === 'clear_pro_traces';
 
                         $wpacuOptionSelected = $(this).find('option:selected');
                         $('[data-wpacu-reset-button-label]').text(
@@ -2525,7 +2590,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         let wpacuResetAction = $(wpacuResetDdSelector).val();
 
                         let wpacuNeedsExplicitConfirmation = wpacuResetAction === 'reset_everything' ||
-                            wpacuResetAction === 'remove_all_data_for_uninstall';
+                            wpacuResetAction === 'remove_all_data_for_uninstall' || wpacuResetAction === 'clear_pro_traces';
 
                         if (wpacuNeedsExplicitConfirmation && ! $wpacuResetConfirm.is(':checked')) {
                             return false;
@@ -2552,6 +2617,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
 
                     $('#wpacu-tools-form').on('submit', function () {
+                        // System Info shares this form; only reset actions require confirmation.
+                        if ( ! $(this).find('[name="wpacu-tools-reset"]').length) {
+                            return;
+                        }
+
                         if ($('#wpacu-action-confirmed').val() !== 'yes') {
                             return false;
                         }
@@ -2611,16 +2681,26 @@ document.addEventListener("DOMContentLoaded", function () {
                         $exportDescription.text(selectedOption ? selectedOption.getAttribute('data-description') : '');
                     }).trigger('change');
 
-                    $exportForm.on('submit', function () {
-                        var $label = $exportButton.find('[data-wpacu-button-label]');
-                        var defaultLabel = $label.text();
+                    // Downloads keep the page open: show brief feedback, then allow another download.
+                    $exportForm.add($('#wpacu-tools-form').has('#wpacu-download-system-info-btn')).on('submit', function (event) {
+                        var $button = $(this).find('button[type="submit"][data-busy-label]');
+                        if ($button.prop('disabled')) {
+                            event.preventDefault();
+                            return;
+                        }
 
-                        $label.text($exportButton.attr('data-busy-label'));
-                        $exportButton.prop('disabled', true).attr('aria-busy', 'true');
+                        var $label = $button.find('[data-wpacu-button-label]');
+                        var defaultLabel = $label.text();
+                        var originalMinWidth = $button[0].style.minWidth;
+                        $button.css('min-width', $button.outerWidth() + 'px');
+
+                        $label.text($button.attr('data-busy-label'));
+                        $button.prop('disabled', true).attr('aria-busy', 'true');
 
                         window.setTimeout(function () {
                             $label.text(defaultLabel);
-                            $exportButton.prop('disabled', ! $exportSelection.val()).removeAttr('aria-busy');
+                            $button.prop('disabled', $button.is($exportButton) && ! $exportSelection.val())
+                                .removeAttr('aria-busy').css('min-width', originalMinWidth);
                         }, 1500);
                     });
                 }
@@ -2818,13 +2898,25 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
 
                     // "Contract All Groups"
-                    $(document).on('click', '#wpacu-assets-contract-all', function () {
+                    $(document).on('click', '#wpacu-assets-contract-all', function (event) {
+                        event.preventDefault();
+
+                        if (typeof window.wpacuContractAllMainAreas === 'function') {
+                            window.wpacuContractAllMainAreas();
+                        }
+
                         $(this).prop('disabled', true); // avoid multiple clicks and AJAX calls
                         $.fn.wpAssetCleanUp().wpacuAjaxUpdateKeepTheGroupsState('contracted', $(this).attr('id'));
                     });
 
                     // "Expand All Groups"
-                    $(document).on('click', '#wpacu-assets-expand-all', function () {
+                    $(document).on('click', '#wpacu-assets-expand-all', function (event) {
+                        event.preventDefault();
+
+                        if (typeof window.wpacuExpandAllMainAreas === 'function') {
+                            window.wpacuExpandAllMainAreas();
+                        }
+
                         $(this).prop('disabled', true); // avoid multiple clicks and AJAX calls
                         $.fn.wpAssetCleanUp().wpacuAjaxUpdateKeepTheGroupsState('expanded', $(this).attr('id'));
                     });
@@ -2937,4 +3029,3 @@ document.addEventListener("DOMContentLoaded", () => {
 //
 // [END] Core file
 //
-

@@ -8,22 +8,74 @@
  * Layout-specific decisions belong in compact-grid.scss, grouped.scss or
  * classic.scss. This file contains only the selector and shared structural UI.
  */
+#wpacu-plugins-manage-front-notice-top {
+  position: relative;
+  border-left-width: 4px;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+#wpacu-plugins-manage-front-notice-top #wpacu-pm-remember-content, #wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-preview {
+  margin-right: 42px;
+}
+#wpacu-plugins-manage-front-notice-top [hidden] {
+  display: none !important;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-preview {
+  margin-top: 0;
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #c6d7df;
+  border-radius: 50%;
+  background: #eef5f8;
+  color: #004567;
+  cursor: pointer;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(225deg);
+  margin-top: 4px;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle[aria-expanded=false]::before {
+  transform: rotate(45deg);
+  margin-top: -4px;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle:hover {
+  border-color: #004567;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle[hidden] {
+  display: none;
+}
+#wpacu-plugins-manage-front-notice-top .wpacu-pm-remember-toggle:focus-visible {
+  outline: 2px solid #004567;
+  outline-offset: 2px;
+}
+#wpacu-plugins-manage-front-notice-top.is-collapsed {
+  min-height: 44px;
+}
+
 .wpacu-plugins-manager-master-control {
   box-sizing: border-box;
   width: 98%;
   max-width: 1840px;
   margin-bottom: 16px;
-}
-
-.wpacu-pm-rules-ui {
-  transition: opacity 0.18s ease, filter 0.18s ease;
-}
-.wpacu-pm-rules-ui.wpacu-pm-rules-ui--disabled {
-  opacity: 0.5;
-  filter: saturate(0.8);
-}
-.wpacu-pm-rules-ui.wpacu-pm-rules-ui--disabled #wpacu-plugins-load-manager-wrap.wpacu-area-disabled {
-  opacity: 1;
 }
 
 #wpacu-plugins-manager-layout-picker.wpacu-pm-layout-picker {
@@ -224,9 +276,78 @@
   margin: 0;
 }
 
-#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-lite-group-action {
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action {
   position: relative;
   display: inline-flex;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled {
+  cursor: not-allowed;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled::before,
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled::after {
+  position: absolute;
+  left: 50%;
+  z-index: 10030;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(3px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled::before {
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 260px;
+  padding: 6px 9px;
+  border-radius: 4px;
+  background: #1d2327;
+  color: #fff;
+  content: attr(data-wpacu-tooltip);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled::after {
+  bottom: calc(100% + 2px);
+  width: 10px;
+  height: 6px;
+  background: #1d2327;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  content: "";
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled:hover::before,
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled:hover::after {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action:last-child::before {
+  right: 0;
+  left: auto;
+  transform: translateY(3px);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action:last-child::after {
+  right: 50%;
+  left: auto;
+  transform: translateX(50%) translateY(3px);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled:last-child:hover::before {
+  transform: translateY(0);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu-pm-group-action--disabled:last-child:hover::after {
+  transform: translateX(50%) translateY(0);
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu_wp_button {
@@ -271,6 +392,20 @@
   height: 15px;
   font-size: 15px;
   line-height: 15px;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu_ajax_loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu_plugins_groups_change_state_area .wpacu_ajax_loader:not(.wpacu_hide) ~ span {
+  visibility: hidden;
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-plugin-table {
@@ -328,6 +463,12 @@
   gap: 6px;
 }
 
+#wpacu-plugins-load-manager-wrap .wpacu-pm-plugin-version {
+  font-size: 13px;
+  font-weight: 200;
+  white-space: nowrap;
+}
+
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-network-activated {
   width: 17px;
   height: 17px;
@@ -372,6 +513,12 @@
   color: #146b31;
 }
 
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-status-badge[data-count="0"] {
+  border-color: #d9dfe3;
+  background: #f5f6f7;
+  color: #646970;
+}
+
 /*
  * [START] Always-loaded status laboratory
  *
@@ -388,7 +535,7 @@
   margin-left: 4px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -506,25 +653,35 @@
 /* [END] Always-loaded status laboratory */
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-plugin-editor {
   clear: both;
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-dock {
-  position: sticky;
+  position: relative;
   z-index: 15;
-  bottom: 10px;
   display: grid;
   grid-template-columns: minmax(330px, 1fr) auto minmax(330px, 1fr);
-  min-height: 72px;
+  min-height: 54px;
   align-items: center;
-  gap: 22px;
+  gap: 16px;
   margin: 24px 0 0;
-  padding: 12px 14px;
+  padding: 8px 11px;
   border: 1px solid #cfdadd;
+  border-bottom: 1px solid #cfdadd;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 3px 14px rgba(29, 35, 39, 0.09);
   backdrop-filter: blur(6px);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-dock.is-floating {
+  position: fixed;
+  right: auto;
+  bottom: 10px;
+  left: var(--wpacu-save-dock-left);
+  box-sizing: border-box;
+  width: var(--wpacu-save-dock-width);
+  margin: 0;
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-actions {
@@ -536,6 +693,27 @@
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-actions .button {
   margin: 0;
+  min-height: 36px;
+  padding: 0 17px;
+  border: 1px solid #004f68;
+  border-radius: 7px;
+  background-color: #006584;
+  background-image: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 34px;
+  text-shadow: none;
+  box-shadow: 0 2px 5px rgba(0, 69, 103, 0.2);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-actions .button:hover,
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-actions .button:focus {
+  border-color: #003d52;
+  background-color: #007887;
+  background-image: none;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(0, 69, 103, 0.25);
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-summary-slot {
@@ -546,19 +724,25 @@
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-unsaved-summary {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 26px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 4px 11px;
-  border: 1px solid #e3cf9d;
+  padding: 2px 9px;
+  border: 1px solid rgba(140, 151, 156, 0.45);
   border-radius: 999px;
-  background: #fff9e8;
-  color: #755100;
+  background: rgba(240, 242, 243, 0.72);
+  color: rgba(80, 91, 97, 0.72);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-unsaved-summary.has-unsaved-changes {
+  border-color: #e3cf9d;
+  background: #fff9e8;
+  color: #755100;
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-unsaved-summary[hidden] {
@@ -570,6 +754,11 @@
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
+  background: #9aa4a9;
+  box-shadow: 0 0 0 3px rgba(154, 164, 169, 0.1);
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-unsaved-summary.has-unsaved-changes .wpacu-pm-unsaved-summary-dot {
   background: #dba617;
   box-shadow: 0 0 0 3px rgba(219, 166, 23, 0.13);
 }
@@ -603,15 +792,37 @@
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-search-toolbar {
   display: flex;
+  flex-wrap: wrap;
   box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  align-items: stretch;
+  gap: 16px 24px;
   margin: 0 0 14px;
   padding: 12px 14px;
   border: 1px solid #dcdcde;
   border-radius: 7px;
   background: #fff;
+}
+
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-toolbar-field {
+  display: flex;
+  flex: 1 1 440px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-toolbar-field > .wpacu-pm-search-copy {
+  margin-bottom: auto;
+}
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-toolbar-field > select,
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-toolbar-field > .wpacu-pm-search-control {
+  flex: none;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+}
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-toolbar-field > select {
+  min-height: 40px;
 }
 
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-search-copy {
@@ -648,7 +859,7 @@
 #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-search-control input[type=search] {
   box-sizing: border-box;
   width: 100%;
-  min-height: 38px;
+  min-height: 40px;
   padding-left: 36px;
   border-color: #a7aaad;
 }
@@ -765,11 +976,6 @@
     align-items: flex-start;
   }
 
-  #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-search-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-search-control {
     flex-basis: auto;
   }
@@ -784,8 +990,10 @@
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-dock {
+  #wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-dock,
+#wpacu-plugins-load-manager-wrap.wpacu-pm-layout .wpacu-pm-save-dock.is-floating {
     position: static;
+    width: auto;
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
   }
@@ -806,5 +1014,13 @@
     text-align: left;
   }
 }
-
-/*# sourceMappingURL=common.css.map */
+.wpacu-pm-rules-ui {
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+.wpacu-pm-rules-ui.wpacu-pm-rules-ui--disabled {
+  opacity: 0.5;
+  filter: saturate(0.8);
+}
+.wpacu-pm-rules-ui.wpacu-pm-rules-ui--disabled #wpacu-plugins-load-manager-wrap.wpacu-area-disabled {
+  opacity: 1;
+}

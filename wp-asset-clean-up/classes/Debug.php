@@ -243,7 +243,7 @@ class Debug
 			<?php echo file_get_contents(WPACU_PLUGIN_DIR.'/assets/wpacu-debug.css'); ?>
 		</style>
 
-        <script <?php echo Misc::getScriptTypeAttribute(); ?>>
+        <script <?php echo Misc::getScriptTypeAttribute(); ?> data-wpacu-own-inline-script="true">
 	        <?php echo file_get_contents(WPACU_PLUGIN_DIR.'/assets/wpacu-debug.js'); ?>
         </script>
 
@@ -316,7 +316,7 @@ class Debug
 
                         <div style="margin: 0 0 10px; padding: 10px 0;">
 							<ul class="wpacu-debug-timing-root" style="list-style: none; padding-left: 0;">
-                                <script>
+                                <script data-wpacu-own-inline-script="true">
                                     jQuery(document).ready(function($) {
                                         let valueNum = 0;
 
@@ -624,10 +624,8 @@ class Debug
         $legacyHtml = $this->preparePreviewFormHtml($legacyHtml);
         $instanceId = 'wpacu-debug-' . str_replace('.', '', uniqid('', true));
         $pluginRootFile = dirname(dirname(__FILE__)) . '/index.php';
-        $cssFile = dirname(dirname(__FILE__)) . '/assets/wpacu-debug-panel.css';
-        $jsFile  = dirname(dirname(__FILE__)) . '/assets/wpacu-debug-panel.js';
-        $cssUrl = add_query_arg('ver', filemtime($cssFile), plugins_url('assets/wpacu-debug-panel.css', $pluginRootFile));
-        $jsUrl  = add_query_arg('ver', filemtime($jsFile), plugins_url('assets/wpacu-debug-panel.js', $pluginRootFile));
+        $cssUrl = add_query_arg('wpacuversion', OwnAssets::assetVer('/assets/wpacu-debug-panel.css'), plugins_url('assets/wpacu-debug-panel.css', $pluginRootFile));
+        $jsUrl  = add_query_arg('wpacuversion', OwnAssets::assetVer('/assets/wpacu-debug-panel.js'), plugins_url('assets/wpacu-debug-panel.js', $pluginRootFile));
         $previewPayload = isset($GLOBALS['wpacu_debug_preview_payload']) && is_array($GLOBALS['wpacu_debug_preview_payload'])
             ? $GLOBALS['wpacu_debug_preview_payload']
             : array();
@@ -651,17 +649,20 @@ class Debug
         sort($requestChangeJsHandles);
         $savedPageOptions = array();
         $pageOptionsAvailable = defined('WPACU_CURRENT_PAGE_ID') && (MainFront::isSingularPage() || MainFront::isHomePage());
+
         if ($pageOptionsAvailable) {
             $savedPageOptions = MetaBoxes::getSavedPageOptions(WPACU_CURRENT_PAGE_ID, MainFront::isSingularPage() ? 'post' : 'front_page');
         }
-		$optimizationDetails = 'WPACU_OPTIMIZATION_DETAILS_PENDING';
+
+        $optimizationDetails = 'WPACU_OPTIMIZATION_DETAILS_PENDING';
+
 		if ($htmlAlterationsDisabled && isset($_GET['wpacu_debug'])) {
 			$optimizationDetails = DebugOptimizationDetails::getRows();
 		}
 
         $config = array(
-            'pageOptions' => $pageOptionsAvailable ? self::getPreviewPageOptionLabels() : array(),
-            'savedPageOptions' => self::sanitizePreviewPageOptions($savedPageOptions),
+            'pageOptions'       => $pageOptionsAvailable ? self::getPreviewPageOptionLabels() : array(),
+            'savedPageOptions'  => self::sanitizePreviewPageOptions($savedPageOptions),
             'selectedPageOptions' => isset($GLOBALS['wpacu_debug_page_options']) ? $GLOBALS['wpacu_debug_page_options'] : self::sanitizePreviewPageOptions($savedPageOptions),
             'optimizationDetails' => $optimizationDetails,
             'instanceId'       => $instanceId,

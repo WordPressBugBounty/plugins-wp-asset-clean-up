@@ -84,6 +84,32 @@ body[class*=wpassetcleanup] textarea[placeholder]:not(.ace_text-input):not(:plac
   left: -6px;
 }
 
+@media screen and (max-width: 782px) {
+  #wpacu-logo-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+  }
+  #wpacu-logo-wrap > a {
+    flex: 1 1 240px;
+    min-width: 0;
+    max-width: 352px;
+  }
+  #wpacu-logo-wrap img {
+    width: 100%;
+    height: auto;
+  }
+  #wpacu-logo-wrap .wpacu-version-sign {
+    position: static;
+    flex: 0 0 auto;
+  }
+  #wpacu-logo-wrap .wpacu-version-sign > div .wpacu-version-text {
+    position: static;
+    margin-top: 3px;
+  }
+}
 #wpacu-quick-actions {
   color: #74777b;
   float: right;
@@ -1905,6 +1931,18 @@ table.wpacu-overview-list-table tr.wpacu_global_rule_row:hover {
   margin: 0 auto 15px auto;
   border-bottom: 1px solid #ccc;
 }
+@media screen and (max-width: 782px) {
+  .wpacu-sub-page-tabs-wrap {
+    min-width: 0;
+  }
+  .wpacu-sub-page-tabs-wrap label.wpacu-sub-page-nav-label {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .wpacu-sub-page-tabs-wrap label.wpacu-sub-page-nav-label a {
+    overflow-wrap: anywhere;
+  }
+}
 .wpacu-sub-page-tabs-wrap label.wpacu-sub-page-nav-label {
   display: inline-block;
   position: relative;
@@ -2062,6 +2100,10 @@ h1.nav-tab-wrapper {
   }
 }
 */
+.wpacu-cssjs-rules-paused-notice ~ #wpacu-css-js-manager-dashboard-area-tab-content .wpacu-cssjs-rules-paused-notice {
+  display: none;
+}
+
 .wpacu-nav-tab-wrapper {
   width: 95%;
   border-bottom: 1px solid #c3c4c7;
@@ -3017,11 +3059,209 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
  * The module is isolated inside its own sub-tab. Existing field IDs, setting
  * names, Chosen hooks and show/hide targets remain intact for compatibility.
  */
+/* Keep the normal delivery state alongside navigation, without another toolbar row. */
+.wpacu-sub-page-tabs-wrap.wpacu-css-js-tabs-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 4px;
+}
+
+.wpacu-sub-page-tabs-wrap.wpacu-plugins-tabs-toolbar,
+.wpacu-plugins-manager-width,
+.wpacu-pm-view-selector.wpacu-plugins-manager-width {
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1800px;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.wpacu-css-js-master-panel {
+  position: relative;
+  top: -5px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 4px auto;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid #cbd5da;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #505b64;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.wpacu-css-js-master-panel #wpacuCssJsGlobalState {
+  font-weight: 600;
+}
+.wpacu-css-js-master-panel.is-paused {
+  border-color: #e0c078;
+  background: #fff8e5;
+  color: #795711;
+}
+.wpacu-css-js-master-panel.is-initializing {
+  border-color: transparent;
+  background: transparent;
+}
+.wpacu-css-js-master-panel.is-initializing > :not([data-master-loading]) {
+  visibility: hidden;
+}
+.wpacu-css-js-master-panel [data-master-loading] {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 21px;
+  height: 21px;
+  margin: -10.5px 0 0;
+  box-sizing: border-box;
+  border: 2px solid #d7e1e6;
+  border-top-color: #17627e;
+  border-radius: 50%;
+  animation: wpacu-master-status-spin 0.8s linear infinite;
+}
+.wpacu-css-js-master-panel [data-master-loading][hidden] {
+  display: none;
+}
+
+@keyframes wpacu-master-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wpacu-css-js-master-action {
+  appearance: none;
+  padding: 3px 12px;
+  border: 1px solid #b4c5ce;
+  border-radius: 4px;
+  background: #fff;
+  color: #17627e;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.wpacu-css-js-master-action:hover {
+  border-color: #2271b1;
+  background: #edf5f9;
+  color: #135e96;
+}
+.wpacu-css-js-master-action:focus-visible {
+  outline: 2px solid #2271b1;
+  outline-offset: 3px;
+}
+.wpacu-css-js-master-action:disabled {
+  cursor: wait;
+}
+
+.wpacu-css-js-master-feedback {
+  margin: 0 0 14px;
+  color: #795711;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wpacu-css-js-master-feedback[hidden] {
+  display: none;
+}
+.wpacu-css-js-master-feedback.is-error {
+  color: #9b2c2c;
+}
+
+/* The saved-state controls share a toolbar; only paused details remain above the list. */
+#wpacu-critical-css-global-control {
+  min-height: 0;
+  margin: 0 0 14px;
+}
+#wpacu-critical-css-global-control .wpacu-critical-css-master-feedback[hidden] {
+  display: none;
+}
+
+.wpacu-manager-status-box [data-master-state] {
+  font-weight: 600;
+}
+
+input[data-wpacu-master-input][hidden] {
+  display: none !important;
+}
+
+.wpacu-manager-status-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-left: auto;
+}
+.wpacu-manager-status-tools > .wpacu-manager-status-box {
+  margin-left: 0;
+}
+.wpacu-manager-status-tools > .wpacu-critical-css-master-feedback__help {
+  margin-left: 0;
+}
+
+#wpacu-critical-css-global-control.wpacu-critical-css-control-relocated:has(> #wpacuCriticalCssGlobalFeedback[hidden]) {
+  display: none;
+}
+
+.wpacu-css-js-content, .wpacu-plugins-rules-frame {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.wpacu-css-js-content > .wpacu-css-js-paused-legend, .wpacu-css-js-content > .wpacu-plugins-paused-legend, .wpacu-plugins-rules-frame > .wpacu-css-js-paused-legend, .wpacu-plugins-rules-frame > .wpacu-plugins-paused-legend {
+  display: none;
+}
+.wpacu-css-js-content .wpacu-cssjs-rules-paused-notice, .wpacu-plugins-rules-frame .wpacu-cssjs-rules-paused-notice {
+  display: none;
+}
+.wpacu-css-js-content.is-paused, .wpacu-plugins-rules-frame.is-paused {
+  padding: 16px;
+  border: 2px solid #e0c078;
+  border-radius: 10px;
+}
+.wpacu-css-js-content.is-paused > .wpacu-css-js-paused-legend, .wpacu-css-js-content.is-paused > .wpacu-plugins-paused-legend, .wpacu-plugins-rules-frame.is-paused > .wpacu-css-js-paused-legend, .wpacu-plugins-rules-frame.is-paused > .wpacu-plugins-paused-legend {
+  display: block;
+  width: auto;
+  margin: 0;
+  padding: 0 6px;
+}
+.wpacu-css-js-content.is-paused > .wpacu-css-js-paused-legend > span, .wpacu-css-js-content.is-paused > .wpacu-plugins-paused-legend > span, .wpacu-plugins-rules-frame.is-paused > .wpacu-css-js-paused-legend > span, .wpacu-plugins-rules-frame.is-paused > .wpacu-plugins-paused-legend > span {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wpacu-plugins-rules-frame {
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1800px;
+}
+.wpacu-plugins-rules-frame > #wpacu-plugins-manager-layout-picker.wpacu-pm-layout-picker,
+.wpacu-plugins-rules-frame > #wpacu-plugins-load-manager-wrap.wpacu-wrap,
+.wpacu-plugins-rules-frame > .wpacu-pm-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+}
+.wpacu-plugins-rules-frame .wpacu-wrap.wpacu-area-disabled {
+  opacity: 1;
+}
+
 #wpacu-plugin-usage-settings-assets-management-tab-item-area {
   padding: 30px 32px 34px;
 }
 
-#wpacu-css-js-manager-settings {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) {
   --wpacu-cssjs-brand: var(--wpacu-brand-1, #008f9d);
   --wpacu-cssjs-navy: #17333f;
   --wpacu-cssjs-navy-deep: var(--wpacu-brand-5, #024567);
@@ -3040,44 +3280,44 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: var(--wpacu-cssjs-text);
 }
 
-#wpacu-css-js-manager-settings,
-#wpacu-css-js-manager-settings *,
-#wpacu-css-js-manager-settings *::before,
-#wpacu-css-js-manager-settings *::after {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences),
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *::before,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *::after {
   box-sizing: border-box;
 }
 
-#wpacu-css-js-manager-settings h2,
-#wpacu-css-js-manager-settings h3,
-#wpacu-css-js-manager-settings h4,
-#wpacu-css-js-manager-settings h5,
-#wpacu-css-js-manager-settings p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h2,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h3,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h4,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h5,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) p {
   margin-top: 0;
   text-transform: none;
 }
 
-#wpacu-css-js-manager-settings h2,
-#wpacu-css-js-manager-settings h3,
-#wpacu-css-js-manager-settings h4,
-#wpacu-css-js-manager-settings h5 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h2,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h3,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h4,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h5 {
   color: var(--wpacu-cssjs-navy);
 }
 
-#wpacu-css-js-manager-settings h2 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) h2 {
   padding: 0;
   border: 0;
 }
 
-#wpacu-css-js-manager-settings a {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) a {
   color: #006b8f;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-panel {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-panel {
   overflow: visible;
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3086,11 +3326,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border-bottom: 1px solid #e3e5e7;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__copy {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__copy {
   min-width: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-eyebrow {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -3102,7 +3342,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-eyebrow::before {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-eyebrow::before {
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -3111,7 +3351,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   content: "";
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header h2 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header h2 {
   margin: 0;
   color: var(--wpacu-cssjs-navy-deep);
   font-size: clamp(23px, 2.2vw, 28px);
@@ -3119,7 +3359,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   letter-spacing: -0.025em;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header p {
   max-width: 850px;
   margin: 8px 0 0;
   color: var(--wpacu-cssjs-muted);
@@ -3127,7 +3367,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.6;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__actions {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__actions {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -3136,7 +3376,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   margin-top: 4px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__badge {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__badge {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -3151,7 +3391,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   white-space: nowrap;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__action {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__action {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -3161,19 +3401,19 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-decoration: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__action:hover,
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__action:focus-visible {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__action:hover,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__action:focus-visible {
   color: var(--wpacu-cssjs-navy-deep);
   text-decoration: underline;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-header__action .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__action .dashicons {
   width: 15px;
   height: 15px;
   font-size: 15px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading {
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr);
   gap: 15px;
@@ -3181,12 +3421,12 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   margin: 22px 0 4px;
   padding: 15px 18px;
   border: 1px solid #c9dfe3;
-  border-left: 4px solid var(--wpacu-cssjs-teal);
+  border-left: 0;
   border-radius: 10px;
   background: linear-gradient(105deg, #f2fafb 0%, #fff 76%);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-manager-wrap {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-manager-wrap {
   margin: 22px 0 4px;
   border: 1px solid #dce8ea;
   border-radius: 10px;
@@ -3194,25 +3434,24 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   overflow: hidden;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading--manager {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading--manager {
   margin: 0;
   border: 0;
-  border-left: 2px solid var(--wpacu-cssjs-teal);
   border-bottom: 1px solid #dce8ea;
   border-radius: 9px 9px 0 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section {
   margin-top: 0;
   padding: 24px 18px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section + .wpacu-cssjs-section {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section + .wpacu-cssjs-section {
   padding-top: 24px;
   border-top-color: #dce8ea;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading__icon {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading__icon {
   display: inline-grid;
   place-items: center;
   width: 46px;
@@ -3222,13 +3461,13 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border-radius: 10px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading__icon .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading__icon .dashicons {
   width: 21px;
   height: 21px;
   font-size: 21px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading__eyebrow {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading__eyebrow {
   display: block;
   margin-bottom: 2px;
   color: var(--wpacu-cssjs-blue);
@@ -3239,7 +3478,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading--critical {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading--critical {
   margin: 0;
   border: 0;
   border-left: 2px solid #6f5bb7;
@@ -3248,7 +3487,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: linear-gradient(105deg, #f8f6ff 0%, #fff 76%);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-wrap {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-wrap {
   margin: 30px 0 4px;
   border: 1px solid #d8d0ee;
   border-radius: 10px;
@@ -3256,39 +3495,39 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   overflow: hidden;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-wrap > .wpacu-cssjs-section {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-wrap > .wpacu-cssjs-section {
   margin-top: 0;
   padding: 18px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading--critical .wpacu-cssjs-scope-heading__icon {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading--critical .wpacu-cssjs-scope-heading__icon {
   color: #51418d;
   background: #ebe7fb;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading--critical .wpacu-cssjs-scope-heading__eyebrow {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading--critical .wpacu-cssjs-scope-heading__eyebrow {
   color: #51418d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading h3 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading h3 {
   margin: 0;
   color: #253f49;
   font-size: 18px;
   line-height: 1.25;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-scope-heading p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-scope-heading p {
   margin: 4px 0 0;
   color: #52656d;
   font-size: 14px;
   line-height: 1.5;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-body {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-body {
   padding-top: 24px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-intro {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro {
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr);
   gap: 18px;
@@ -3301,7 +3540,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   box-shadow: var(--wpacu-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-intro__icon {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro__icon {
   display: grid;
   width: 54px;
   height: 54px;
@@ -3312,19 +3551,19 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   box-shadow: 0 8px 18px rgba(0, 101, 132, 0.16);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-intro__icon .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro__icon .dashicons {
   width: 26px;
   height: 26px;
   font-size: 26px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-intro h3 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro h3 {
   margin: 0 0 4px;
   font-size: 18px;
   line-height: 1.3;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-intro p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro p {
   max-width: 920px;
   margin: 0;
   color: #42525b;
@@ -3332,7 +3571,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav {
   position: sticky;
   top: 32px;
   z-index: 20;
@@ -3349,7 +3588,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   backdrop-filter: blur(8px);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__label {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__label {
   display: inline-flex;
   min-height: 28px;
   align-items: center;
@@ -3363,26 +3602,26 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__label--manager {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__label--manager {
   border-color: #cae9ec;
   background: #e8f7f8;
   color: #096f78;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__label--critical {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__label--critical {
   border-color: #ded7ef;
   background: #f2effb;
   color: #51418d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__divider {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__divider {
   width: 1px;
   height: 24px;
   margin: 0 4px 0 6px;
   background: #dce5e8;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3397,45 +3636,390 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a:hover,
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a:focus-visible {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a:hover,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a:focus-visible {
   border-color: #bcdde1;
   background: #f1fafb;
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.is-active {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a.is-active {
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical:hover,
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical:focus-visible {
+#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.is-paused {
+  border-color: #e0c078;
+  background: #fff8e5;
+  color: #795711;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.is-paused:hover, #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.is-paused:focus-visible, #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.is-paused.is-active {
+  border-color: #b58118;
+  background: #fff0ce;
+  color: #704900;
+}
+
+#wpacu-css-js-manager-settings .wpacu-cssjs-rule-status-badge {
+  padding: 1px 6px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-rule-status-badge.is-active {
+  border-color: #b7dfc5;
+  background: #eef9f1;
+  color: #168545;
+}
+
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical:hover,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical:focus-visible {
   border-color: #ded7ef;
   background: #f2effb;
   color: #51418d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical.is-active {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a.wpacu-cssjs-quick-nav__link--critical.is-active {
   color: #51418d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav .dashicons {
   width: 16px;
   height: 16px;
   font-size: 16px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section {
   scroll-margin-top: 92px;
   margin-top: 31px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section + .wpacu-cssjs-section {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section + .wpacu-cssjs-section {
   padding-top: 29px;
   border-top: 1px solid #e4e8ea;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section__heading {
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 22px;
+  padding: 5px;
+  border: 1px solid #d7e4e8;
+  border-radius: 9px;
+  background: #f4f8fa;
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab] {
+  padding: 11px 18px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #425b66;
+  font-weight: 600;
+  text-decoration: none;
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab]:hover,
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab]:focus-visible {
+  border-color: #9ccad4;
+  background: #fff;
+  color: #006584;
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab][aria-selected=true] {
+  border-color: #9ccad4;
+  background: #fff;
+  color: #006584;
+  box-shadow: 0 1px 4px rgba(0, 64, 85, 0.08);
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab]:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none !important;
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) .wpacu-cssjs-settings-tabs [role=tab]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) [data-wpacu-cssjs-settings-panel][hidden],
+:is(#wpacu-css-js-manager-settings, .wpacu-pm-settings-page) [data-wpacu-third-panel][hidden] {
+  display: none !important;
+}
+
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs {
+  margin: 0;
+  padding: 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-top-width: 3px;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab].is-paused {
+  color: #795711;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab][aria-selected=true] {
+  border-color: var(--wpacu-rule-tabs-border);
+  border-top-color: #006584;
+  border-bottom-color: var(--wpacu-rule-tabs-border);
+  background: #fff;
+  color: #006584;
+  position: relative;
+  z-index: 1;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab][aria-selected=true]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: #fff;
+  pointer-events: none;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab].is-paused[aria-selected=true] {
+  border-top-color: #b58118;
+  background: linear-gradient(180deg, #fff8e5, #fff);
+  color: #795711;
+}
+@media (max-width: 520px) {
+  #wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs [role=tab] {
+    flex: 1;
+    padding: 10px 8px;
+    gap: 5px;
+  }
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs .wpacu-cssjs-settings-tab-status {
+  padding: 2px 7px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > .wpacu-cssjs-settings-tabs .wpacu-cssjs-settings-tab-status[hidden] {
+  display: none;
+}
+
+#wpacu-css-js-manager-settings > .wpacu-cssjs-panel > .wpacu-cssjs-body {
+  --wpacu-rule-tabs-border: #9ccad4;
+  padding-top: 0;
+}
+
+#wpacu-css-js-manager-settings .wpacu-cssjs-body:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) {
+  --wpacu-rule-tabs-border: #e0c078;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) > [data-wpacu-cssjs-settings-panel] {
+  border-width: 2px;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) > .wpacu-cssjs-settings-tabs > [aria-selected=true] {
+  margin-bottom: -2px;
+  border-left-width: 2px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+#wpacu-css-js-manager-settings .wpacu-cssjs-body:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) > .wpacu-cssjs-settings-tabs > [aria-selected=true]::after {
+  bottom: -2px;
+  height: 2px;
+}
+
+#wpacu-css-js-manager-settings .wpacu-cssjs-body > [data-wpacu-cssjs-settings-panel] {
+  padding: 0;
+  border: 1px solid var(--wpacu-rule-tabs-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+#wpacu-css-js-manager-settings .wpacu-cssjs-body:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true]:first-child) > [data-wpacu-cssjs-settings-panel] {
+  border-top-left-radius: 0;
+}
+
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > .wpacu-cssjs-header {
+  margin: 24px 20px;
+}
+
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-settings-critical-css, #wpacu-cssjs-settings-alternative-assets) > .wpacu-cssjs-header {
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+#wpacu-css-js-manager-settings #wpacu-cssjs-alternative-assets {
+  margin-top: 16px;
+}
+
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > .wpacu-cssjs-intro,
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > .wpacu-cssjs-quick-nav {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > #wpacu-cssjs-rule-delivery {
+  margin: 24px 0 0;
+}
+
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-rule-delivery, #wpacu-cssjs-alternative-assets) > .wpacu-cssjs-scope-heading {
+  margin: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-critical-css, #wpacu-cssjs-rule-delivery, #wpacu-cssjs-alternative-assets) {
+  padding: 0;
+}
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-critical-css, #wpacu-cssjs-rule-delivery, #wpacu-cssjs-alternative-assets) > .wpacu-cssjs-section__heading {
+  margin: 18px 20px 14px;
+}
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-critical-css, #wpacu-cssjs-rule-delivery, #wpacu-cssjs-alternative-assets) > .wpacu-cssjs-critical-css-card {
+  border: 0;
+  border-radius: 0 0 9px 9px;
+  box-shadow: none;
+}
+#wpacu-css-js-manager-settings :is(#wpacu-cssjs-critical-css, #wpacu-cssjs-rule-delivery, #wpacu-cssjs-alternative-assets) .wpacu-cssjs-critical-css-master-row {
+  border-radius: 0;
+}
+
+/* Compact master switch shared by the CSS and JavaScript alternative lists. */
+.wpacu-alt-assets .wpacu-alt-assets__content {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wpacu-alt-assets .wpacu-alt-assets__paused-legend {
+  display: none;
+}
+
+.wpacu-alt-assets.is-globally-paused .wpacu-alt-assets__content {
+  padding: 16px;
+  border: 2px solid #e0c078;
+  border-radius: 10px;
+}
+
+.wpacu-alt-assets.is-globally-paused .wpacu-alt-assets__paused-legend {
+  display: block;
+  width: auto;
+  padding: 0 6px;
+  margin: 0;
+}
+.wpacu-alt-assets.is-globally-paused .wpacu-alt-assets__paused-legend > span {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wpacu-alt-assets .wpacu-alt-global-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+  min-height: 30px;
+}
+.wpacu-alt-assets .wpacu-alt-global-control .wpacu_switch {
+  flex-shrink: 0;
+  margin: 0;
+}
+.wpacu-alt-assets .wpacu-alt-global-control [role=status] {
+  font-size: 12px;
+  color: #52646d;
+}
+
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > :is(.wpacu-cssjs-manager-wrap, .wpacu-cssjs-critical-css-wrap) {
+  border: 0;
+  border-radius: 0 0 9px 9px;
+  margin-bottom: 0;
+}
+
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > :is(.wpacu-cssjs-manager-wrap, .wpacu-cssjs-critical-css-wrap) > .wpacu-cssjs-scope-heading {
+  border-left: 0;
+  border-radius: 0;
+}
+
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section {
+  padding: 0;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-section__heading {
+  margin: 24px 0 12px;
+  padding: 22px 20px;
+  background: #edf4f7;
+  border-bottom: 1px solid #d7e4e8;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-workspace,
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-setting-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-layout-card {
+  padding: 0;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-layout-card > .wpacu-cssjs-setting-row {
+  padding: 24px 28px;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-layout-card > .wpacu-cssjs-setting-row:first-child {
+  padding-top: 30px;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap .wpacu-cssjs-workspace > .wpacu-cssjs-master-row {
+  border-radius: 0;
+}
+#wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap .wpacu-cssjs-workspace__configuration > .wpacu-cssjs-config-block {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+@media (max-width: 520px) {
+  #wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-section__heading {
+    padding: 18px 14px;
+  }
+  #wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-layout-card > .wpacu-cssjs-setting-row {
+    padding: 22px 18px;
+  }
+  #wpacu-css-js-manager-settings #wpacu-cssjs-settings-manage-css-js .wpacu-cssjs-manager-wrap > .wpacu-cssjs-section > .wpacu-cssjs-layout-card > .wpacu-cssjs-setting-row:first-child {
+    padding-top: 26px;
+  }
+}
+
+@media (max-width: 520px) {
+  #wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > :is(.wpacu-cssjs-header, .wpacu-cssjs-intro, .wpacu-cssjs-quick-nav) {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  #wpacu-css-js-manager-settings :is(#wpacu-cssjs-critical-css, #wpacu-cssjs-rule-delivery) > .wpacu-cssjs-section__heading {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}
+#wpacu-css-js-manager-settings [data-wpacu-cssjs-settings-panel] > .wpacu-cssjs-header + .wpacu-cssjs-critical-css-wrap {
+  margin-top: 0;
+}
+
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__heading {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
   gap: 13px;
@@ -3443,11 +4027,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   margin: 0 0 14px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section__heading--unnumbered {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__heading--unnumbered {
   grid-template-columns: minmax(0, 1fr);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section__number {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__number {
   display: grid;
   width: 34px;
   height: 34px;
@@ -3460,13 +4044,13 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   box-shadow: 0 4px 10px rgba(0, 101, 132, 0.15);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section__heading h3 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__heading h3 {
   margin: 0;
   font-size: 19px;
   line-height: 1.35;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-section__heading p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__heading p {
   max-width: 920px;
   margin: 4px 0 0;
   color: var(--wpacu-cssjs-muted);
@@ -3474,8 +4058,8 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-workspace,
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-card {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-workspace,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-card {
   min-width: 0;
   overflow: visible;
   border: 1px solid var(--wpacu-cssjs-soft-border);
@@ -3484,11 +4068,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-workspace + .wpacu-cssjs-workspace {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-workspace + .wpacu-cssjs-workspace {
   margin-top: 16px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row {
   display: grid;
   grid-template-columns: minmax(220px, 265px) minmax(0, 1fr);
   align-items: stretch;
@@ -3497,14 +4081,14 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: var(--wpacu-cssjs-soft-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row--nested {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row--nested {
   padding: 18px;
   border: 0;
   border-radius: 9px;
   background: #f7fafb;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__control {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__control {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -3512,34 +4096,34 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   padding: 4px 22px 4px 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__control .wpacu_switch,
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field .wpacu_switch {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__control .wpacu_switch,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field .wpacu_switch {
   flex: 0 0 auto;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field .wpacu_switch {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field .wpacu_switch {
   align-self: center;
   margin: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-control-label {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label {
   flex: 1 1 auto;
   min-width: 0;
   cursor: pointer;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-control-label strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-control-label span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label span {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-control-label strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label strong {
   color: #314750;
   font-size: 13px;
   line-height: 1.35;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-control-label span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label span {
   max-width: 170px;
   margin-top: 3px;
   color: #708089;
@@ -3547,25 +4131,25 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy {
   min-width: 0;
   padding: 4px 0 4px 22px;
   border-left: 1px solid #d5e3e7;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy h4,
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy h5 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy h4,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy h5 {
   margin: 3px 0 5px;
   color: #263740;
   font-size: 17px;
   line-height: 1.35;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy h5 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy h5 {
   font-size: 16px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy p {
   max-width: 780px;
   margin: 0;
   color: var(--wpacu-cssjs-muted);
@@ -3573,7 +4157,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-kicker {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-kicker {
   display: block;
   color: var(--wpacu-cssjs-blue);
   font-size: 10px;
@@ -3583,12 +4167,12 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-workspace__configuration {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-workspace__configuration {
   padding: 0 20px 20px;
   transition: opacity 0.2s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-config-block {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-config-block {
   margin-top: 18px;
   padding: 18px;
   border: 1px solid #dce5e7;
@@ -3596,16 +4180,16 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fbfcfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-block-heading,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 13px;
   align-items: start;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-block-heading__icon,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading__icon {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading__icon,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading__icon {
   display: grid;
   width: 42px;
   height: 42px;
@@ -3616,31 +4200,31 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   box-shadow: inset 0 0 0 1px #c8e4e8;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-block-heading__icon .dashicons,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading__icon .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading__icon .dashicons,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading__icon .dashicons {
   width: 22px;
   height: 22px;
   font-size: 22px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-block-heading h5,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading h4 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading h5,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading h4 {
   margin: 2px 0 3px;
   color: #263740;
   font-size: 16px;
   line-height: 1.35;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-block-heading p,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading p,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading p {
   margin: 0;
   color: var(--wpacu-cssjs-muted);
   font-size: 12px;
   line-height: 1.5;
 }
 
-#wpacu-css-js-manager-settings #wpacu-dom-get-type-selections,
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice-group {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-dom-get-type-selections,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   float: none;
@@ -3651,7 +4235,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice {
   position: relative;
   display: flex;
   align-items: flex-start;
@@ -3666,14 +4250,14 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice:hover {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:hover {
   border-color: #9dc9d0;
   background: #fbfefe;
   box-shadow: 0 5px 14px rgba(0, 69, 103, 0.07);
   transform: translateY(-1px);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice > input {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice > input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -3684,7 +4268,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   opacity: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice::after {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice::after {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -3696,39 +4280,39 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   content: "";
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice:has(> input:checked) {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:has(> input:checked) {
   border-color: var(--wpacu-cssjs-brand);
   background: linear-gradient(145deg, #fff, #f4fcfd);
   box-shadow: 0 0 0 2px rgba(0, 143, 157, 0.11), 0 8px 20px rgba(0, 69, 103, 0.07);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice:has(> input:checked)::after {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:has(> input:checked)::after {
   border-color: var(--wpacu-cssjs-brand);
   background: radial-gradient(circle at center, var(--wpacu-cssjs-brand) 0, var(--wpacu-cssjs-brand) 5px, #fff 5.5px, #fff 100%);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice:has(> input:focus-visible) {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:has(> input:focus-visible) {
   outline: 3px solid rgba(34, 113, 177, 0.28);
   outline-offset: 2px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__body,
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__top {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__body,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__top {
   display: block;
   min-width: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__top {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__top {
   padding-right: 2px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__top strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__top strong {
   color: #314750;
   font-size: 13px;
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__body small {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__body small {
   display: block;
   margin-top: 6px;
   color: #667780;
@@ -3736,7 +4320,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.5;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice__badge {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice__badge {
   display: inline-flex;
   margin-left: 7px;
   padding: 2px 6px;
@@ -3751,15 +4335,15 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   vertical-align: 1px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice-group--compact .wpacu-cssjs-choice {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice-group--compact .wpacu-cssjs-choice {
   min-height: 90px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-retrieval-notes {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-retrieval-notes {
   margin-top: 13px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -3770,7 +4354,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #43545d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout > .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout > .dashicons {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -3778,23 +4362,23 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   font-size: 18px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout p {
   margin: 0;
   font-size: 12px;
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--info {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--info {
   border-color: #c8e2e7;
   background: #f1fafb;
   color: #3e5964;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--info > .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--info > .dashicons {
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--success {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--success {
   margin: 16px 20px 0;
   border-color: #c9e1d2;
   border-left: 4px solid var(--wpacu-cssjs-success);
@@ -3802,27 +4386,27 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #3e5d49;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--success > .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--success > .dashicons {
   color: var(--wpacu-cssjs-success);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--neutral {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--neutral {
   border-color: #d8e1e4;
   background: #f8fafb;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-callout--neutral > .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--neutral > .dashicons {
   color: #627781;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-inline-notes {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-inline-notes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   margin-top: 12px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-inline-notes > span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-inline-notes > span {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3836,7 +4420,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.45;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-inline-notes .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-inline-notes .dashicons {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
@@ -3844,7 +4428,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   font-size: 16px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details {
   margin-top: 12px;
   overflow: hidden;
   border: 1px solid #dce3e5;
@@ -3852,11 +4436,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details--standalone {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details--standalone {
   margin: 16px 0 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details > summary {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details > summary {
   padding: 11px 13px;
   color: #3c525c;
   font-size: 12px;
@@ -3865,13 +4449,13 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   transition: background-color 0.14s ease, color 0.14s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details > summary:hover,
-#wpacu-css-js-manager-settings .wpacu-cssjs-details > summary:focus-visible {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details > summary:hover,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details > summary:focus-visible {
   background: #f3f8f9;
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details > div {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details > div {
   padding: 12px 14px;
   border-top: 1px solid #e3e7e9;
   color: #53656e;
@@ -3879,16 +4463,16 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details > div > :last-child {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details > div > :last-child {
   margin-bottom: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details a {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details a {
   font-weight: 650;
   text-decoration: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-embedded-manager {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-embedded-manager {
   min-width: 0;
   margin: 18px 0 0;
   padding: 0;
@@ -3897,51 +4481,52 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-embedded-manager__options {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-embedded-manager__options {
   padding: 0 18px 18px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-group {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-group {
   margin-top: 17px;
   padding-top: 17px;
   border-top: 1px solid #e4e9eb;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-heading strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-heading span,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-label strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-label span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-heading strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-heading span,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-label strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-label span {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-heading strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-label strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-heading strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-label strong {
   color: #314750;
   font-size: 13px;
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-heading span,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-label span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-heading span,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-label span {
   margin-top: 3px;
   color: #6a7981;
   font-size: 11px;
   line-height: 1.5;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-label {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-label {
   display: block;
   margin-bottom: 8px;
 }
 
-#wpacu-css-js-manager-settings #wpacu-hide-meta-boxes-for-post-types,
-#wpacu-css-js-manager-settings #wpacu-allow-manage-assets-to-select-list,
-#wpacu-css-js-manager-settings #wpacu_frontend_show_exceptions {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-hide-meta-boxes-for-post-types,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_plugins_manager_hide_meta_box_post_types,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-allow-manage-assets-to-select-list,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_frontend_show_exceptions {
   width: 100%;
   max-width: none;
 }
 
-#wpacu-css-js-manager-settings #wpacu_frontend_show_exceptions {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_frontend_show_exceptions {
   min-height: 116px;
   padding: 10px 12px;
   border-color: #bfcbd0;
@@ -3952,25 +4537,25 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   resize: vertical;
 }
 
-#wpacu-css-js-manager-settings #wpacu_frontend_show_exceptions:hover {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_frontend_show_exceptions:hover {
   border-color: #98afb8;
 }
 
-#wpacu-css-js-manager-settings #wpacu_frontend_show_exceptions:focus {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_frontend_show_exceptions:focus {
   border-color: var(--wpacu-cssjs-brand);
   outline: 0;
   box-shadow: 0 0 0 2px rgba(0, 143, 157, 0.14);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field-help,
-#wpacu-css-js-manager-settings .wpacu-cssjs-example {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field-help,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-example {
   margin: 7px 0 0;
   color: #68777f;
   font-size: 11px;
   line-height: 1.5;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-empty-state {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-empty-state {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -3982,46 +4567,46 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #60717a;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-empty-state .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-empty-state .dashicons {
   flex: 0 0 auto;
   color: #71848d;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-empty-state p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-empty-state p {
   margin: 0;
   font-size: 12px;
   line-height: 1.55;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-config-block--exceptions {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-config-block--exceptions {
   margin-top: 14px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-config-block--exceptions .wpacu-cssjs-field-label {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-config-block--exceptions .wpacu-cssjs-field-label {
   margin-top: 15px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-card {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-card {
   padding: 20px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading {
   margin-bottom: 18px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-access-fields,
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-fields {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-access-fields,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-fields {
   display: grid;
   grid-template-columns: minmax(240px, 0.72fr) minmax(320px, 1.28fr);
   gap: 15px;
   align-items: start;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-access-fields {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-access-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-panel {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel {
   position: relative;
   min-width: 0;
   overflow: visible;
@@ -4030,7 +4615,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field {
   min-width: 0;
   padding: 14px;
   border: 1px solid #dce4e7;
@@ -4038,7 +4623,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fbfcfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field > label:first-child {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field > label:first-child {
   display: block;
   margin-bottom: 7px;
   color: #41545d;
@@ -4048,18 +4633,18 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field select {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field select {
   width: 100%;
   max-width: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkboxes {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkboxes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox {
   display: flex;
   align-items: flex-start;
   gap: 9px;
@@ -4072,7 +4657,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   transition: opacity 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options {
   position: relative;
   padding: 16px;
   overflow: visible;
@@ -4082,12 +4667,12 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fbfcfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options .chosen-container,
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options .chosen-drop {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options .chosen-container,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options .chosen-drop {
   z-index: 1001;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options > label:first-child {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options > label:first-child {
   display: block;
   margin-bottom: 7px;
   color: #41545d;
@@ -4097,100 +4682,135 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options select {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options select {
   width: 100%;
   max-width: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-summary {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-summary {
   margin: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox:hover {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox:hover {
   border-color: #8bbec7;
   background: #f5fbfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox input {
+:is(#wpacu-cssjs-selected-visibility, #wpacu-pm-visibility-selected-options) {
+  margin-top: 18px;
+}
+
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel:hover {
+  border-color: #9dc9d0;
+  background: #fbfefe;
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:is([for="wpacu-cssjs-visibility-selected"], [for="wpacu-pm-visibility-selected"]):has(> input:checked),
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel:has(.wpacu-cssjs-visibility-checkbox > input:checked) {
+  border-color: #ead59e;
+  background: linear-gradient(145deg, #fff, #fff8e5);
+  box-shadow: 0 0 0 2px rgba(153, 104, 0, 0.13), 0 5px 12px rgba(99, 75, 11, 0.09);
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:is([for="wpacu-cssjs-visibility-selected"], [for="wpacu-pm-visibility-selected"]):has(> input:checked)::after {
+  border-color: #996800;
+  background: radial-gradient(circle at center, #996800 0, #996800 5px, #fff 5.5px, #fff 100%);
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel {
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel:hover {
+  box-shadow: 0 5px 14px rgba(0, 69, 103, 0.07);
+  transform: translateY(-1px);
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-panel:has(.wpacu-cssjs-visibility-checkbox > input:focus-visible) {
+  outline: 3px solid rgba(34, 113, 177, 0.28);
+  outline-offset: 2px;
+}
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox:hover {
+  background: transparent;
+}
+
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox input {
   flex: 0 0 auto;
   margin-top: 2px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox small {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox small {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox small {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox small {
   margin-top: 3px;
   color: var(--wpacu-cssjs-muted);
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkbox.is-visually-disabled,
-#wpacu-css-js-manager-settings .wpacu-cssjs-field.is-visually-disabled,
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options.is-visually-disabled {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkbox.is-visually-disabled,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field.is-visually-disabled,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options.is-visually-disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field.is-visually-disabled {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field.is-visually-disabled {
   pointer-events: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-visibility-options.is-visually-disabled {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-options.is-visually-disabled {
   pointer-events: none;
 }
 
 @media (max-width: 600px) {
-  #wpacu-css-js-manager-settings .wpacu-cssjs-access-fields {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-access-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-visibility-checkboxes {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-visibility-checkboxes {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-#wpacu-css-js-manager-settings .wpacu-cssjs-access-card > .wpacu-cssjs-callout {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-access-card > .wpacu-cssjs-callout {
   margin-top: 15px;
 }
 
-#wpacu-css-js-manager-settings #wpacu-allow-manage-assets-to-select-list-area {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-allow-manage-assets-to-select-list-area {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .chosen-container,
-#wpacu-css-js-manager-settings .chosen-container-multi {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .chosen-container,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .chosen-container-multi {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
 
-#wpacu-css-js-manager-settings .chosen-container-multi .chosen-choices {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .chosen-container-multi .chosen-choices {
   min-height: 38px;
   border-color: #bfcbd0;
   border-radius: 5px;
   background-image: none;
 }
 
-#wpacu-css-js-manager-settings .chosen-container-multi:hover .chosen-choices {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .chosen-container-multi:hover .chosen-choices {
   border-color: #98afb8;
 }
 
-#wpacu-css-js-manager-settings #wpacu-hide-meta-boxes-for-post-types + .chosen-container .chosen-choices .search-field input {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-hide-meta-boxes-for-post-types + .chosen-container .chosen-choices .search-field input,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_plugins_manager_hide_meta_box_post_types + .chosen-container .chosen-choices .search-field input {
   padding-left: 2px;
 }
 
-#wpacu-css-js-manager-settings .chosen-container-active .chosen-choices {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .chosen-container-active .chosen-choices {
   border-color: var(--wpacu-cssjs-brand);
   box-shadow: 0 0 0 2px rgba(0, 143, 157, 0.12);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-layout-card {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-layout-card {
   padding: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row {
   display: grid;
   grid-template-columns: minmax(0, 13fr) minmax(300px, 12fr);
   gap: 24px;
@@ -4200,24 +4820,24 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border-top: 1px solid #e1e7e9;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row:first-child {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row:first-child {
   border-top: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row--conditional {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row--conditional {
   background: #f7fbfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row--core-assets {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row--core-assets {
   transition: background 0.18s ease, box-shadow 0.18s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row--core-assets:has(#wpacu_core_files_hidden:checked) {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row--core-assets:has(#wpacu_core_files_hidden:checked) {
   background: linear-gradient(145deg, #fff, #fff8e5);
   box-shadow: inset 0 0 0 1px rgba(153, 104, 0, 0.08);
 }
 
-#wpacu-css-js-manager-settings #wpacu-assets-list-by-location-selected {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-assets-list-by-location-selected {
   clear: none;
   border-right: 0;
   border-bottom: 0;
@@ -4225,7 +4845,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border-radius: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row__copy {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row__copy {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 13px;
@@ -4233,32 +4853,32 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   min-width: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row__copy h4 {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row__copy h4 {
   margin: 2px 0 4px;
   color: #263740;
   font-size: 15px;
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row__copy p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row__copy p {
   margin: 0;
   color: var(--wpacu-cssjs-muted);
   font-size: 12px;
   line-height: 1.52;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row > .wpacu-cssjs-field {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row > .wpacu-cssjs-field {
   padding: 13px;
 }
 
-#wpacu-css-js-manager-settings #wpacu_assets_list_layout {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu_assets_list_layout {
   width: 100%;
   max-width: none !important;
 }
 
-#wpacu-css-js-manager-settings .assets_list_layout_areas_status_choices,
-#wpacu-css-js-manager-settings .assets_list_inline_code_status_choices,
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .assets_list_layout_areas_status_choices,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .assets_list_inline_code_status_choices,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   float: none;
@@ -4270,7 +4890,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #edf2f4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options label {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options label {
   position: relative;
   display: block;
   min-width: 0;
@@ -4278,7 +4898,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   cursor: pointer;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options input {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -4289,7 +4909,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   opacity: 0;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options label > span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options label > span {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4306,7 +4926,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   transition: border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options label > span small {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options label > span small {
   padding: 1px 5px;
   border-radius: 999px;
   background: #e7f4f5;
@@ -4317,31 +4937,31 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options input:checked + span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options input:checked + span {
   border-color: #b8d8dd;
   background: #fff;
   color: var(--wpacu-cssjs-blue);
   box-shadow: 0 1px 3px rgba(0, 69, 103, 0.1);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options .wpacu-cssjs-segmented-option--restrictive input:checked + span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options .wpacu-cssjs-segmented-option--restrictive input:checked + span {
   border-color: #ead59e;
   background: linear-gradient(145deg, #fff, #fff8e5);
   color: #805700;
   box-shadow: 0 0 0 2px rgba(153, 104, 0, 0.13), 0 5px 12px rgba(99, 75, 11, 0.09);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options .wpacu-cssjs-segmented-option--restrictive input:checked + span small {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options .wpacu-cssjs-segmented-option--restrictive input:checked + span small {
   background: #fff1c7;
   color: #805700;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options input:focus-visible + span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options input:focus-visible + span {
   outline: 3px solid rgba(34, 113, 177, 0.28);
   outline-offset: 1px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field {
   display: flex;
   align-items: center;
   gap: 11px;
@@ -4352,44 +4972,44 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field > label:last-child {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field > label:last-child {
   min-width: 0;
   cursor: pointer;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field > label:last-child strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field > label:last-child span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field > label:last-child strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field > label:last-child span {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field > label:last-child strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field > label:last-child strong {
   color: #314750;
   font-size: 12px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field > label:last-child span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field > label:last-child span {
   margin-top: 2px;
   color: #708089;
   font-size: 10px;
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-fields {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-fields {
   grid-template-columns: minmax(250px, 0.85fr) minmax(0, 1.15fr);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-details--storage {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-details--storage {
   margin: 0;
   background: #fbfcfc;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid > div {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid > div {
   min-width: 0;
   padding: 10px;
   border: 1px solid #e0e6e8;
@@ -4397,29 +5017,29 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #fff;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid span {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid strong {
   color: #3b515b;
   font-size: 11px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid span {
   margin-top: 5px;
   color: #667780;
   font-size: 10px;
   line-height: 1.45;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-field--retention {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field--retention {
   height: 100%;
   box-sizing: border-box;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-summary-fields {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-summary-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 15px;
@@ -4427,23 +5047,23 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   margin-top: 15px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-number-field {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-number-field {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-number-field input {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-number-field input {
   width: 82px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-number-field span {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-number-field span {
   color: #53646d;
   font-size: 12px;
   font-weight: 650;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -4455,31 +5075,31 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   background: #f8fafb;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path > .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path > .dashicons {
   flex: 0 0 auto;
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path strong,
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path code {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path strong,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path code {
   display: block;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path strong {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path strong {
   margin-bottom: 5px;
   color: #41545d;
   font-size: 11px;
   text-transform: uppercase;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-path code {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-path code {
   max-width: 100%;
   overflow-wrap: anywhere;
   color: #36515f;
   font-size: 11px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-doc-links {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-doc-links {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
@@ -4487,12 +5107,12 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   font-size: 12px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-doc-links a {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-doc-links a {
   font-weight: 650;
   text-decoration: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-footer-note {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-footer-note {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -4504,17 +5124,17 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #3e5d49;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-footer-note .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-footer-note .dashicons {
   flex: 0 0 auto;
   color: var(--wpacu-cssjs-success);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-footer-note p {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-footer-note p {
   margin: 0;
   line-height: 1.55;
 }
 
-.wpacu-input-style-enhanced #wpacu-css-js-manager-settings .wpacu_switch > input {
+.wpacu-input-style-enhanced :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu_switch > input {
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -4526,22 +5146,22 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   cursor: pointer;
 }
 
-.wpacu-input-style-enhanced #wpacu-css-js-manager-settings .wpacu_switch > input:focus-visible + .wpacu_slider {
+.wpacu-input-style-enhanced :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu_switch > input:focus-visible + .wpacu_slider {
   outline: 3px solid rgba(34, 113, 177, 0.32);
   outline-offset: 3px;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-choice {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice {
   gap: 9px;
   min-height: 0;
   padding: 14px;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-choice::after {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice::after {
   display: none;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-choice > input {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice > input {
   position: static;
   display: inline-block;
   flex: 0 0 auto;
@@ -4555,24 +5175,24 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   -webkit-appearance: radio;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-choice:has(> input:checked) {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice:has(> input:checked) {
   box-shadow: none;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options {
   gap: 9px;
   padding: 10px;
   background: #f6f8f9;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options label {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options label {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 4px;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options input {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options input {
   position: static;
   display: inline-block;
   flex: 0 0 auto;
@@ -4586,8 +5206,8 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   -webkit-appearance: radio;
 }
 
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options label > span,
-.wpacu-input-style-standard #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options input:checked + span {
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options label > span,
+.wpacu-input-style-standard :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options input:checked + span {
   display: inline-flex;
   justify-content: flex-start;
   min-height: 0;
@@ -4600,22 +5220,22 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 }
 
 @media (max-width: 980px) {
-  #wpacu-css-js-manager-settings .wpacu-cssjs-access-fields,
-#wpacu-css-js-manager-settings .wpacu-cssjs-cache-fields,
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-access-fields,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-fields,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-field--retention {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-field--retention {
     grid-column: auto;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-storage-grid {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-storage-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 782px) {
-  #wpacu-css-js-manager-settings .wpacu-cssjs-cache-summary-fields {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-cache-summary-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -4623,88 +5243,88 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
     padding: 20px 18px 24px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-header {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header {
     display: block;
     padding-bottom: 20px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-header__badge {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__badge {
     margin-top: 0;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-header__actions {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-header__actions {
     align-items: flex-start;
     margin-top: 14px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-body {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-body {
     padding-top: 18px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-intro {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro {
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 14px;
     padding: 17px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-intro__icon {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro__icon {
     width: 44px;
     height: 44px;
     border-radius: 10px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-intro__icon .dashicons {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro__icon .dashicons {
     width: 23px;
     height: 23px;
     font-size: 23px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav {
     position: static;
     backdrop-filter: none;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-master-row {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row {
     grid-template-columns: minmax(0, 1fr);
     padding: 17px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-master-row__control {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__control {
     width: 100%;
     padding: 0 0 16px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-control-label span {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-control-label span {
     max-width: none;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-master-row__copy {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-master-row__copy {
     padding: 16px 0 0;
     border-top: 1px solid #d5e3e7;
     border-left: 0;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-workspace__configuration {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-workspace__configuration {
     padding: 0 16px 16px;
   }
 
-  #wpacu-css-js-manager-settings #wpacu-dom-get-type-selections,
-#wpacu-css-js-manager-settings .wpacu-cssjs-choice-group,
-#wpacu-css-js-manager-settings .wpacu-cssjs-inline-notes {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) #wpacu-dom-get-type-selections,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice-group,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-inline-notes {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-callout--success {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-callout--success {
     margin-right: 16px;
     margin-left: 16px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-setting-card,
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-card,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row {
     padding: 16px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options {
     max-width: 430px;
   }
 }
@@ -4713,86 +5333,86 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
     padding: 17px 14px 20px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-intro {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-intro {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__label {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__label {
     width: auto;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav__divider {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav__divider {
     flex: 0 0 100%;
     width: 100%;
     height: 1px;
     margin: 2px 0;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-quick-nav a {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-quick-nav a {
     flex: 1 1 calc(50% - 8px);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-section__heading {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__heading:not(.wpacu-cssjs-section__heading--unnumbered) {
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 10px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-section__number {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-section__number {
     width: 30px;
     height: 30px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-block-heading,
-#wpacu-css-js-manager-settings .wpacu-cssjs-card-heading,
-#wpacu-css-js-manager-settings .wpacu-cssjs-setting-row__copy {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-block-heading,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-card-heading,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-setting-row__copy {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-choice {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-choice {
     padding-right: 42px;
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-segmented-options {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-segmented-options {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #wpacu-css-js-manager-settings .wpacu-cssjs-toggle-field {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-toggle-field {
     align-items: center;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #wpacu-css-js-manager-settings *,
-#wpacu-css-js-manager-settings *::before,
-#wpacu-css-js-manager-settings *::after {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *::before,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
 }
 /* Plugin Usage Preferences / CSS/JS Manager: Critical CSS master preference. */
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-card {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-card {
   overflow: hidden;
   padding: 0;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-card.is-active {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-card.is-active {
   border-color: var(--wpacu-cssjs-soft-border);
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-card.is-paused {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-card.is-paused {
   border-color: var(--wpacu-cssjs-soft-border);
   background: linear-gradient(145deg, #fff, #fff8e5);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-master-row {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-master-row {
   border-radius: 10px;
   background: transparent;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4800,8 +5420,8 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   margin-top: 13px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-status,
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-saved {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-status,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-saved {
   display: inline-flex;
   min-height: 24px;
   align-items: center;
@@ -4817,38 +5437,38 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   white-space: nowrap;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-status.is-active {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-status.is-active {
   border-color: #a9d2c0;
   background: #f0faf5;
   color: #17633f;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-status.is-paused {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-status.is-paused {
   border-color: #e0c078;
   background: #fff8e5;
   color: #795711;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-count {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-count {
   color: #60717a;
   font-size: 11px;
   line-height: 1.4;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-saved {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-saved {
   border-color: #c8e2e6;
   background: #f1fafb;
   color: var(--wpacu-cssjs-blue);
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-saved .dashicons,
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta a .dashicons {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-saved .dashicons,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta a .dashicons {
   width: 14px;
   height: 14px;
   font-size: 14px;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta a {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -4858,15 +5478,344 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   text-decoration: none;
 }
 
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta a:hover,
-#wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta a:focus-visible {
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta a:hover,
+:is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta a:focus-visible {
   text-decoration: underline;
 }
 
 @media (max-width: 782px) {
-  #wpacu-css-js-manager-settings .wpacu-cssjs-critical-css-meta a {
+  :is(#wpacu-css-js-manager-settings, #wpacu-plugins-manager-preferences) .wpacu-cssjs-critical-css-meta a {
     width: 100%;
     margin-left: 0;
+  }
+}
+#wpacu-css-js-manager-settings .wpacu-grouping-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#wpacu-css-js-manager-settings .wpacu-grouping-control select {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+#wpacu-css-js-manager-settings .wpacu-grouping-preview-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #bfdde3;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #fff, #edf9fa);
+  color: #006b8f;
+  cursor: pointer;
+}
+#wpacu-css-js-manager-settings .wpacu-grouping-preview-open:hover {
+  border-color: #008f9d;
+  box-shadow: 0 3px 10px rgba(0, 69, 103, 0.1);
+}
+#wpacu-css-js-manager-settings .wpacu-grouping-preview-open:focus-visible {
+  outline: 3px solid rgba(34, 113, 177, 0.35);
+  outline-offset: 2px;
+}
+#wpacu-css-js-manager-settings .wpacu-grouping-preview-open[hidden] {
+  display: none;
+}
+
+#wpacu-grouping-preview {
+  box-sizing: border-box;
+  width: min(960px, calc(100% - 32px));
+  max-width: 960px;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #c9dde2;
+  border-radius: 16px;
+  background: #fff;
+  color: #314852;
+  box-shadow: 0 24px 80px rgba(10, 39, 51, 0.28);
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: auto;
+}
+#wpacu-grouping-preview[open] {
+  display: flex;
+  flex-direction: column;
+  animation: wpacu-grouping-preview-enter 0.24s ease-out;
+}
+#wpacu-grouping-preview::backdrop {
+  background: rgba(18, 38, 49, 0.5);
+}
+#wpacu-grouping-preview *, #wpacu-grouping-preview *::before, #wpacu-grouping-preview *::after {
+  box-sizing: border-box;
+}
+#wpacu-grouping-preview [hidden] {
+  display: none !important;
+}
+#wpacu-grouping-preview h2, #wpacu-grouping-preview h3, #wpacu-grouping-preview p, #wpacu-grouping-preview figure, #wpacu-grouping-preview ol {
+  margin: 0;
+}
+#wpacu-grouping-preview h2 {
+  color: #024567;
+  font-size: 23px;
+  line-height: 1.3;
+}
+#wpacu-grouping-preview h3 {
+  color: #17333f;
+  font-size: 21px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+#wpacu-grouping-preview button {
+  font: inherit;
+  cursor: pointer;
+}
+#wpacu-grouping-preview button:focus-visible, #wpacu-grouping-preview h3:focus-visible {
+  outline: 3px solid rgba(34, 113, 177, 0.4);
+  outline-offset: 3px;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px 12px;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__eyebrow {
+  display: block;
+  color: #006b8f;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border: 1px solid #d6e2e6;
+  border-radius: 50%;
+  background: #fff;
+  color: #34515e;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__close:hover {
+  background: #edf7f8;
+}
+#wpacu-grouping-preview #wpacu-grouping-preview-intro {
+  padding: 0 28px 20px;
+  color: #586972;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__body {
+  display: grid;
+  grid-template-columns: 205px minmax(0, 1fr);
+  border-top: 1px solid #e0e9ec;
+}
+#wpacu-grouping-preview nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 20px 14px;
+  background: #f6fafb;
+  border-right: 1px solid #e0e9ec;
+}
+#wpacu-grouping-preview nav button {
+  text-align: left;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #405762;
+  font-weight: 600;
+}
+#wpacu-grouping-preview nav button:hover {
+  background: #fff;
+  border-color: #cbdfe3;
+}
+#wpacu-grouping-preview nav button[aria-current] {
+  background: #e4f5f7;
+  border-color: #9ccfd8;
+  color: #006b80;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__content {
+  padding: 24px 28px;
+  min-width: 0;
+}
+#wpacu-grouping-preview section:not([hidden]) {
+  animation: wpacu-grouping-preview-enter 0.24s ease-out;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__purpose {
+  color: #506671;
+  margin-bottom: 20px;
+}
+#wpacu-grouping-preview figure {
+  padding: 16px;
+  border: 1px solid #d9e6e9;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f7fbfc, #fff);
+}
+#wpacu-grouping-preview figcaption {
+  margin-bottom: 12px;
+  color: #60757e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+#wpacu-grouping-preview ol {
+  padding: 0;
+  list-style: none;
+  counter-reset: grouping-order;
+}
+#wpacu-grouping-preview li {
+  position: relative;
+  margin: 0 0 10px;
+  padding: 12px 12px 12px 43px;
+  border: 1px solid #dbe6e9;
+  border-radius: 8px;
+  background: #fff;
+  counter-increment: grouping-order;
+}
+#wpacu-grouping-preview li:last-child {
+  margin-bottom: 0;
+}
+#wpacu-grouping-preview li::before {
+  content: counter(grouping-order);
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: #e4f3f6;
+  color: #006b80;
+  font-size: 12px;
+  font-weight: 750;
+}
+#wpacu-grouping-preview li strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #284b5b;
+}
+#wpacu-grouping-preview code {
+  display: block;
+  margin: 4px 0 0;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: #f2f6f8;
+  color: #536570;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#wpacu-grouping-preview [data-grouping-panel=by-size] li:first-child code {
+  border-left: 3px solid #1696a6;
+}
+#wpacu-grouping-preview [data-grouping-panel=by-loaded-unloaded] li:first-child::before {
+  background: #e4f5ea;
+  color: #236a40;
+}
+#wpacu-grouping-preview [data-grouping-panel=by-loaded-unloaded] li:last-child::before {
+  background: #fff0df;
+  color: #8a560d;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__detail {
+  margin-top: 18px;
+  font-size: 13px;
+  color: #586972;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 28px;
+  border-top: 1px solid #e0e9ec;
+  background: #fff;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__footer button {
+  padding: 8px 14px;
+  border: 1px solid #bfd6de;
+  border-radius: 7px;
+  background: #f7fbfc;
+  color: #006b8f;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__footer button:hover:not(:disabled) {
+  border-color: #008f9d;
+  background: #edf8fa;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__footer button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+#wpacu-grouping-preview .wpacu-grouping-preview__position {
+  text-align: center;
+  color: #60757e;
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  #wpacu-grouping-preview {
+    width: calc(100% - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  #wpacu-grouping-preview .wpacu-grouping-preview__header {
+    padding: 18px 18px 12px;
+  }
+  #wpacu-grouping-preview h2 {
+    font-size: 21px;
+  }
+  #wpacu-grouping-preview #wpacu-grouping-preview-intro {
+    padding: 0 18px 16px;
+  }
+  #wpacu-grouping-preview .wpacu-grouping-preview__body {
+    grid-template-columns: 1fr;
+  }
+  #wpacu-grouping-preview nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid #e0e9ec;
+  }
+  #wpacu-grouping-preview nav button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+  #wpacu-grouping-preview .wpacu-grouping-preview__content {
+    padding: 18px;
+  }
+  #wpacu-grouping-preview .wpacu-grouping-preview__footer {
+    padding: 12px;
+    gap: 8px;
+  }
+  #wpacu-grouping-preview .wpacu-grouping-preview__footer button {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
+@keyframes wpacu-grouping-preview-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #wpacu-grouping-preview[open], #wpacu-grouping-preview section:not([hidden]) {
+    animation: none;
   }
 }
 /*
@@ -6032,6 +6981,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #53636b;
 }
 
+#wpacu-access-control-settings .wpacu-specific-non-admin-user-search .wpacu-user-search-status:empty {
+  min-height: 0;
+  margin: 0;
+}
+
 #wpacu-access-control-settings .wpacu-native-user-search > label {
   display: block;
   margin: 0 0 6px;
@@ -6082,6 +7036,11 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 #wpacu-access-control-settings .wpacu-access-activity-row {
   min-height: 20px;
   margin: 3px 0 0;
+}
+
+#wpacu-access-control-settings .wpacu-access-activity-row:not(:has(> .wpacu-access-activity:not(.wpacu_hide))) {
+  min-height: 0;
+  margin: 0;
 }
 
 #wpacu-access-control-settings .wpacu-access-activity {
@@ -7046,7 +8005,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   align-items: flex-start;
   justify-content: space-between;
   gap: 28px;
-  padding: 0 0 24px;
+  padding: 0 0 15px;
   border-bottom: 1px solid #e2e5e7;
 }
 #wpacu-usage-data-settings .wpacu-usage-data-header h2 {
@@ -7066,7 +8025,6 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 @media (max-width: 760px) {
   #wpacu-usage-data-settings .wpacu-usage-data-header {
     display: block;
-    padding: 0 0 20px;
   }
 }
 #wpacu-usage-data-settings .wpacu-usage-data-eyebrow {
@@ -7108,12 +8066,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   }
 }
 #wpacu-usage-data-settings .wpacu-usage-data-body {
-  padding: 24px 0 0;
-}
-@media (max-width: 760px) {
-  #wpacu-usage-data-settings .wpacu-usage-data-body {
-    padding: 18px 0 0;
-  }
+  padding: 8px 0 0;
 }
 #wpacu-usage-data-settings .wpacu-usage-data-intro {
   display: grid;
@@ -7733,6 +8686,12 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   --wpacu-exclusions-success: var(--wpacu-success, #168545);
   --wpacu-exclusions-radius: var(--wpacu-radius, 10px);
   color: var(--wpacu-exclusions-text);
+  /*! [Gabe Livan]
+   * Custom added or modified code. */
+  /*! [/Gabe Livan] */
+  /*! [Gabe Livan]
+   * Custom added or modified code. */
+  /*! [/Gabe Livan] */
 }
 #wpacu-page-exclusions-settings,
 #wpacu-page-exclusions-settings *,
@@ -7745,7 +8704,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   align-items: flex-start;
   justify-content: space-between;
   gap: 28px;
-  padding: 0 0 24px;
+  padding: 0 0 15px;
   border-bottom: 1px solid #e2e5e7;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-header h2 {
@@ -7765,7 +8724,6 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 @media (max-width: 760px) {
   #wpacu-page-exclusions-settings .wpacu-page-exclusions-header {
     display: block;
-    padding: 0 0 20px;
   }
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-eyebrow {
@@ -7807,12 +8765,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   }
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-body {
-  padding-top: 24px;
-}
-@media (max-width: 760px) {
-  #wpacu-page-exclusions-settings .wpacu-page-exclusions-body {
-    padding-top: 18px;
-  }
+  padding-top: 8px;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-intro {
   display: grid;
@@ -8766,35 +9719,33 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 40px;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 42px;
+  max-width: 100%;
   margin: 0;
-  padding: 0 15px;
-  border: 1px solid var(--wpacu-exclusions-brand-4);
-  border-radius: 8px;
-  background: var(--wpacu-exclusions-brand-4);
-  color: #fff;
+  padding: 9px 13px;
+  border: 1px solid #b9d5dc;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fff, #f0f8fa);
+  color: #176779;
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
   cursor: pointer;
   appearance: none;
-  box-shadow: 0 1px 2px rgba(0, 69, 103, 0.16);
-  transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease, transform 0.08s ease;
+  box-shadow: 0 1px 2px rgba(20, 66, 78, 0.07);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule:hover {
-  border-color: var(--wpacu-exclusions-brand-2);
-  background: var(--wpacu-exclusions-brand-2);
-  color: #fff;
-  box-shadow: 0 3px 8px rgba(0, 69, 103, 0.18);
+  border-color: #438d9e;
+  color: #104e5d;
+  box-shadow: 0 2px 5px rgba(20, 66, 78, 0.12);
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule:focus-visible {
-  border-color: var(--wpacu-exclusions-brand-2);
-  background: var(--wpacu-exclusions-brand-2);
-  color: #fff;
-  outline: 0;
-  box-shadow: 0 0 0 3px rgba(0, 143, 157, 0.2);
+  outline: 2px solid #2271b1;
+  outline-offset: 3px;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule:active {
   transform: translateY(1px);
@@ -8821,17 +9772,17 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule-visual {
   display: grid;
   place-items: center;
-  width: 19px;
-  height: 19px;
-  flex: 0 0 19px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule-visual > * {
   grid-area: 1/1;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule-plus {
   display: block;
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -8840,13 +9791,13 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-add-rule-label {
   display: block;
-  line-height: 1.2;
+  line-height: inherit;
 }
 #wpacu-page-exclusions-settings .wpacu-page-exclusions-button-spinner {
   width: 15px;
   height: 15px;
-  border: 2px solid rgba(255, 255, 255, 0.38);
-  border-top-color: #fff;
+  border: 2px solid rgba(0, 101, 132, 0.25);
+  border-top-color: currentColor;
   border-radius: 50%;
   opacity: 0;
   transform: scale(0.82);
@@ -9552,6 +10503,29 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 .wpacu-pm-settings-page .wpacu-pm-settings-panel {
   overflow: visible;
 }
+.wpacu-pm-settings-page .wpacu-pm-settings-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px;
+  padding: 13px 14px;
+  border: 1px dashed #cbd7db;
+  border-radius: 8px;
+  background: #fafbfc;
+  color: #60717a;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-empty-state .dashicons {
+  flex: 0 0 auto;
+  color: #71848d;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-empty-state p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences + .wpacu-pm-settings-panel {
+  margin-top: 32px;
+}
 .wpacu-pm-settings-page .wpacu-pm-settings-header {
   display: flex;
   align-items: flex-start;
@@ -9597,6 +10571,240 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 .wpacu-pm-settings-page .wpacu-pm-settings-body {
   padding: 24px 0 0;
 }
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences > .wpacu-cssjs-panel > .wpacu-cssjs-header {
+  padding-bottom: 16px;
+}
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences > .wpacu-cssjs-panel > .wpacu-cssjs-body {
+  padding-top: 16px;
+}
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences > .wpacu-cssjs-panel > .wpacu-cssjs-body > .wpacu-cssjs-quick-nav {
+  margin-top: 0;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-header {
+  display: block;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+@media (min-width: 1200px) {
+  .wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-header {
+    display: flex;
+    align-items: flex-end;
+  }
+  .wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-header > div {
+    flex: 0 0 auto;
+  }
+  .wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-header > p {
+    max-width: 520px;
+    margin: 0;
+  }
+  .wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-header h2 {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-body {
+  padding-top: 18px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs {
+  margin-top: 0;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-master {
+  padding: 16px 20px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-master-control {
+  width: 100%;
+  padding: 0;
+  gap: 14px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-master-control > .wpacu_switch {
+  flex-shrink: 0;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-control-label {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-control-label strong {
+  font-size: 14px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-control-label span {
+  max-width: none;
+  margin: 0;
+  font-size: 12px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-empty-state {
+  margin: 0;
+  padding: 0 20px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs {
+  --wpacu-rule-tabs-border: #9ccad4;
+  margin-top: 18px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) {
+  --wpacu-rule-tabs-border: #e0c078;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) > [data-wpacu-third-panel] {
+  border-width: 2px 1px 1px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-paused) > .wpacu-cssjs-settings-tabs > [aria-selected=true] {
+  margin-bottom: -2px;
+  border-bottom-width: 2px;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs {
+  margin: 0;
+  padding: 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs [role=tab] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-top-width: 3px;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs [role=tab].is-paused {
+  color: #795711;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs [role=tab][aria-selected=true] {
+  border-color: var(--wpacu-rule-tabs-border);
+  border-top-color: #006584;
+  border-bottom-color: #f5f9fb;
+  background: linear-gradient(180deg, #fff, #f5f9fb);
+  color: #006584;
+  position: relative;
+  z-index: 1;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs [role=tab].is-paused[aria-selected=true] {
+  border-top-color: #b58118;
+  border-bottom-color: #fff;
+  background: linear-gradient(180deg, #fff8e5, #fff);
+  color: #795711;
+}
+@media (max-width: 520px) {
+  .wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs > .wpacu-cssjs-settings-tabs [role=tab] {
+    flex: 1;
+    padding: 10px 8px;
+    gap: 5px;
+  }
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs > [data-wpacu-third-panel] {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--wpacu-rule-tabs-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true]:first-child) > [data-wpacu-third-panel] {
+  border-top-left-radius: 0;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs > [data-wpacu-third-panel] > .wpacu-pm-settings-section-heading {
+  margin: 20px 20px 12px;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs > [data-wpacu-third-panel] > .wpacu-pm-settings-environment {
+  border: 0;
+  border-radius: 0 0 9px 9px;
+  box-shadow: none;
+}
+@media (max-width: 520px) {
+  .wpacu-pm-settings-page .wpacu-pm-settings-rule-tabs > [data-wpacu-third-panel] > .wpacu-pm-settings-section-heading {
+    margin: 14px 14px 12px;
+  }
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-tab-status {
+  padding: 2px 7px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-tab-status[hidden] {
+  display: none;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-tab-status.is-unavailable {
+  border-color: #cbdadd;
+  background: #f4f6f7;
+  color: #586a73;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-pm-settings-rule-tabs:has(> .wpacu-cssjs-settings-tabs > [aria-selected=true].is-unavailable) {
+  --wpacu-rule-tabs-border: #cbdadd;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-cssjs-settings-tabs [role=tab].is-unavailable {
+  color: #586a73;
+}
+.wpacu-pm-settings-page #wpacu-pm-rule-delivery .wpacu-cssjs-settings-tabs [role=tab].is-unavailable[aria-selected=true] {
+  border-top-color: #8c9aa2;
+  border-bottom-color: #fff;
+  background: linear-gradient(180deg, #f4f6f7, #fff);
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-unavailable {
+  padding: 20px;
+  color: #586a73;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-unavailable strong {
+  color: #41545d;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-unavailable p {
+  margin: 6px 0 10px;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-unavailable a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-unavailable a .dashicons {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+}
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences .wpacu-cssjs-quick-nav a.is-paused {
+  border-color: #e0c078;
+  background: #fff8e5;
+  color: #795711;
+}
+.wpacu-pm-settings-page #wpacu-plugins-manager-preferences .wpacu-cssjs-quick-nav a.is-paused:hover, .wpacu-pm-settings-page #wpacu-plugins-manager-preferences .wpacu-cssjs-quick-nav a.is-paused:focus-visible, .wpacu-pm-settings-page #wpacu-plugins-manager-preferences .wpacu-cssjs-quick-nav a.is-paused.is-active {
+  border-color: #b58118;
+  background: #fff0ce;
+  color: #704900;
+}
+.wpacu-pm-settings-page .wpacu-pm-rule-status-count {
+  padding: 1px 6px;
+  border: 1px solid #e0c078;
+  border-radius: 999px;
+  background: #fff8e5;
+  color: #795711;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.wpacu-pm-settings-page .wpacu-pm-rule-status-count.is-active {
+  border-color: #b7dfc5;
+  background: #eef9f1;
+  color: #168545;
+}
+.wpacu-pm-settings-page .wpacu-pm-rule-status-count[hidden] {
+  display: none;
+}
 .wpacu-pm-settings-page .wpacu-pm-settings-intro {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
@@ -9634,7 +10842,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 }
 .wpacu-pm-settings-page .wpacu-pm-settings-section-heading {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   margin: 28px 0 12px;
@@ -9647,16 +10855,6 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 .wpacu-pm-settings-page .wpacu-pm-settings-section-heading p {
   margin: 4px 0 0;
   color: var(--wpacu-pm-muted);
-}
-.wpacu-pm-settings-page .wpacu-pm-settings-step {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #006584;
-  color: #fff;
-  font-weight: 800;
 }
 .wpacu-pm-settings-page .wpacu-pm-settings-status {
   padding: 5px 9px;
@@ -9672,9 +10870,9 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   color: #16733b;
 }
 .wpacu-pm-settings-page .wpacu-pm-settings-status.is-paused {
-  border: 1px solid #d6dce0;
-  background: #f5f6f7;
-  color: #68747a;
+  border: 1px solid #e0c078;
+  background: #fff8e5;
+  color: #795711;
 }
 .wpacu-pm-settings-page .wpacu-pm-settings-status.is-locked {
   border: 1px solid #f0cf8c;
@@ -9687,9 +10885,16 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   border-radius: 10px;
   background: #fff;
 }
+.wpacu-pm-settings-page .wpacu-pm-settings-environment.is-paused {
+  background: linear-gradient(145deg, #fff, #fff8e5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
+}
+.wpacu-pm-settings-page .wpacu-pm-settings-environment.is-paused .wpacu-pm-settings-master {
+  background: transparent;
+}
 .wpacu-pm-settings-page .wpacu-pm-settings-master {
   display: grid;
-  grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   padding: 20px;
   background: #f5f9fb;
@@ -9971,7 +11176,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   height: 14px;
   font-size: 14px;
 }
-.wpacu-pm-settings-page .wpacu-pm-settings-dashboard-config > .wpacu-pm-settings-master {
+.wpacu-pm-settings-page .wpacu-pm-settings-callout + .wpacu-pm-settings-dashboard-config > .wpacu-pm-settings-master {
   border-top: 1px solid #dce6e8;
 }
 .wpacu-pm-settings-page .wpacu-pm-settings-sidebar-card {
@@ -10120,10 +11325,10 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
     height: 42px;
   }
   .wpacu-pm-settings-page .wpacu-pm-settings-section-heading {
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .wpacu-pm-settings-page .wpacu-pm-settings-status {
-    grid-column: 2;
+    grid-column: 1;
     justify-self: start;
   }
   .wpacu-pm-settings-page .wpacu-pm-settings-option-grid {
@@ -19617,6 +20822,46 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
 }
 
 /* [END] Native browser controls: Before You Start acknowledgement */
+@media screen and (max-width: 782px) {
+  body.wp-admin #wpacu-settings-vertical-tab-wrap {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-settings-tab {
+    display: flex;
+    overflow-x: auto;
+    width: 100%;
+    height: auto;
+    margin-bottom: 20px;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-settings-tab a {
+    flex: 0 0 155px;
+    padding: 12px;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-settings-tab a.active::after {
+    display: none;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-settings-tab-content {
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-settings-tab-content[style*=table-cell] {
+    display: block !important;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap #wpacu-settings-admin-sub-tabs-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .chosen-container.chosen-container-multi {
+    min-width: 0;
+    max-width: 100%;
+  }
+  body.wp-admin #wpacu-settings-vertical-tab-wrap .wpacu-google-fonts-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 #wpacu-allow-manage-assets-to-select-list-area {
   display: inline-block;
 }
@@ -21651,6 +22896,28 @@ body.wp-admin tr.wpacu_asset_row .wpacu_ajax_loader {
   }
 }
 
+#wpacu-assets-groups-change-state-area .wpacu_wp_button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+}
+#wpacu-assets-groups-change-state-area .wpacu_wp_button .dashicons {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  line-height: 15px;
+}
+#wpacu-assets-groups-change-state-area .wpacu_wp_button:disabled {
+  color: #a7aaad !important;
+  border-color: #dcdcde !important;
+  background: #f6f7f7 !important;
+  box-shadow: none;
+  cursor: default;
+  opacity: 0.7;
+}
+
 .wpacu_clearfix {
   clear: both;
   height: 0;
@@ -22148,7 +23415,42 @@ a.wpacu-assets-collapsible.wpacu-assets-collapsible-active:after {
   right: 14px;
   top: 12px;
 }
-.wpacu-assets-collapsible-wrap:not(.wpacu-page-options) .wpacu-assets-collapsible-content > div:not(.wpacu-assets-table-list-wrap):not(.wpacu-assets-note):not(.wpacu-area-toggle-all-assets) {
+.wpacu-assets-collapsible-content .wpacu-assets-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 15px;
+}
+.wpacu-assets-collapsible-content .wpacu-assets-note-row > .wpacu-assets-note {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+.wpacu-assets-collapsible-content .wpacu-assets-note-row > .wpacu-area-toggle-all-assets.wpacu-right {
+  flex: 0 0 auto;
+  width: 18%;
+  min-width: 120px;
+  max-width: 180px;
+  padding: 0;
+  float: none;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .wpacu-assets-collapsible-content .wpacu-assets-note-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .wpacu-assets-collapsible-content .wpacu-assets-note-row > .wpacu-assets-note {
+    flex-basis: 100%;
+  }
+  .wpacu-assets-collapsible-content .wpacu-assets-note-row > .wpacu-area-toggle-all-assets.wpacu-right {
+    width: auto;
+    max-width: none;
+    margin-left: auto;
+  }
+}
+.wpacu-assets-collapsible-wrap:not(.wpacu-page-options) .wpacu-assets-collapsible-content > div:not(.wpacu-assets-table-list-wrap):not(.wpacu-assets-note-row):not(.wpacu-assets-note):not(.wpacu-area-toggle-all-assets) {
   padding: 16px 0 0;
 }
 .wpacu-assets-collapsible-content > div > p:first-child {
@@ -22464,7 +23766,7 @@ body.logged-in:not(.wp-admin) .wpacu-view-more-code:active {
 #wpacu-assets-contract-all:disabled span, #wpacu-assets-expand-all:disabled span {
   opacity: 0.6;
 }
-#wpacu-assets-contract-all:disabled img, #wpacu-assets-expand-all:disabled img {
+#wpacu-assets-contract-all[aria-busy=true] img, #wpacu-assets-expand-all[aria-busy=true] img {
   display: inline-block;
   vertical-align: middle;
   padding-bottom: 3px;
@@ -22663,6 +23965,15 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
 }
 
 /* [Overview Navigation] */
+.wpacu-overview-note {
+  padding: 0 10px 0 0;
+  line-height: 22px;
+}
+
+#wpacu-overview-start {
+  scroll-margin-top: 42px;
+}
+
 #wpacu-overview-navigation {
   display: flex;
   align-items: center;
@@ -22733,6 +24044,26 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
   text-align: center;
 }
 
+#wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused {
+  color: #8a5b00;
+  background: #fffaf0;
+  border-color: #f0b849;
+}
+#wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused .wpacu-overview-navigation-count {
+  color: #795711;
+  background: #fff0ce;
+}
+#wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused .dashicons-controls-pause {
+  width: 13px;
+  height: 13px;
+  font-size: 13px;
+}
+#wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused:hover, #wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused:focus-visible, #wpacu-overview-navigation .wpacu-overview-navigation-links a.is-paused.is-active {
+  color: #704900;
+  background: #fff0ce;
+  border-color: #b58118;
+}
+
 #wpacu-overview-navigation.wpacu-overview-navigation-initializing .wpacu-overview-navigation-sticky-option {
   visibility: hidden;
 }
@@ -22756,7 +24087,7 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
 .wpacu-overview-section-title {
   position: relative;
   scroll-margin-top: 105px;
-  padding-right: 28px;
+  padding-right: 70px;
 }
 
 .wpacu-overview-section-title-content {
@@ -22777,11 +24108,16 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
   }
 }
 .wpacu-overview-section-title .wpacu-overview-back-to-navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   position: absolute;
   top: 50%;
   right: 2px;
-  width: 24px;
   height: 24px;
+  font-size: 13px;
+  font-weight: normal;
+  white-space: nowrap;
   color: #646970;
   text-decoration: none;
   transform: translateY(-50%);
@@ -22794,13 +24130,18 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
 }
 
 .wpacu-overview-section-title .wpacu-overview-back-to-navigation .dashicons {
-  width: 24px;
-  height: 24px;
-  font-size: 22px;
-  line-height: 24px;
+  width: 18px;
+  height: 18px;
+  font-size: 16px;
+  line-height: 18px;
+  margin-right: -3px;
 }
 
 @media screen and (max-width: 782px) {
+  #wpacu-overview-start {
+    scroll-margin-top: 46px;
+  }
+
   #wpacu-overview-navigation {
     display: block;
   }
@@ -22828,16 +24169,16 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  margin: 0 0 10px;
-  background: #fff;
-  border: 1px solid #dcdcde;
-  border-left: 4px solid #d63638;
+  margin: 0 0 14px;
+  background: #fef8ee;
+  border: 1px solid #f0b849;
+  border-left-width: 4px;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
 #wpacu-critical-css-overview .wpacu-critical-css-overview-disabled-notice .dashicons {
   flex: 0 0 auto;
-  color: #d63638;
+  color: #f0b849;
 }
 
 #wpacu-critical-css-overview .wpacu-critical-css-overview-disabled-notice strong {
@@ -22846,7 +24187,15 @@ body[class*=" version-7-"] .wpacu_plugin_details_top_area .wpacu_ajax_loader {
 }
 
 #wpacu-critical-css-overview .wpacu-critical-css-overview-content-disabled {
+  border: 2px solid #f0b849;
+}
+
+#wpacu-critical-css-overview .wpacu-critical-css-overview-content-disabled > * {
   opacity: 0.5;
+}
+
+#wpacu-critical-css-overview .wpacu-critical-css-overview-content-disabled > table {
+  border: 0;
 }
 
 #wpacu-critical-css-overview .wpacu-critical-css-overview-location-column {
@@ -25927,6 +27276,32 @@ body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-input-style-stand
   }
 }
 
+.wpacu-rollback-panel > .notice {
+  margin-left: 0;
+}
+
+.wpacu-rollback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.wpacu-rollback-actions form,
+.wpacu-rollback-actions .button {
+  margin: 0;
+}
+.wpacu-rollback-actions .spinner {
+  float: none;
+  margin: 0;
+}
+.wpacu-rollback-actions .spinner[hidden] {
+  display: none;
+}
+.wpacu-rollback-actions #wpacu-rollback-select-spinner {
+  margin-inline-end: 14px;
+}
+
 .wpacu-tab-nav-wrapper {
   border-bottom: none !important;
 }
@@ -26374,18 +27749,25 @@ span#wpacu-license-data-removed-msg, #wpacu-cached-assets-removed-msg {
 .wpacu-tools-area .wpacu-system-info-actions .button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 0 15px;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 17px;
   border-color: #006584;
   border-radius: 6px;
   background: #006584;
+  font-size: 14px;
   font-weight: 600;
 }
+.wpacu-tools-area .wpacu-system-info-actions .button:disabled {
+  border-color: #8aa6af !important;
+  background: #8aa6af !important;
+  color: #fff !important;
+  box-shadow: none;
+}
 .wpacu-tools-area .wpacu-system-info-actions .button .dashicons {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
 }
 .wpacu-tools-area .wpacu-system-info-action-note {
   color: #687980;
@@ -31971,7 +33353,9 @@ img.wpacu-emoji {
   background: white;
   padding: 8px;
   margin-bottom: 30px;
-  width: 95%;
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1800px;
   border-left: 2px solid #004567;
   border-top: 1px solid #e7e7e7;
   border-right: 1px solid #e7e7e7;
@@ -32174,6 +33558,8 @@ img.wpacu-emoji {
 }
 #wpacu-plugins-load-manager-wrap table .wpacu_plugin_icon > div {
   background: #efefef;
+  border: 1px solid #b3b3b3;
+  box-sizing: border-box;
   border-radius: 3px;
   width: 40px;
   height: 40px;
@@ -32738,7 +34124,14 @@ img.wpacu-emoji {
 #wpacu-main-loading-spinner-content {
   position: fixed;
   background: white;
-  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  white-space: normal;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  overflow-wrap: break-word;
   padding: 15px 25px;
   border: 1px solid rgba(116, 119, 123, 0.5);
   top: 50%;

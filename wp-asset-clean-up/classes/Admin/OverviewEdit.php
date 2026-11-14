@@ -219,6 +219,32 @@ class OverviewEdit
             $output .= ' ' . $infoData['html_output_value'];
         }
 
+        $clearAllWarning = '';
+        $clearAllConfirmation = '';
+        if ($ruleKey === 'clear_all_rules' && isset($infoData['handle'], $infoData['asset_type'])
+            && class_exists(\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::class)) {
+            $alternativeType = $infoData['asset_type'] === 'styles' ? 'css' : 'js';
+            $supportsAlternatives = \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::supportsAssetType($alternativeType);
+            if ( ! $supportsAlternatives) {
+                $output = esc_html__('Clear available rules for this inactive handle', 'wp-asset-clean-up');
+            }
+            if (\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getRulesForHandle($alternativeType, $infoData['handle'])) {
+                if ( ! $supportsAlternatives) {
+                    $clearAllWarning = __('Saved JavaScript alternatives and their saved source code are preserved in Lite. Only available rules for this handle are cleared.', 'wp-asset-clean-up');
+                } else {
+                    if ( ! \WpAssetCleanUp\Menu::userCanManageAlternativeAssets()) {
+                        return $output . '<br /><small>' . esc_html__('You need permission to manage Alternative Assets to clear all rules for this handle, including its saved source code.', 'wp-asset-clean-up') . '</small>';
+                    }
+                    $clearAllWarning = __('This also deletes any alternative assets and their saved source code for this handle.', 'wp-asset-clean-up');
+                    $clearAllConfirmation = __('Clear all rules for the selected handles? This also deletes any alternative assets and their saved source code for those handles.', 'wp-asset-clean-up');
+                }
+                // One confirmation covers a selection that can contain both CSS and JS handles.
+                if ( ! defined('WPACU_PRO_PLUGIN_VERSION')) {
+                    $clearAllConfirmation = __('Clear available rules for the selected handles? Any CSS alternatives and their saved source code for those handles will be removed. Saved JavaScript alternatives and their saved source code are preserved in Lite.', 'wp-asset-clean-up');
+                }
+            }
+        }
+
         ob_start();
 
         if ($ruleAction === 'delete') {
@@ -226,11 +252,13 @@ class OverviewEdit
             <label class="wpacu-delete-label" for="<?php echo esc_attr($refId); ?>">
                 <input type="checkbox"
                        class="wpacu-delete-checkbox"
+                       <?php if ($clearAllConfirmation !== '') { ?>data-wpacu-clear-all-confirm="<?php echo esc_attr($clearAllConfirmation); ?>"<?php } ?>
                        id="<?php echo esc_attr($refId); ?>"
                        name="<?php echo esc_attr($checkboxName); ?>"
                        value="<?php echo esc_attr($value); ?>"/>
                 <span><?php echo $output; ?></span>
             </label>
+            <?php if ($clearAllWarning !== '') { ?><br /><small><?php echo esc_html($clearAllWarning); ?></small><?php } ?>
         <?php
         }
 

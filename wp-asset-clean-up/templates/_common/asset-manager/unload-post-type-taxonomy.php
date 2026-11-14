@@ -15,38 +15,74 @@ if (isset($data['row']['global_unloaded']) && $data['row']['global_unloaded']) {
 
 if ($assetType === 'scripts') {
     if (isset($data['row']['obj']->tag_output) && strncasecmp($data['row']['obj']->tag_output, '<noscript', 9) === 0) {
-        switch ( $data['post_type'] ) {
-            case 'product':
-                $unloadViaPostTypeTaxText = __( 'Unload NOSCRIPT tag on all WooCommerce "Product" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+        switch ($data['post_type']) {
+            case 'page':
+                $unloadViaPostTypeTaxText = __('Unload this NOSCRIPT tag on all WordPress pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
                 break;
-            case 'download':
-                $unloadViaPostTypeTaxText = __( 'Unload NOSCRIPT tag on all Easy Digital Downloads "Download" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+            case 'post':
+                $unloadViaPostTypeTaxText = __('Unload this NOSCRIPT tag on all blog posts assigned to any of these taxonomy terms', 'wp-asset-clean-up');
+                break;
+            case 'product':
+                $unloadViaPostTypeTaxText = __('Unload this NOSCRIPT tag on all product pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
                 break;
             default:
-                $unloadViaPostTypeTaxText = sprintf( __( 'Unload NOSCRIPT tag on all pages of "<strong>%s</strong>" post type if these taxonomies (category, tag, etc.) are set', 'wp-asset-clean-up' ), $data['post_type'] );
+                $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+                $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                    ? $wpacuPostTypeObject->labels->name
+                    : $data['post_type'];
+
+                $unloadViaPostTypeTaxText = sprintf(
+                    __('Unload this NOSCRIPT tag on all %1$s ("%2$s" post type) assigned to any of these taxonomy terms', 'wp-asset-clean-up'),
+                    esc_html($wpacuPostTypeLabel),
+                    esc_html($data['post_type'])
+                );
         }
     } else {
-        switch ( $data['post_type'] ) {
-            case 'product':
-                $unloadViaPostTypeTaxText = __( 'Unload JS on all WooCommerce "Product" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+        switch ($data['post_type']) {
+            case 'page':
+                $unloadViaPostTypeTaxText = __('Unload this JS on all WordPress pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
                 break;
-            case 'download':
-                $unloadViaPostTypeTaxText = __( 'Unload JS on all Easy Digital Downloads "Download" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+            case 'post':
+                $unloadViaPostTypeTaxText = __('Unload this JS on all blog posts assigned to any of these taxonomy terms', 'wp-asset-clean-up');
+                break;
+            case 'product':
+                $unloadViaPostTypeTaxText = __('Unload this JS on all product pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
                 break;
             default:
-                $unloadViaPostTypeTaxText = sprintf( __( 'Unload JS on all pages of "<strong>%s</strong>" post type if these taxonomies (category, tag, etc.) are set', 'wp-asset-clean-up' ), $data['post_type'] );
+                $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+                $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                    ? $wpacuPostTypeObject->labels->name
+                    : $data['post_type'];
+
+                $unloadViaPostTypeTaxText = sprintf(
+                    __('Unload this JS on all %1$s ("%2$s" post type) assigned to any of these taxonomy terms', 'wp-asset-clean-up'),
+                    esc_html($wpacuPostTypeLabel),
+                    esc_html($data['post_type'])
+                );
         }
     }
 } else {
-    switch ( $data['post_type'] ) {
-        case 'product':
-            $unloadViaPostTypeTaxText = __( 'Unload CSS on all WooCommerce "Product" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+    switch ($data['post_type']) {
+        case 'page':
+            $unloadViaPostTypeTaxText = __('Unload this CSS on all WordPress pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
             break;
-        case 'download':
-            $unloadViaPostTypeTaxText = __( 'Unload CSS on all Easy Digital Downloads "Download" pages if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up' );
+        case 'post':
+            $unloadViaPostTypeTaxText = __('Unload this CSS on all blog posts assigned to any of these taxonomy terms', 'wp-asset-clean-up');
+            break;
+        case 'product':
+            $unloadViaPostTypeTaxText = __('Unload this CSS on all product pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
             break;
         default:
-            $unloadViaPostTypeTaxText = sprintf( __( 'Unload CSS on all pages of "<strong>%s</strong>" post type if these taxonomies (category, tag, etc.) are set', 'wp-asset-clean-up' ), $data['post_type'] );
+            $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+            $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                ? $wpacuPostTypeObject->labels->name
+                : $data['post_type'];
+
+            $unloadViaPostTypeTaxText = sprintf(
+                __('Unload this CSS on all %1$s ("%2$s" post type) assigned to any of these taxonomy terms', 'wp-asset-clean-up'),
+                esc_html($wpacuPostTypeLabel),
+                esc_html($data['post_type'])
+            );
     }
 }
 

@@ -15,7 +15,6 @@ if ( ! defined('FS_CHMOD_FILE') ) {
     define('FS_CHMOD_FILE', @fileperms(ABSPATH . 'index.php') & 0777 | 0644);
 }
 
-
 /*
  * Signed Local/Google font-preload audit requests need a very small amount of
  * setup before the normal WPACU classes are loaded. In particular, page caches
@@ -758,6 +757,8 @@ if ( ! function_exists( 'wpacuGetQueryStringsToBeIgnoredPredefinedList') ) {
             'wpacu_print',
             'wpacu_time',
             'wpacu_updated',
+            'wpacu_manager',
+            'wpacu_plugins_updated',
             'wpacu_ignore_no_load_option',
             'wpacu_debug',
             'wpacu_no_cache',
@@ -1043,10 +1044,10 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			$anyPagesWithSpecialOptionsQuery = 'SELECT meta_value FROM `' . $wpdb->prefix . 'postmeta` WHERE ';
 
 			if (! empty($excludePostIds)) {
-				$anyPagesWithSpecialOptionsQuery .= ' post_id NOT IN ('.implode(',', $excludePostIds).') && ';
+				$anyPagesWithSpecialOptionsQuery .= ' post_id NOT IN ('.implode(',', $excludePostIds).') AND ';
 			}
 
-			$anyPagesWithSpecialOptionsQuery .= ' meta_key=\'_wpassetcleanup_page_options\' && meta_value LIKE \'%no_wpacu_load%\'';
+			$anyPagesWithSpecialOptionsQuery .= ' meta_key=\'_wpassetcleanup_page_options\' AND meta_value LIKE \'%no_wpacu_load%\'';
 
 			$anyPagesWithSpecialOptions = $wpdb->get_col( $anyPagesWithSpecialOptionsQuery );
 

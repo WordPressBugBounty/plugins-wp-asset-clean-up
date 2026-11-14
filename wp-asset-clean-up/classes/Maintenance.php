@@ -6,6 +6,7 @@ namespace WpAssetCleanUp;
 use WpAssetCleanUp\Admin\Overview;
 use WpAssetCleanUp\Admin\SettingsAdmin;
 use WpAssetCleanUp\OptimiseAssets\OptimizeCommon;
+use WpAssetCleanUp\OptimiseAssets\AlternativeAssets;
 
 /**
  * Class Maintenance
@@ -763,9 +764,29 @@ SQL;
 	/**
 	 * @param $assetHandle
 	 * @param $assetType
+	 * @return bool False when cleanup of available rules is not permitted.
 	 */
 	public static function removeAllRulesFor($assetHandle, $assetType)
 	{
+        if ( ! in_array($assetType, array('styles', 'scripts'), true)) {
+            return false;
+        }
+        $alternativeType = $assetType === 'styles' ? 'css' : 'js';
+        // Lite preserves unavailable JavaScript alternatives and their saved source.
+        $alternatives = class_exists(AlternativeAssets::class) && AlternativeAssets::supportsAssetType($alternativeType)
+            ? AlternativeAssets::getRulesForHandle($alternativeType, $assetHandle)
+            : array();
+
+        // Check before clearing any rules when available replacement code is deleted.
+        if ($alternatives && ! Menu::userCanManageAlternativeAssets()) {
+            return false;
+        }
+        foreach ($alternatives as $alternative) {
+            if ( ! AlternativeAssets::deleteRule($alternative['id'])) {
+                return false;
+            }
+        }
+
 		// Clear any load exception rules
 		self::removeAllLoadExceptionsFor($assetHandle, $assetType);
 
@@ -867,7 +888,7 @@ SQL;
 		 * Table: WPACU_PLUGIN_ID . '_front_page_data'
 		 * Homepage (async, defer)
 		 */
-		$wpacuFrontPageData = ($assetType === 'scripts') && get_option(WPACU_PLUGIN_ID . '_front_page_data');
+		$wpacuFrontPageData = $assetType === 'scripts' ? get_option(WPACU_PLUGIN_ID . '_front_page_data') : false;
 
 		if  ($wpacuFrontPageData) {
 			$wpacuFrontPageDataArray = wpacuJsonDecodeToArray($wpacuFrontPageData);
@@ -941,6 +962,7 @@ SQL;
 				}
 			}
 		}
+		return true;
 	}
 
 	/**

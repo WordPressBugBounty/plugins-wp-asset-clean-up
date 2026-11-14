@@ -323,6 +323,33 @@
     }
 
     $(function () {
+        var rememberNotice = document.getElementById('wpacu-plugins-manage-front-notice-top');
+        var rememberToggle = rememberNotice && rememberNotice.querySelector('.wpacu-pm-remember-toggle');
+        if (rememberToggle) {
+            var rememberKey = 'wpassetcleanup.pluginsManager.remember.' + window.location.pathname;
+            var rememberContent = document.getElementById('wpacu-pm-remember-content');
+            var rememberPreview = document.createElement('p');
+            rememberPreview.className = 'wpacu-pm-remember-preview';
+            rememberPreview.textContent = rememberContent.querySelector('p').textContent;
+            rememberContent.parentNode.insertBefore(rememberPreview, rememberContent);
+            function setRememberCollapsed(collapsed) {
+                rememberNotice.classList.toggle('is-collapsed', collapsed);
+                rememberContent.hidden = collapsed;
+                rememberPreview.hidden = !collapsed;
+                rememberToggle.setAttribute('aria-expanded', String(!collapsed));
+                rememberToggle.setAttribute('aria-label', rememberToggle.getAttribute(collapsed ? 'data-expand-label' : 'data-collapse-label'));
+            }
+            var rememberCollapsed = false;
+            try { rememberCollapsed = window.localStorage.getItem(rememberKey) === 'collapsed'; } catch (error) {}
+            setRememberCollapsed(rememberCollapsed);
+            rememberToggle.hidden = false;
+            rememberToggle.addEventListener('click', function () {
+                var collapsed = !rememberNotice.classList.contains('is-collapsed');
+                setRememberCollapsed(collapsed);
+                try { window.localStorage.setItem(rememberKey, collapsed ? 'collapsed' : 'expanded'); } catch (error) {}
+            });
+        }
+
         lockPreviewControls('[data-wpacu-lite-lock-controls="1"]');
         watchDynamicAssetPreview();
         initPluginsManagerPreview();

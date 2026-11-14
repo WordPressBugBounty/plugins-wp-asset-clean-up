@@ -68,7 +68,7 @@ class OptimizeJs
 
 					if ( ! $localAssetPath ) {
                         if (isset($_GET['wpacu_debug'])) {
-                            \WpAssetCleanUp\DebugOptimizationDetails::record('js', (object)array('handle'=>$scriptHandle, 'src'=>$src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
+                            \WpAssetCleanUp\DebugOptimizationDetails::record('js', (object)array('handle' => $scriptHandle, 'src' => $src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
                         }
 
 						continue; // not a local file
@@ -83,7 +83,16 @@ class OptimizeJs
 					// Check if the JS has any 'data-wpacu-skip' attribute; if it does, do not alter it
                     if ( Misc::hasExactDataAttr($scriptSourceTag, 'data-wpacu-skip') ) {
                         if (isset($_GET['wpacu_debug'])) {
-                            \WpAssetCleanUp\DebugOptimizationDetails::record('js', (object)array('handle'=>$scriptHandle, 'src'=>$src), 'File optimization', 'Skipped', __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up'));
+                            \WpAssetCleanUp\DebugOptimizationDetails::record(
+                                'js',
+                                (object)array(
+                                    'handle' => $scriptHandle,
+                                    'src'    => $src
+                                ),
+                                'File optimization',
+                                'Skipped',
+                                __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up')
+                            );
                         }
 
                         unset( $wpScriptsList[ $index ] );
@@ -268,13 +277,21 @@ class OptimizeJs
 
 		if ( ! $isMinifyJsFilesEnabled || MinifyJs::skipMinify($src, $value->handle) ) {
 			$doFileMinify = false;
-            if (isset($_GET['wpacu_debug'])) {
-				if (! $isMinifyJsFilesEnabled) {
+
+            if ( isset($_GET['wpacu_debug']) ) {
+				if ( ! $isMinifyJsFilesEnabled ) {
 					$reason = __('File minification is disabled by the effective settings or preview options.', 'wp-asset-clean-up');
 				} else {
 					$reason = __('The file matches a minification exclusion rule.', 'wp-asset-clean-up');
 				}
-				\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'Minification', 'Skipped', $reason);
+
+                \WpAssetCleanUp\DebugOptimizationDetails::record(
+                    'js',
+                    $value,
+                    'Minification',
+                    'Skipped',
+                    $reason
+                );
             }
 		}
 
@@ -308,6 +325,8 @@ class OptimizeJs
 		}
 
 		$transientName = 'wpacu_js_optimize_'.$uniqueAssetStr;
+		// Page options and exclusions can change minification for the same source file.
+		$transientName .= $doFileMinify ? '_minify_1' : '_minify_0';
 		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
 
 		$skipCache = false;
@@ -316,12 +335,18 @@ class OptimizeJs
 			$skipCache = true;
 		}
 
-		if (! $skipCache) {
+		if ( ! $skipCache ) {
 			$savedValuesArray = OptimizeCommon::getTransient($transientName);
 
 			if (isset($savedValuesArray[0]) && $savedValuesArray[0] === 'no_alter') {
                 if (isset($_GET['wpacu_debug'])) {
-                	\WpAssetCleanUp\DebugOptimizationDetails::record('js', $value, 'File optimization', 'Skipped', __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up'));
+                	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                        'js',
+                        $value,
+                        'File optimization',
+                        'Skipped',
+                        __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up')
+                    );
                 }
 
 				return array();
@@ -612,6 +637,8 @@ class OptimizeJs
 			// Anything in the cache? Take it from there and don't spend resources with the minification
 			// (which in some environments uses the CPU, depending on the complexity of the JavaScript code) and any other alteration
 			$jsContentBeforeHash = sha1( $jsContent );
+			// Keep minified and unminified inline output separate across page rules.
+			$jsContentBeforeHash .= $doJsMinify ? '_minify_1' : '_minify_0';
 
 			$pathToInlineJsOptimizedItem = WP_CONTENT_DIR . self::getRelPathJsCacheDir() . '/item/inline/' . $jsContentBeforeHash . '.js';
 
@@ -940,10 +967,11 @@ class OptimizeJs
 
 	/**
 	 * @param $htmlSource
+	 * @param bool $cleanUpTemporaryAttributes False when the common pipeline cleans both asset types.
 	 *
 	 * @return mixed|void
 	 */
-	public static function alterHtmlSource($htmlSource)
+	public static function alterHtmlSource($htmlSource, $cleanUpTemporaryAttributes = true)
 	{
 		// There has to be at least one "<script", otherwise, it could be a feed request or something similar (not page, post, homepage etc.)
 		if (isset($_GET['wpacu_no_optimize_js']) || stripos($htmlSource, '<script') === false ) {
@@ -961,7 +989,9 @@ class OptimizeJs
 			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_unload_ignore_deps_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
 			// Are there any assets unloaded where their "children" are ignored?
 			// Since they weren't dequeued the WP way (to avoid unloading the "children"), they will be stripped here
-			$htmlSource = self::ignoreDependencyRuleAndKeepChildrenLoaded($htmlSource);
+            if (Main::instance()->areAssetRulesEnabled()) {
+			    $htmlSource = self::ignoreDependencyRuleAndKeepChildrenLoaded($htmlSource);
+            }
 			/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
 			// Move any jQuery inline SCRIPT that is triggered before jQuery library is called through "jquery-core" handle
@@ -987,7 +1017,7 @@ class OptimizeJs
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
 		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_preload_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
-		if ( ! wpacuIsDefinedConstant('WPACU_NO_ASSETS_PRELOADED') && ! Main::instance()->preventAssetsSettings() ) {
+		if ( ! wpacuIsDefinedConstant('WPACU_NO_ASSETS_PRELOADED') && ! Main::instance()->preventAssetRules() ) {
 			$preloads = Preloads::instance()->getPreloads();
 
 			if ( ! empty($preloads['scripts']) ) {
@@ -997,7 +1027,7 @@ class OptimizeJs
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
         /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_media_query_load_js'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
-        if ( ! isset($_GET['wpacu_no_media_query_load_for_js']) && ! wpacuIsDefinedConstant('WPACU_NO_MEDIA_QUERIES_LOAD_RULES_SET_FOR_ASSETS') ) {
+        if ( Main::instance()->areAssetRulesEnabled() && ! isset($_GET['wpacu_no_media_query_load_for_js']) && ! wpacuIsDefinedConstant('WPACU_NO_MEDIA_QUERIES_LOAD_RULES_SET_FOR_ASSETS') ) {
             $htmlSource = apply_filters('wpacu_internal_media_query_load_js', $htmlSource);
         }
         /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
@@ -1060,23 +1090,43 @@ class OptimizeJs
             $htmlSource = str_replace(Preloads::DEL_SCRIPTS_PRELOADS, '', $htmlSource);
         }
 
-        if (strpos($htmlSource, 'data-wpacu-script-rel-src-before') !== false) {
-            $htmlSource = preg_replace('# data-wpacu-script-rel-src-before="' . '(.*)' . '" #Usm', ' ', $htmlSource);
+        if ($cleanUpTemporaryAttributes) {
+            $htmlSource = self::cleanUpTemporaryScriptAttributes($htmlSource);
         }
 
-        $htmlSource = preg_replace(
-            '#<script(|\s+)(data-wpacu-jquery-core-handle=1|data-wpacu-jquery-migrate-handle=1|)(|\s+)data-wpacu-script-handle=\'(.*)\'#Umi',
-            '<script',
-            $htmlSource
-        );
-
-		// Clear possible empty SCRIPT tags (e.g. left from associated 'before' and 'after' tags after their content was stripped)
-		$htmlSource = preg_replace('#<script(\s+|)(type=\'text/javascript\'|)(\s+|)>(\s+|)</script>#Umi', '', $htmlSource);
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_optimize_js', 'end'); /* [/wpacu_timing] */
 		return $htmlSource;
 	}
+
+    /**
+     * Remove temporary JS attributes from SCRIPT tags and the original-source marker
+     * from LINK preloads, using WordPress' HTML tokenizer when available.
+     *
+     * Marker-like text in other attributes, comments or inline scripts is not an
+     * attribute to remove. Older WordPress versions retain these cosmetic markers.
+     *
+     * @param string $htmlSource
+     * @return string
+     */
+    public static function cleanUpTemporaryScriptAttributes($htmlSource)
+    {
+        return HtmlCleanup::removeTemporaryAssetAttributes($htmlSource, 'js');
+    }
+
+    /**
+     * @param string $htmlSource
+     *
+     * @return string
+     */
+    public static function cleanUpEmptyScriptTags($htmlSource)
+    {
+        // Retain this public entry point for compatibility. Document-wide removal
+        // also deletes literal examples in textarea content, attributes and comments.
+        // Empty inline scripts may remain after optimization without fetching assets.
+        return $htmlSource;
+    }
 
 	/**
 	 * @return string
@@ -1528,7 +1578,7 @@ HTML;
 	 * @return array
      * @noinspection NestedAssignmentsUsageInspection
      */
-	public static function getInlineAssociatedWithScriptHandle($scriptTagOrHandle, $wpacuRegisteredScripts, $from = 'tag', $return = 'value')
+	public static function getInlineAssociatedWithScriptHandle($scriptTagOrHandle, $wpacuRegisteredScripts, $from = 'tag', $return = 'value', &$resolvedTranslations = null)
 	{
 		if ($from === 'tag') {
 			preg_match_all('#data-wpacu-script-handle=([\'])' . '(.*)' . '(\1)#Usmi', $scriptTagOrHandle, $outputMatches);
@@ -1564,11 +1614,7 @@ HTML;
 				}
 			}
 
-			$scriptTranslations = '';
-
-			if (method_exists('wp_scripts', 'print_translations')) {
-				$scriptTranslations = wp_scripts()->print_translations( $scriptHandle, false );
-			}
+			$scriptTranslations = self::getScriptTranslations($scriptHandle, $resolvedTranslations);
 
 			return array(
 				'translations' => trim($scriptTranslations),
@@ -1580,7 +1626,7 @@ HTML;
 
 		if ( $return === 'html' && $scriptHandle ) {
 			return array(
-				'translations' => self::generateInlineAssocHtmlForHandle($scriptHandle, 'translations'),
+				'translations' => self::generateInlineAssocHtmlForHandle($scriptHandle, 'translations', '', $resolvedTranslations),
 				'data'         => self::generateInlineAssocHtmlForHandle($scriptHandle, 'data'),
 				'before'       => self::generateInlineAssocHtmlForHandle($scriptHandle, 'before'),
 				'after'        => self::generateInlineAssocHtmlForHandle($scriptHandle, 'after')
@@ -1591,6 +1637,22 @@ HTML;
 	}
 
 	/**
+	 * Only callers supplying an operation-local map reuse translation payloads.
+	 * Without one, preserve the normal fresh lookup for other OptimizeJs callers.
+	 * @return string|false
+	 */
+	public static function getScriptTranslations($handle, &$resolvedTranslations = null)
+	{
+		if (is_array($resolvedTranslations) && array_key_exists($handle, $resolvedTranslations)) {
+			return $resolvedTranslations[$handle];
+		}
+		$wpScripts = wp_scripts();
+		$translations = method_exists($wpScripts, 'print_translations') ? $wpScripts->print_translations($handle, false) : false;
+		if (is_array($resolvedTranslations)) { $resolvedTranslations[$handle] = $translations; }
+		return $translations;
+	}
+
+	/**
 	 * @param string $handle
 	 * @param string $position
 	 * @param string $inlineScriptContent
@@ -1598,18 +1660,14 @@ HTML;
 	 * @return string
      * @noinspection CallableParameterUseCaseInTypeContextInspection
      */
-	public static function generateInlineAssocHtmlForHandle($handle, $position, $inlineScriptContent = '')
+	public static function generateInlineAssocHtmlForHandle($handle, $position, $inlineScriptContent = '', &$resolvedTranslations = null)
 	{
 		global $wp_scripts;
 
 		$output = '';
 
 		if ($position === 'translations') {
-			$translations = false;
-
-			if (method_exists('wp_scripts', 'print_translations')) {
-				$translations = $wp_scripts->print_translations( $handle, false );
-			}
+			$translations = self::getScriptTranslations($handle, $resolvedTranslations);
 
 			if ( $translations ) {
 				$output = sprintf( "<script%s id='%s-js-translations'>\n%s\n</script>\n", Misc::getScriptTypeAttribute(), esc_attr( $handle ), $translations );

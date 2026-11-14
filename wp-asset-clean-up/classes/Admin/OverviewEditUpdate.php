@@ -931,8 +931,25 @@ class OverviewEditUpdate
 
                 $handle = sanitize_text_field($handle);
 
+                // Clear explicitly selected alternatives even when another bulk cleanup is selected.
+                if (isset($rulesToClear['alternative_asset']) && is_array($rulesToClear['alternative_asset'])) {
+                    foreach ($this->normalizeAssetRuleValuesToClear('alternative_asset', $rulesToClear['alternative_asset']) as $ruleData) {
+                        if ($this->clearSingleAssetRule($assetType, $handle, 'alternative_asset', $ruleData['value'])) {
+                            $clearedRules['handles'][] = array(
+                                'asset_type' => $assetType,
+                                'handle' => $handle,
+                                'rule_key' => 'alternative_asset',
+                                'values' => array($ruleData['value'])
+                            );
+                        }
+                    }
+                    unset($rulesToClear['alternative_asset']);
+                }
+
                 if (isset($rulesToClear['clear_all_rules'])) {
-                    Maintenance::removeAllRulesFor($handle, $assetType);
+                    if (Maintenance::removeAllRulesFor($handle, $assetType) === false) {
+                        continue;
+                    }
 
                     $clearedRules['handles'][] = array(
                         'asset_type' => $assetType,
@@ -1070,6 +1087,22 @@ class OverviewEditUpdate
         $ruleKey         = sanitize_key($ruleKey);
         $value           = sanitize_text_field(wp_unslash($value));
         $ruleParentValue = sanitize_text_field(wp_unslash($ruleParentValue));
+
+        if ($ruleKey === 'alternative_asset') {
+            if ( ! \WpAssetCleanUp\Menu::userCanManageAlternativeAssets()) {
+                return false;
+            }
+            if ( ! preg_match('/^[1-9][0-9]*$/D', $value)) {
+                return false;
+            }
+            $alternative = \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getRule((int)$value);
+            $alternativeType = $assetType === 'styles' ? 'css' : 'js';
+            if ( ! $alternative || ! \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::supportsAssetType($alternativeType)
+                || $alternative['type'] !== $alternativeType || $alternative['handle'] !== $handle) {
+                return false;
+            }
+            return \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::deleteRule((int)$value);
+        }
 
         if ($ruleKey === 'unload_on_home_page') {
             return $this->removeHandleFromOptionList(WPACU_PLUGIN_ID . '_front_page_no_load', $assetType, $handle);
@@ -2088,7 +2121,9 @@ class OverviewEditUpdate
                 $values      = isset($detailData['values'])       ? $detailData['values']     : '';
                 $parentValue = isset($detailData['parent_value']) ? $detailData['parent_value'] : '';
 
-                $ruleLabel = $this->formatOverviewRuleKeyLabel($ruleKey);
+                $ruleLabel = $ruleKey === 'clear_all_rules' && $assetType === 'scripts' && ! defined('WPACU_PRO_PLUGIN_VERSION')
+                    ? esc_html__('Clear available rules for this inactive handle; saved JavaScript alternatives and their source code are preserved in Lite.', 'wp-asset-clean-up')
+                    : $this->formatOverviewRuleKeyLabel($ruleKey);
                 $values    = $this->formatOverviewNoticeValue($values);
 
                 $outputHandleProcess = 'Handle <span style="color: #CC0000;">rule cleared</span>: '
@@ -2308,6 +2343,7 @@ class OverviewEditUpdate
                 // Extra handle settings that also use renderRuleOutput()
                 'positions'                              => 'Restored to its original HTML position',
                 'media_query'                            => 'Downloads only if the media query matches',
+                'alternative_asset'                      => 'Alternative asset and its saved code',
             ),
             'plugin' => array(
                 'inactive_rules'             => 'Clear all rules for this inactive plugin',

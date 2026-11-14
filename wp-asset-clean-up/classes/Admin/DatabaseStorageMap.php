@@ -224,7 +224,7 @@ class DatabaseStorageMap
                 'format'    => __('JSON object', 'wp-asset-clean-up'),
                 'lifecycle' => __('Persistent object metadata. Removed with the term or by the complete plugin-data cleanup.', 'wp-asset-clean-up'),
                 'edition'   => __('Lite & Pro', 'wp-asset-clean-up'),
-                'transfer'  => __('Included in Pro exports', 'wp-asset-clean-up'),
+                'transfer'  => __('Included in Lite and Pro exports', 'wp-asset-clean-up'),
                 'source'    => array('classes/Admin/OverviewEditUpdate.php', 'pro/classes/MainPro.php', 'pro/classes/UpdatePro.php'),
             ),
             array(
@@ -237,7 +237,7 @@ class DatabaseStorageMap
                 'format'    => __('JSON object', 'wp-asset-clean-up'),
                 'lifecycle' => __('Persistent object metadata. Removed with the user when safe, or by complete plugin-data cleanup outside shared multisite use.', 'wp-asset-clean-up'),
                 'edition'   => __('Lite & Pro', 'wp-asset-clean-up'),
-                'transfer'  => __('Included in Pro exports', 'wp-asset-clean-up'),
+                'transfer'  => __('Included in Lite and Pro exports', 'wp-asset-clean-up'),
                 'source'    => array('classes/Admin/OverviewEditUpdate.php', 'pro/classes/MainPro.php', 'pro/classes/UpdatePro.php'),
             ),
             array(
@@ -263,7 +263,7 @@ class DatabaseStorageMap
                 'format'    => __('JSON object', 'wp-asset-clean-up'),
                 'lifecycle' => __('Persistent object metadata. Removed with the term or when the granular rule is deleted.', 'wp-asset-clean-up'),
                 'edition'   => __('Lite & Pro', 'wp-asset-clean-up'),
-                'transfer'  => __('Included in Pro exports', 'wp-asset-clean-up'),
+                'transfer'  => __('Included in Lite and Pro exports', 'wp-asset-clean-up'),
                 'source'    => array('classes/OptimiseAssets/CriticalCss.php', 'classes/Admin/CriticalCssAdmin.php'),
             ),
             array(
@@ -276,7 +276,7 @@ class DatabaseStorageMap
                 'format'    => __('JSON object', 'wp-asset-clean-up'),
                 'lifecycle' => __('Persistent object metadata. Removed with the user or when the granular rule is deleted.', 'wp-asset-clean-up'),
                 'edition'   => __('Lite & Pro', 'wp-asset-clean-up'),
-                'transfer'  => __('Included in Pro exports', 'wp-asset-clean-up'),
+                'transfer'  => __('Included in Lite and Pro exports', 'wp-asset-clean-up'),
                 'source'    => array('classes/OptimiseAssets/CriticalCss.php', 'classes/Admin/CriticalCssAdmin.php'),
             ),
             array(
@@ -451,6 +451,48 @@ class DatabaseStorageMap
          *
          * @param array $registry
          */
+        $registry[] = array(
+            'id'        => 'alternative_assets_last_id',
+            'component' => __('Alternative Assets ID counter', 'wp-asset-clean-up'),
+            'storage'   => 'option',
+            'keys'      => array($pluginId . '_alternative_assets_last_id'),
+            'purpose'   => __('Highest alternative asset ID used on this site. Prevents deleted IDs from being reused when new alternatives are created.', 'wp-asset-clean-up'),
+            'scope'     => __('Site-local administration', 'wp-asset-clean-up'),
+            'format'    => __('Integer, not autoloaded', 'wp-asset-clean-up'),
+            'lifecycle' => __('Advanced when rules are saved or imported. Preserved when individual alternatives are deleted or an empty set is imported; removed by a full plugin data reset.', 'wp-asset-clean-up'),
+            'edition'   => __('CSS: Lite & Pro; JavaScript: Pro', 'wp-asset-clean-up'),
+            'transfer'  => __('Not exported', 'wp-asset-clean-up'),
+            'source'    => array('classes/OptimiseAssets/AlternativeAssets.php'),
+        );
+
+        $registry[] = array(
+            'id'        => 'alternative_assets_rules',
+            'component' => __('Alternative Assets rules', 'wp-asset-clean-up'),
+            'storage'   => 'option',
+            'keys'      => array($pluginId . '_alternative_assets_rules'),
+            'purpose'   => __('CSS/JavaScript replacement handles, loading conditions, priorities, ON/OFF states and source fingerprints. The compact rule index is autoloaded; source code is stored separately.', 'wp-asset-clean-up'),
+            'scope'     => __('Site-wide configuration with conditional loading', 'wp-asset-clean-up'),
+            'format'    => __('Serialized array', 'wp-asset-clean-up'),
+            'lifecycle' => __('Persistent until edited, deleted, replaced by import or reset. Generated files are disposable and follow the configured file-retention period.', 'wp-asset-clean-up'),
+            'edition'   => __('CSS: Lite & Pro; JavaScript: Pro', 'wp-asset-clean-up'),
+            'transfer'  => __('CSS and JavaScript included in Lite and Pro; JavaScript is applied only in Pro', 'wp-asset-clean-up'),
+            'source'    => array('classes/OptimiseAssets/AlternativeAssets.php', 'classes/Admin/AlternativeAssetsTransfer.php'),
+        );
+
+        $registry[] = array(
+            'id'        => 'alternative_assets_sources',
+            'component' => __('Alternative Assets source code', 'wp-asset-clean-up'),
+            'storage'   => 'option',
+            'patterns'  => array($pluginId . '_alternative_asset_source_*'),
+            'purpose'   => __('Original user-supplied replacement CSS or JavaScript, stored separately for each alternative without autoload. Included with its rule in Everything exports; importing requires unfiltered_html and plugin access.', 'wp-asset-clean-up'),
+            'scope'     => __('One alternative asset', 'wp-asset-clean-up'),
+            'format'    => __('CSS or JavaScript string', 'wp-asset-clean-up'),
+            'lifecycle' => __('Persistent source of truth for regenerating alternative files. Removed when its rule is deleted, replaced by import or reset; clearing generated-file caches preserves this source.', 'wp-asset-clean-up'),
+            'edition'   => __('CSS: Lite & Pro; JavaScript: Pro', 'wp-asset-clean-up'),
+            'transfer'  => __('CSS and JavaScript included in Lite and Pro; JavaScript is applied only in Pro', 'wp-asset-clean-up'),
+            'source'    => array('classes/OptimiseAssets/AlternativeAssets.php', 'classes/Admin/AlternativeAssetsTransfer.php'),
+        );
+
         $registry = apply_filters('wpacu_internal_database_storage_map_registry', $registry);
 
         return self::normalizeRegistry($registry);

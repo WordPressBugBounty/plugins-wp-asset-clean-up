@@ -37,6 +37,7 @@ if ($isEditMode) {
 
             function wpacuUpdateSelectionInfo() {
                 const selected = Array.from(wpacuCheckboxes).filter(chk => chk.checked).length;
+                wpacuNotice.parentElement.classList.toggle('has-unsaved-changes', selected > 0);
 
                 if (selected > 0) {
                     const baseText            = selected === 1 ? wpacuSelectedOneText : wpacuSelectedMultiText;
@@ -82,19 +83,8 @@ if ($isEditMode) {
                 }, 50);
             };
 
-            submitButton.addEventListener('click', function (event) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                lockMainSubmitButton();
-
-                if (mainForm.requestSubmit) {
-                    mainForm.requestSubmit();
-                } else {
-                    mainForm.submit();
-                }
-            });
-
+            // Native submission honors validation and the confirmation handler.
+            // Lock only after confirmation, so Cancel leaves the form usable.
             mainForm.addEventListener('submit', function (event) {
                 if (event.target !== mainForm) {
                     return;
@@ -226,10 +216,9 @@ if ($isEditMode) {
     });
 </script>
 
-<div id="wpacu-overview-start"
-     class="wrap wpacu-overview-wrap <?php echo esc_attr(Settings::getInputStyleCssClasses($inputStyle)); ?><?php if ( $isEditMode ) { echo ' wpacu-edit-mode'; } ?>"
+<div class="wrap wpacu-overview-wrap <?php echo esc_attr(Settings::getInputStyleCssClasses($inputStyle)); ?><?php if ( $isEditMode ) { echo ' wpacu-edit-mode'; } ?>"
      data-wpacu-input-style="<?php echo esc_attr($inputStyle); ?>">
-    <div style="padding: 0 10px 10px 0; line-height: 22px;">
+    <div class="wpacu-overview-note">
         <strong>Note:</strong> This overview contains all the changes of any kind (unload rules, load exceptions, preloads, notes, async/defer SCRIPT attributes, changed positions, etc.) made via Asset CleanUp to any of the loaded (enqueued) CSS/JS files as well as the plugins (e.g. unloaded on certain pages).
         To make any changes you need to the values below, please use the "CSS &amp; JS Manager" and "Plugins Manager".
 
@@ -247,11 +236,74 @@ if ($isEditMode) {
             You can also <a href="<?php echo $switchToEditModeUrl; ?>">switch to edit mode</a>, and you will be able to clear/edit most of the rules below (e.g. there are limitations in place in this "Overview" area).
         <?php } ?>
 
-        <?php
-        Overview::renderViewEditModeAreaToggleButton();
-        ?>
+        <div class="wpacu-overview-actions">
+            <?php if (\WpAssetCleanUp\Admin\ProDataCleanup::canAccess() && \WpAssetCleanUp\Admin\ProDataCleanup::hasDataToClear()) { ?>
+            <a class="wpacu-overview-cleanup-link" href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=reset&wpacu_reset_scope=pro')); ?>">
+                <span class="dashicons dashicons-admin-tools" aria-hidden="true"></span>
+                <span><?php esc_html_e('Review Pro data cleanup', 'wp-asset-clean-up'); ?></span>
+                <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+            </a>
+            <?php } ?>
+            <div class="wpacu-overview-actions__mode">
+                <?php Overview::renderViewEditModeAreaToggleButton(); ?>
+            </div>
+        </div>
     </div>
+    <div id="wpacu-overview-workspace">
     <div class="wpacu-overview-filter-bar">
+    <?php echo \WpAssetCleanUp\OwnAssets::getInlineScriptTag(<<<'JS'
+(function () {
+    var bar = document.currentScript.parentElement;
+    var area = document.getElementById('wpacu-overview-workspace');
+    // Run while parsing, before the default dropdown values can be painted.
+    // Collapse the bar completely so loading leaves no empty space above the rules.
+    bar.style.display = 'none';
+    area.setAttribute('inert', '');
+    area.setAttribute('aria-busy', 'true');
+    var stopSpinner = typeof wpacuShowAreaSpinner === 'function'
+        ? wpacuShowAreaSpinner(area, {position: 'center', edgePadding: 8}) : null;
+    var domReady = document.readyState === 'complete';
+    var initialized = false;
+    var finished = false;
+    bar.wpacuFinishInitialFilters = function () {
+        initialized = true;
+        if (!domReady || finished) { return; }
+        finished = true;
+        // Let the restored view settle before revealing its controls.
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                if (stopSpinner) { stopSpinner(); }
+                area.removeAttribute('inert');
+                area.removeAttribute('aria-busy');
+                bar.style.removeProperty('display');
+                if (typeof bar.animate === 'function' &&
+                    !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    var style = window.getComputedStyle(bar);
+                    var collapsed = {opacity: 0, overflow: 'hidden'};
+                    var expanded = {opacity: 1, overflow: 'hidden'};
+                    ['height', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom',
+                        'borderTopWidth', 'borderBottomWidth'].forEach(function (property) {
+                        collapsed[property] = '0px';
+                        expanded[property] = style[property];
+                    });
+                    // Animate the occupied space too; natural sizing resumes afterwards.
+                    bar.animate([collapsed, expanded], {duration: 220, easing: 'ease-out'});
+                }
+            });
+        });
+    };
+    // A missing deferred script must still leave the original Assets view usable.
+    document.addEventListener('DOMContentLoaded', function () {
+        domReady = true;
+        if (initialized) {
+            bar.wpacuFinishInitialFilters();
+        } else {
+            window.setTimeout(bar.wpacuFinishInitialFilters, 0);
+        }
+    }, {once: true});
+}());
+JS
+    ); ?>
     <div class="wpacu-overview-filter-field"><label for="wpacu-overview-view"><strong><?php esc_html_e('View', 'wp-asset-clean-up'); ?></strong></label>
         <select id="wpacu-overview-view" data-shared-control="<?php esc_attr_e('Shared control', 'wp-asset-clean-up'); ?>" data-unavailable="<?php esc_attr_e('This view could not be prepared. The original view remains available.', 'wp-asset-clean-up'); ?>">
             <option value="assets"><?php esc_html_e('By Asset Type', 'wp-asset-clean-up'); ?></option>
@@ -299,8 +351,8 @@ if ($isEditMode) {
     <span class="wpacu-overview-filter-note"><?php esc_html_e('Filtering keeps your selections.', 'wp-asset-clean-up'); ?></span>
     </div>
     <p id="wpacu-overview-rule-scope-empty" hidden><?php esc_html_e('No rules match this filter.', 'wp-asset-clean-up'); ?></p>
-    <link rel="stylesheet" href="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.css?ver=' . filemtime(WPACU_PLUGIN_DIR . '/assets/wpacu-overview-views.min.css')); ?>" />
-    <script src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.js?ver=' . filemtime(WPACU_PLUGIN_DIR . '/assets/wpacu-overview-views.min.js')); ?>" defer></script>
+    <link rel="stylesheet" href="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.css?wpacuversion=' . \WpAssetCleanUp\OwnAssets::assetVer('/assets/wpacu-overview-views.min.css')); ?>" />
+    <script src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/wpacu-overview-views.min.js?wpacuversion=' . \WpAssetCleanUp\OwnAssets::assetVer('/assets/wpacu-overview-views.min.js')); ?>" defer></script>
     <div id="wpacu-overview-sub-wrap" style="padding: 0 10px 0 0;">
         <?php if ($isEditMode) { ?>
             <form id="wpacu-overview-edit-form" action="<?php echo admin_url('admin.php?page=wpassetcleanup_overview&wpacu_edit_mode=1'); ?>" method="post">
@@ -315,14 +367,17 @@ if ($isEditMode) {
         $wpacuOverviewNavItems = array(
             'wpacu-overview-section-styles' => array(
                 'label' => __('CSS', 'wp-asset-clean-up'),
+                'paused' => ! \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled(),
                 'count' => isset($data['handles']['styles']) ? count($data['handles']['styles']) : 0,
             ),
             'wpacu-overview-section-critical-css' => array(
                 'label' => __('Critical CSS', 'wp-asset-clean-up'),
+                'paused' => ! empty($data['critical_css_disabled']),
                 'count' => isset($data['critical_css_overview']['rules_count']) ? (int)$data['critical_css_overview']['rules_count'] : 0,
             ),
             'wpacu-overview-section-scripts' => array(
                 'label' => __('JavaScript', 'wp-asset-clean-up'),
+                'paused' => ! \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled(),
                 'count' => isset($data['handles']['scripts']) ? count($data['handles']['scripts']) : 0,
             ),
         );
@@ -330,6 +385,7 @@ if ($isEditMode) {
         if ( ! empty($data['plugins_with_rules']['plugins']) ) {
             $wpacuOverviewNavItems['wpacu-overview-section-plugins-front'] = array(
                 'label' => __('Plugins: Front-end', 'wp-asset-clean-up'),
+                'paused' => function_exists('wpacuPluginsManagerIsEnabled') && ! wpacuPluginsManagerIsEnabled('front'),
                 'count' => count($data['plugins_with_rules']['plugins']),
             );
         }
@@ -337,6 +393,7 @@ if ($isEditMode) {
         if ( ! empty($data['plugins_with_rules']['plugins_dash']) ) {
             $wpacuOverviewNavItems['wpacu-overview-section-plugins-admin'] = array(
                 'label' => __('Plugins: Dashboard', 'wp-asset-clean-up'),
+                'paused' => function_exists('wpacuPluginsManagerIsEnabled') && ! wpacuPluginsManagerIsEnabled('dash'),
                 'count' => count($data['plugins_with_rules']['plugins_dash']),
             );
         }
@@ -359,11 +416,13 @@ if ($isEditMode) {
             );
         }
         ?>
+        <div id="wpacu-overview-start" aria-hidden="true"></div>
         <nav id="wpacu-overview-navigation" class="wpacu-overview-navigation wpacu-overview-navigation-initializing" aria-label="<?php esc_attr_e('Overview sections', 'wp-asset-clean-up'); ?>">
             <div class="wpacu-overview-navigation-links">
                 <?php foreach ($wpacuOverviewNavItems as $wpacuOverviewSectionId => $wpacuOverviewNavItem) { ?>
-                    <a href="#<?php echo esc_attr($wpacuOverviewSectionId); ?>" data-wpacu-overview-nav-target="<?php echo esc_attr($wpacuOverviewSectionId); ?>">
+                    <a href="#<?php echo esc_attr($wpacuOverviewSectionId); ?>" data-wpacu-overview-nav-target="<?php echo esc_attr($wpacuOverviewSectionId); ?>"<?php if (! empty($wpacuOverviewNavItem['paused'])) { ?> class="is-paused" title="<?php esc_attr_e('Rules are paused and have no effect.', 'wp-asset-clean-up'); ?>"<?php } ?>>
                         <?php echo esc_html($wpacuOverviewNavItem['label']); ?>
+                        <?php if (! empty($wpacuOverviewNavItem['paused'])) { ?><span class="dashicons dashicons-controls-pause" aria-hidden="true"></span><span class="screen-reader-text"><?php esc_html_e('Paused', 'wp-asset-clean-up'); ?></span><?php } ?>
                         <span class="wpacu-overview-navigation-count"<?php if (! empty($wpacuOverviewNavItem['warning_count'])) { ?> style="color: #cc0000;"<?php } ?>><?php echo (int)$wpacuOverviewNavItem['count']; ?></span>
                     </a>
                 <?php } ?>
@@ -410,7 +469,8 @@ if ($isEditMode) {
                     // The sticky navigation can wrap to any number of rows.
                     // Use its sticky inset, not its current document position before it sticks.
                     var navigationStyles = window.getComputedStyle ? window.getComputedStyle(navigation) : null;
-                    if (navigationStyles && (navigationStyles.position === 'sticky' || navigationStyles.position === 'fixed')) {
+                    // Returning to navigation only needs the admin-bar inset, not the navigation's own height.
+                    if (target.id !== 'wpacu-overview-start' && navigationStyles && (navigationStyles.position === 'sticky' || navigationStyles.position === 'fixed')) {
                         var navigationInset = parseFloat(navigationStyles.top) || 0;
                         scrollMarginTop = Math.max(scrollMarginTop, navigationInset + navigation.getBoundingClientRect().height + 16);
                     }
@@ -547,6 +607,13 @@ if ($isEditMode) {
                         return item.section && item.section.getClientRects().length > 0;
                     });
 
+                    navigationSections.forEach(function(item, index) {
+                        var backLink = item.section.querySelector('.wpacu-overview-back-to-navigation');
+                        if (backLink) {
+                            backLink.style.display = index === 0 ? 'none' : '';
+                        }
+                    });
+
                     updateActiveNavigationLink();
                     window.addEventListener('scroll', queueActiveNavigationUpdate, {passive: true});
                     window.addEventListener('resize', queueActiveNavigationUpdate);
@@ -625,16 +692,7 @@ if ($isEditMode) {
 
         <?php if ($isEditMode) { ?>
             <div id="wpacu-sticky-bottom-bar">
-                <div id="wpacu-selection-notice">You have not selected any rules for deletion</div>
-
-                <div id="wpacu-sticky-buttom-bar-action-area">
-                    <button type="button"
-                            disabled="disabled"
-                            id="wpacu-clear-all-rules-marked-for-deletion"
-                            class="button button-link">
-                        Clear all rules marked for deletion
-                    </button>
-
+                <div id="wpacu-sticky-buttom-bar-action-area" class="wpacu-save-actions">
                     <button id="wpacu-apply-changes"
                             type="submit"
                             name="wpacu_action_btn"
@@ -650,31 +708,24 @@ if ($isEditMode) {
                         <img width="20" height="20" src="<?php echo includes_url( 'images/spinner.gif' ); ?>" alt="<?php _e('Loading'); ?>..." />
                     </span>
                 </div>
+                <div class="wpacu-save-summary" role="status" aria-live="polite">
+                    <span class="wpacu-save-dot" aria-hidden="true"></span>
+                    <span id="wpacu-selection-notice"><?php echo esc_html($noneSelectedText); ?></span>
+                </div>
+                <div class="wpacu-save-copy">
+                    <button type="button"
+                            disabled="disabled"
+                            id="wpacu-clear-all-rules-marked-for-deletion"
+                            class="button button-link">
+                        <?php esc_html_e('Clear all rules marked for deletion', 'wp-asset-clean-up'); ?>
+                    </button>
+                </div>
             </div>
         <?php } ?>
 
         <?php if ($isEditMode) { ?>
             </form>
         <?php } ?>
-        <span class="wpacu-area-spinner-loader" aria-hidden="true"></span>
     </div>
-
-    <script>
-    document.getElementById('wpacu-overview-sub-wrap').classList.add('wpacu-area-spinner-not-ready', 'wpacu-spinner-position-visible-center');
-
-    var wpacuSpinnerAreaElement = document.querySelector('.wpacu-area-spinner-not-ready');
-
-    var wpacuSpinnerAreaStopCentering = wpacuCenterSpinnerInView(wpacuSpinnerAreaElement, {
-        edgePadding: 8
-    });
-
-    document.addEventListener('DOMContentLoaded', function () {
-        wpacuSpinnerAreaStopCentering();
-
-        wpacuSpinnerAreaElement.classList.remove(
-            'wpacu-area-spinner-not-ready',
-            'wpacu-spinner-position-visible-center'
-        );
-    });
-    </script>
+    </div>
 </div>

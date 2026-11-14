@@ -15,18 +15,18 @@ $criticalCssOverview = isset($data['critical_css_overview']) && is_array($data['
 $locations = isset($criticalCssOverview['locations']) && is_array($criticalCssOverview['locations'])
     ? $criticalCssOverview['locations']
     : array();
-$rulesCount    = isset($criticalCssOverview['rules_count']) ? (int)$criticalCssOverview['rules_count'] : 0;
-$generalCount  = isset($criticalCssOverview['general_count']) ? (int)$criticalCssOverview['general_count'] : 0;
-$specificCount = isset($criticalCssOverview['specific_count']) ? (int)$criticalCssOverview['specific_count'] : 0;
+$rulesCount         = isset($criticalCssOverview['rules_count']) ? (int)$criticalCssOverview['rules_count'] : 0;
+$generalCount       = isset($criticalCssOverview['general_count']) ? (int)$criticalCssOverview['general_count'] : 0;
+$specificCount      = isset($criticalCssOverview['specific_count']) ? (int)$criticalCssOverview['specific_count'] : 0;
 $isGloballyDisabled = ! empty($data['critical_css_disabled']);
-$isEditMode = Overview::isEditMode();
+$isEditMode         = Overview::isEditMode();
 
 $manageCriticalCssUrl = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager&wpacu_sub_page=manage_critical_css');
 $criticalCssStatusUrl = admin_url(
     'admin.php?page=' . WPACU_PLUGIN_ID . '_settings'
     . '&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings'
     . '&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-assets-management'
-    . '#wpacu-cssjs-critical-css'
+    . '&wpacu_selected_sub_sub_tab_area=critical-css#wpacu-cssjs-critical-css'
 );
 
 $storageTypeLabels = array(
@@ -48,7 +48,7 @@ $storageTypeLabels = array(
         ));
     }
     ?></span>
-    <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a>
+    <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt" aria-hidden="true"></span> <span><?php esc_html_e('Top', 'wp-asset-clean-up'); ?></span></a>
 </h3>
 
 <div id="wpacu-critical-css-overview">
@@ -121,8 +121,8 @@ $storageTypeLabels = array(
                             </td>
                             <td class="wpacu-critical-css-overview-rules" data-wpacu-item-unload-load-rules="1">
                                 <?php foreach ($locationRules as $ruleData) {
-                                    $isSpecific = isset($ruleData['scope']) && $ruleData['scope'] === 'specific';
-                                    $storageType = isset($ruleData['storage_type']) ? $ruleData['storage_type'] : '';
+                                    $isSpecific      = isset($ruleData['scope']) && $ruleData['scope'] === 'specific';
+                                    $storageType     = isset($ruleData['storage_type']) ? $ruleData['storage_type'] : '';
                                     $showMethodLabel = isset($ruleData['show_method']) && $ruleData['show_method'] === 'minified'
                                         ? __('Minified', 'wp-asset-clean-up')
                                         : __('As entered', 'wp-asset-clean-up');

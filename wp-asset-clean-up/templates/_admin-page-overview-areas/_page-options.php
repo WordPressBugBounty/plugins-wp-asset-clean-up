@@ -26,7 +26,7 @@ $pageOptionLabels = array(
 $renderPageOption = static function ($optionKey, $optionValue, $infoData, $pageOptions) use ($pageOptionLabels, $data) {
     $overridden = ($optionKey !== 'no_wpacu_load' && !empty($pageOptions['no_wpacu_load']))
         || (!in_array($optionKey, array('no_assets_settings', 'no_wpacu_load'), true) && !empty($pageOptions['no_assets_settings']));
-    $label = isset($pageOptionLabels[$optionKey]) ? $pageOptionLabels[$optionKey] : $data['page_options_to_text'][$optionKey];
+    $label  = isset($pageOptionLabels[$optionKey]) ? $pageOptionLabels[$optionKey] : $data['page_options_to_text'][$optionKey];
     $output = Overview::renderNoWrapRuleOutput(
         '<span style="color: #cc0000; font-weight: 400;">' . esc_html($label) . '</span>',
         $infoData,
@@ -46,30 +46,46 @@ $renderPageOption = static function ($optionKey, $optionValue, $infoData, $pageO
 };
 ?>
 <div id="wpacu-page-options-wrap">
-    <h3 id="wpacu-overview-section-page-options" class="wpacu-overview-section-title"><span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-admin-generic"></span> <?php _e('Page Options', 'wp-asset-clean-up'); ?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></a></h3>
+    <h3 id="wpacu-overview-section-page-options" class="wpacu-overview-section-title"><span class="wpacu-overview-section-title-content"><span class="dashicons dashicons-admin-generic"></span> <?php _e('Page Options', 'wp-asset-clean-up'); ?></span> <a class="wpacu-overview-back-to-navigation" href="#wpacu-overview-start" aria-label="<?php esc_attr_e('Back to Overview navigation', 'wp-asset-clean-up'); ?>"><span class="dashicons dashicons-arrow-up-alt" aria-hidden="true"></span> <span><?php esc_html_e('Top', 'wp-asset-clean-up'); ?></span></a></h3>
     <div style="padding: 10px; background: white; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
 		<?php
 		if ($hasAtLeastOneRecord) {
 		?>
-        <p style="margin: 8px 0;"><strong><?php esc_html_e('Optimizations disabled on specific pages', 'wp-asset-clean-up'); ?></strong></p>
-        <p style="margin: 0 0 8px; line-height: 1.6;"><em><?php esc_html_e('Pages appear in this list because one or more options were checked and saved under "Page Options" in the CSS/JS Manager for each page.', 'wp-asset-clean-up'); ?></em></p>
-        <p style="margin: 0 0 14px; line-height: 1.6;"><?php esc_html_e('These page options override your Asset CleanUp settings. They can disable minification, combination, or all optimizations — including CSS/JS unload rules — on individual pages.', 'wp-asset-clean-up'); ?>
-            <a target="_blank" rel="noopener noreferrer" style="text-decoration: none; white-space: nowrap;" href="https://www.assetcleanup.com/docs/?p=1318"><span class="dashicons dashicons-info" aria-hidden="true"></span> <?php esc_html_e('Read more', 'wp-asset-clean-up'); ?></a>
-        </p>
-        <?php if (Overview::isEditMode()) { ?>
-            <p style="padding: 10px 12px; margin: 0 0 14px; background: #fff8e5; border-left: 3px solid #dba617; line-height: 1.6;">
-                <strong><?php esc_html_e('Select page overrides to remove', 'wp-asset-clean-up'); ?></strong><br />
-                <?php esc_html_e('Select the page overrides you want to remove, then apply your changes. Removing an override allows the corresponding settings and rules to apply again. These checkboxes select overrides for removal; they do not enable or disable optimizations directly.', 'wp-asset-clean-up'); ?>
+            <p style="margin: 8px 0;"><strong><?php esc_html_e('Optimizations disabled on specific pages', 'wp-asset-clean-up'); ?></strong></p>
+            <p style="margin: 0 0 8px; line-height: 1.6;"><em><?php esc_html_e('Pages appear in this list because one or more options were checked and saved under "Page Options" in the CSS/JS Manager for each page.', 'wp-asset-clean-up'); ?></em></p>
+            <p style="margin: 0 0 14px; line-height: 1.6;"><?php esc_html_e('These page options override your Asset CleanUp settings. They can disable minification, combination, or all optimizations — including CSS/JS unload rules — on individual pages.', 'wp-asset-clean-up'); ?>
+                <a target="_blank" rel="noopener noreferrer" style="text-decoration: none; white-space: nowrap;" href="https://www.assetcleanup.com/docs/?p=1318"><span class="dashicons dashicons-info" aria-hidden="true"></span> <?php esc_html_e('Read more', 'wp-asset-clean-up'); ?></a>
             </p>
-        <?php } ?>
-        <table class="wp-list-table wpacu-list-table widefat fixed plugins striped" style="margin: 10px 0 0; width: 100%; overflow-wrap: anywhere;">
-            <thead><tr>
-                <th scope="col" style="width: 45%;"><span class="wpacu-overview-homepage-label"><strong><?php esc_html_e('Page', 'wp-asset-clean-up'); ?></strong> <span class="wpacu-overview-homepage-help" style="font-size: 17px; line-height: 17px; vertical-align: middle; margin: -3px 0 0 -1px; display: inline-flex; align-items: center;" tabindex="0" role="img" aria-label="<?php esc_attr_e('About page targets', 'wp-asset-clean-up'); ?>" aria-describedby="wpacu-page-options-page-help"><span aria-hidden="true">ⓘ</span><span id="wpacu-page-options-page-help" class="wpacu-overview-homepage-tooltip" role="tooltip"><strong><?php esc_html_e('Page targets', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('This column identifies the page context targeted by the saved Page Options. It can include posts, standard WordPress pages, and custom post types. Each row lists the options disabled for that specific page.', 'wp-asset-clean-up'); ?></span></span></span></th>
-                <th scope="col"><span class="dashicons dashicons-dismiss" style="width: 20px; height: 20px; color: #cc0000; font-size: 20px; line-height: 20px; vertical-align: middle; margin: -2px 0 0;" aria-hidden="true"></span> <strong style="color: #cc0000;"> <?php esc_html_e('Disabled options', 'wp-asset-clean-up'); ?></strong></th>
-            </tr></thead>
+            <?php if (Overview::isEditMode()) { ?>
+                <p style="padding: 10px 12px; margin: 0 0 14px; background: #fff8e5; border-left: 3px solid #dba617; line-height: 1.6;">
+                    <strong><?php esc_html_e('Select page overrides to remove', 'wp-asset-clean-up'); ?></strong><br />
+                    <?php esc_html_e('Select the page overrides you want to remove, then apply your changes. Removing an override allows the corresponding settings and rules to apply again. These checkboxes select overrides for removal; they do not enable or disable optimizations directly.', 'wp-asset-clean-up'); ?>
+                </p>
+            <?php } ?>
+            <table class="wp-list-table wpacu-list-table widefat fixed plugins striped" style="margin: 10px 0 0; width: 100%; overflow-wrap: anywhere;">
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 45%; font-weight: bold;">
+                            <span class="wpacu-overview-homepage-label"><strong><?php esc_html_e('Page', 'wp-asset-clean-up'); ?></strong>&nbsp;
+                            <span class="wpacu-overview-homepage-help"
+                                      style="font-size: 17px; line-height: 17px; vertical-align: middle; margin: -3px 0 0 -1px; display: inline-flex; align-items: center;"
+                                      tabindex="0" role="img"
+                                      aria-label="<?php esc_attr_e('About page targets', 'wp-asset-clean-up'); ?>"
+                                      aria-describedby="wpacu-page-options-page-help"><span aria-hidden="true">ⓘ</span>
+                                    <span id="wpacu-page-options-page-help"
+                                          class="wpacu-overview-homepage-tooltip"
+                                          role="tooltip"><strong><?php esc_html_e('Page targets', 'wp-asset-clean-up'); ?></strong><?php esc_html_e('This column identifies the page context targeted by the saved Page Options. It can include posts, standard WordPress pages, and custom post types. Each row lists the options disabled for that specific page.', 'wp-asset-clean-up'); ?></span>
+                                </span>
+                            </span>
+                        </th>
+                        <th scope="col">
+                            <span class="dashicons dashicons-dismiss" style="width: 20px; height: 20px; color: #cc0000; font-size: 20px; line-height: 20px; vertical-align: middle; margin: -2px 0 0;" aria-hidden="true"></span> <strong style="color: #cc0000;"> <?php esc_html_e('Disabled options', 'wp-asset-clean-up'); ?></strong>
+                        </th>
+                    </tr>
+                </thead>
             <tbody>
-			<?php
-			}
+            <?php
+            }
 
 			if ( $hasHomepageWithOptions ) {
 				$optionsForCurrentPage = array();
@@ -111,7 +127,7 @@ $renderPageOption = static function ($optionKey, $optionValue, $infoData, $pageO
 
 			if ( $hasPostsWithOptions ) {
 				foreach ($data['page_options_results']['posts'] as $results) {
-					$rowStyle = '';
+					$rowStyle   = '';
 					$postExists = true;
 
                     if (get_post($results['post_id']) === null) {
@@ -175,9 +191,9 @@ $renderPageOption = static function ($optionKey, $optionValue, $infoData, $pageO
                                     return $value;
                                 }, $optionsForCurrentPage);
 
-                        echo implode('', $optionsForCurrentPage);
+                                echo implode('', $optionsForCurrentPage);
                             } else {
-                        echo implode('', $optionsForCurrentPage);
+                                echo implode('', $optionsForCurrentPage);
                             }
                             ?>
                         </td>

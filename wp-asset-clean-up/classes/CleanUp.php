@@ -399,9 +399,10 @@ class CleanUp
 		}, $strContains);
 
 		preg_match_all(
-			'#<link[^>]*('.implode('|', $strContains).')[^>].*(>)#Usmi',
+			'#<link[^>]*('.implode('|', $strContains).')[^>]*(>)#Usmi',
 			$htmlSource,
-			$matchesSourcesFromTags
+			$matchesSourcesFromTags,
+			PREG_SET_ORDER
 		);
 
 		if (empty($matchesSourcesFromTags)) {

@@ -346,6 +346,11 @@ class MinifyCss
 	 */
 	public static function isMinifyCssEnabledChecked($value)
 	{
+		// Early checks (e.g. on init) do not yet know the current page's options.
+		if ( ! defined('WPACU_CURRENT_PAGE_ID') ) {
+			return;
+		}
+
 		if ( ! defined('WPACU_IS_MINIFY_CSS_ENABLED') ) {
 			if ( $value === 'true' ) {
 				define( 'WPACU_IS_MINIFY_CSS_ENABLED', true );

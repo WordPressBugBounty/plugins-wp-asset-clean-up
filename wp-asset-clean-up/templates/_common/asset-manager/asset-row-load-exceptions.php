@@ -50,14 +50,26 @@ if ($data['row']['global_unloaded']) {
                 if ($data['bulk_unloaded_type'] === 'post_type') {
                     // Only show it on edit post/page/custom post type
                     switch ($data['post_type']) {
-                        case 'product':
-                            $loadBulkText = __('On all WooCommerce "Product" pages', 'wp-asset-clean-up');
+                        case 'page':
+                            $loadBulkText = __('On all WordPress pages', 'wp-asset-clean-up');
                             break;
-                        case 'download':
-                            $loadBulkText = __('On all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up');
+                        case 'post':
+                            $loadBulkText = __('On all blog posts', 'wp-asset-clean-up');
+                            break;
+                        case 'product':
+                            $loadBulkText = __('On all product pages', 'wp-asset-clean-up');
                             break;
                         default:
-                            $loadBulkText = sprintf(__('On all pages of "<strong>%s</strong>" post type', 'wp-asset-clean-up'), $data['post_type']);
+                            $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+                            $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                                ? $wpacuPostTypeObject->labels->name
+                                : $data['post_type'];
+
+                            $loadBulkText = sprintf(
+                                __('On all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+                                esc_html($wpacuPostTypeLabel),
+                                esc_html($data['post_type'])
+                            );
                     }
                     ?>
                     <li for="wpacu_load_it_option_post_type_<?php echo $assetTypeS; ?>_<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>">

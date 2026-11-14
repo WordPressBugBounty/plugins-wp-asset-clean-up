@@ -1,4 +1,372 @@
 @charset "UTF-8";
+@media screen and (max-width: 782px) {
+  .wpacu-overview-wrap .wpacu-overview-list-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  body.wp-admin .wpacu-overview-wrap .wpacu-overview-list-table tr td {
+    box-sizing: border-box;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .wpacu-overview-wrap :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) table {
+    width: 100%;
+    table-layout: fixed;
+  }
+  .wpacu-overview-wrap :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) table td.wpacu_plugin_details {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .wpacu-overview-wrap :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) table td.wpacu_plugin_details .wpacu_plugin_path {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .wpacu-overview-wrap label.wpacu-delete-label.wpacu-with-textarea-edit {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .wpacu-overview-wrap .wpacu-edit-label {
+    min-width: 0;
+  }
+  .wpacu-overview-wrap textarea.wpacu-edit-area {
+    min-width: 0 !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(220px, 1.4fr);
+  align-items: center;
+  gap: 18px;
+  padding: 8px 11px;
+  border: 1px solid #cddde1;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fbfc 0%, #eef7f8 100%);
+  box-shadow: 0 2px 8px rgba(0, 69, 103, 0.08);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-summary {
+  display: inline-flex;
+  justify-self: center;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  min-width: 0;
+  padding: 2px 9px;
+  border: 1px solid rgba(140, 151, 156, 0.45);
+  border-radius: 999px;
+  background: rgba(240, 242, 243, 0.72);
+  color: rgba(80, 91, 97, 0.72);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-summary.has-unsaved-changes {
+  border-color: #e3cf9d;
+  background: #fff9e8;
+  color: #755100;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-summary.has-unsaved-changes .wpacu-save-dot {
+  background: #dba617;
+  box-shadow: 0 0 0 3px rgba(219, 166, 23, 0.13);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #9aa4a9;
+  box-shadow: 0 0 0 3px rgba(154, 164, 169, 0.1);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-copy {
+  display: flex;
+  min-width: 0;
+  justify-self: end;
+  flex-direction: column;
+  gap: 3px;
+  color: #314750;
+  text-align: right;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-copy strong {
+  font-size: 13px;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-copy span {
+  color: #646970;
+  font-size: 12px;
+}
+@media screen and (max-width: 1100px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 14px;
+  }
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-summary {
+    justify-self: end;
+  }
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-copy {
+    grid-column: 1/-1;
+  }
+}
+@media screen and (max-width: 600px) {
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-summary, body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar .wpacu-save-copy {
+    justify-self: start;
+    text-align: left;
+  }
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-sticky-buttom-bar-action-area {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  height: auto;
+  padding: 0 19px;
+  border: 1px solid #004f68;
+  border-radius: 7px;
+  background: #006584;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 38px;
+  text-shadow: none;
+  box-shadow: 0 2px 5px rgba(0, 69, 103, 0.2);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes:hover, body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes:focus {
+  border-color: #003d52;
+  background: #007887;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(0, 69, 103, 0.25);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes:focus-visible {
+  outline: 3px solid rgba(34, 113, 177, 0.28);
+  outline-offset: 2px;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(0, 69, 103, 0.2);
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes:disabled {
+  border-color: #8aa6af;
+  background: #8aa6af;
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-apply-changes .dashicons {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 20px;
+  width: 20px;
+  height: 20px;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-selection-notice {
+  width: auto;
+  font-weight: 600;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-clear-all-rules-marked-for-deletion {
+  margin: 0;
+  padding: 0;
+  height: auto;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: inherit;
+  color: #176779;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-clear-all-rules-marked-for-deletion:hover {
+  color: #104e5d;
+}
+body.wp-admin[class*=asset-cleanup] .wpacu-overview-wrap.wpacu-edit-mode #wpacu-sticky-bottom-bar #wpacu-clear-all-rules-marked-for-deletion:disabled {
+  color: #8c979c;
+}
+
+body.wp-admin[class*=wpassetcleanup_overview] .wpacu-tabs {
+  margin-bottom: 18px;
+}
+body.wp-admin[class*=wpassetcleanup_overview] .wpacu-tabs nav ul {
+  margin-bottom: 0;
+}
+body.wp-admin[class*=wpassetcleanup_overview] .wp-header-end {
+  margin: 0;
+  border: 0;
+}
+body.wp-admin[class*=wpassetcleanup_overview] .wrap.wpacu-overview-wrap {
+  margin-top: 0;
+}
+
+.wpacu-overview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 8px 0 10px;
+}
+.wpacu-overview-actions__mode {
+  margin-left: auto;
+}
+.wpacu-overview-actions #wpacu-overview-render-edit-mode-toggle-area {
+  float: none;
+  margin: 0;
+}
+
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link,
+body.wp-admin .wpacu-overview-wrap #wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 9px 13px;
+  border: 1px solid #b9d5dc;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fff, #f0f8fa);
+  color: #176779;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(20, 66, 78, 0.07);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link .dashicons,
+body.wp-admin .wpacu-overview-wrap #wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a.button .dashicons {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link:hover,
+body.wp-admin .wpacu-overview-wrap #wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a.button:hover {
+  border-color: #438d9e;
+  color: #104e5d;
+  text-decoration: none;
+  box-shadow: 0 2px 5px rgba(20, 66, 78, 0.12);
+}
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link:focus-visible,
+body.wp-admin .wpacu-overview-wrap #wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a.button:focus-visible {
+  outline: 2px solid #2271b1;
+  outline-offset: 3px;
+}
+
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link {
+  border-color: #c9d0d4;
+  border-radius: 4px;
+  background: transparent;
+  color: #596970;
+  font-weight: 500;
+  box-shadow: none;
+}
+body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link:hover {
+  border-color: #9aa9b0;
+  background: #f6f7f7;
+  color: #364b55;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .wpacu-overview-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .wpacu-overview-actions__mode {
+    margin-left: 0;
+  }
+  .wpacu-overview-actions #wpacu-overview-render-edit-mode-toggle-area {
+    text-align: left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.wp-admin .wpacu-overview-wrap a.wpacu-overview-cleanup-link,
+body.wp-admin .wpacu-overview-wrap #wpacu-overview-render-edit-mode-toggle-area div[data-wpacu-button-area] a.button {
+    transition: none;
+  }
+}
+.wpacu-overview-alternative-asset {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid #d3e3e6;
+  border-left: 3px solid #1a7e8a;
+  border-radius: 4px;
+  background: #f4fafb;
+  color: #29434c;
+  overflow-wrap: anywhere;
+}
+.wpacu-overview-alternative-asset__heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wpacu-overview-alternative-asset__heading .dashicons {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+.wpacu-overview-alternative-asset__heading a {
+  margin-left: auto;
+}
+.wpacu-overview-alternative-asset__status {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #dcefe5;
+  color: #235b3e;
+  font-size: 11px;
+  font-weight: 600;
+}
+.wpacu-overview-alternative-asset p.wpacu-overview-alternative-asset__description {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.wpacu-overview-alternative-asset ul.wpacu-overview-alternative-asset__conditions {
+  margin: 6px 0 6px 18px;
+  list-style: disc;
+}
+.wpacu-overview-alternative-asset li {
+  margin-bottom: 3px;
+}
+.wpacu-overview-alternative-asset[data-wpacu-rule-state=inactive] {
+  border-color: #dcdcde;
+  background: #f6f7f7;
+  color: #646970;
+}
+.wpacu-overview-alternative-asset[data-wpacu-rule-state=inactive] .wpacu-overview-alternative-asset__status {
+  background: #e2e4e7;
+  color: #50575e;
+}
+.wpacu-overview-alternative-asset.is-globally-paused {
+  border-color: #e0c078;
+  border-left-color: #b58118;
+  background: #fff8e5;
+  color: #795711;
+}
+.wpacu-overview-alternative-asset.is-globally-paused .wpacu-overview-alternative-asset__status {
+  background: #f8e5b5;
+  color: #795711;
+}
+
 body[class*=" version-7-"] :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) input[type=color],
 body[class*=" version-7-"] :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) input[type=date],
 body[class*=" version-7-"] :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-overview-original-id="wpacu-plugins-load-manager-wrap"]) input[type=datetime-local],
@@ -43,18 +411,18 @@ body[class*=" version-7-"] :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-ove
   align-items: flex-start;
   gap: 8px;
   padding: 14px 16px;
-  margin: 0 0 18px;
-  background: #fff5f5;
+  margin: 0 0 22px;
+  background: #fef8ee;
   border-radius: 6px;
   line-height: 1.6;
-  border: 1px solid #dcdcde;
-  border-left: 4px solid #d63638;
+  border: 1px solid #f0b849;
+  border-left-width: 4px;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
 :is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-disabled-notice .dashicons {
   flex: 0 0 auto;
-  color: #d63638;
+  color: #f0b849;
 }
 
 :is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-disabled-notice strong {
@@ -63,7 +431,15 @@ body[class*=" version-7-"] :is(#wpacu-plugins-load-manager-wrap, [data-wpacu-ove
 }
 
 :is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-content-disabled {
+  border: 2px solid #f0b849;
+}
+
+:is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-content-disabled > * {
   opacity: 0.5;
+}
+
+:is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-content-disabled > table {
+  border: 0;
 }
 
 :is(#wpacu-critical-css-overview, [data-wpacu-overview-original-id="wpacu-critical-css-overview"]) .wpacu-critical-css-overview-location-column {

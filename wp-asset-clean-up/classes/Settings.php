@@ -71,7 +71,11 @@ class Settings
 		'combine_loaded_css_for',
 		'combine_loaded_js_for',
 
-		// [CRITICAL CSS]
+		// Independent delivery switches; both keys must be allowed by updateOption().
+        'css_js_manager_rules_status',
+        'alternative_assets_status',
+
+        // [CRITICAL CSS]
         'critical_css_status',
         // [/CRITICAL CSS]
 
@@ -308,6 +312,9 @@ class Settings
                 )
             ),
 
+            // Independent saved-rule delivery defaults (also applied to upgrades below).
+            'css_js_manager_rules_status' => 'on',
+            'alternative_assets_status' => 'on',
 	        // [CRITICAL CSS]
 	        'critical_css_status' => 'on',
 	        // [/CRITICAL CSS]
@@ -413,6 +420,8 @@ class Settings
         $settingsOption = get_option(WPACU_PLUGIN_ID . '_settings');
 
         $applyDefaultToNeverSaved = array(
+            'css_js_manager_rules_status',
+            'alternative_assets_status',
             'alter_html_source_method',
             'input_style',
             'frontend_show_exceptions',
@@ -458,7 +467,7 @@ class Settings
                     }
                 }
 
-                return $settings;
+                return self::normalizeManagementLocations($settings);
             }
         }
 
@@ -474,7 +483,31 @@ class Settings
             }
         }
 
-        return $finalDefaultSettings;
+        return self::normalizeManagementLocations($finalDefaultSettings);
+    }
+
+    /**
+     * The dedicated Dashboard manager is always available to permitted users.
+     * An old unchecked Dashboard switch was stored as zero, an empty value, or
+     * an omitted key. Only the editor metabox depended on that switch; preserve
+     * the independent front-end preference. Background settings updates must
+     * retain the same location choices as the migrated interface.
+     *
+     * @param array $settings
+     *
+     * @return array
+     */
+    public static function normalizeManagementLocations($settings)
+    {
+        if (empty($settings['dashboard_show'])) {
+            // String zero survives filtering when the settings are saved.
+            $settings['show_assets_meta_box'] = '0';
+        }
+
+        // Retain the legacy key for existing integrations and internal readers.
+        $settings['dashboard_show'] = '1';
+
+        return $settings;
     }
 
     /**

@@ -142,6 +142,8 @@ class AjaxSearchPagesAutocomplete
 
 	/**
 	 * Only valid for "CSS & JS Manager" -- "Manage CSS/JS" or "Manage Critical CSS" -- singular and archive contexts
+     *
+     * @return void
      */
 	public function adminEnqueueScripts()
     {
@@ -166,6 +168,28 @@ class AjaxSearchPagesAutocomplete
 	    $contextType       = 'post_type';
         $contextValue      = '';
         $isCriticalCssPage = ($subPage === 'manage_critical_css');
+
+        if (in_array($wpacuFor, array('custom_taxonomies', 'custom_post_types'), true) && !$isCriticalCssPage) {
+            AssetsManagerAdmin::enqueueCustomTaxonomyPicker();
+        }
+
+        if ( ! $isCriticalCssPage ) {
+            $navigationBase   = '/assets/admin/assets-context-navigation';
+            $navigationHandle = WPACU_PLUGIN_ID . '-assets-context-navigation';
+            wp_enqueue_style($navigationHandle, WPACU_PLUGIN_URL . $navigationBase . '.min.css', array(), filemtime(WPACU_PLUGIN_DIR . $navigationBase . '.min.css'));
+        }
+
+        if ( in_array($wpacuFor, array('custom_post_types', 'custom_taxonomies'), true) && ! $isCriticalCssPage ) {
+            wp_enqueue_script($navigationHandle, WPACU_PLUGIN_URL . $navigationBase . '.min.js', array('jquery'), filemtime(WPACU_PLUGIN_DIR . $navigationBase . '.min.js'), true);
+            wp_localize_script($navigationHandle, 'wpacuAssetsContextNavigation', array(
+                'loading' => __('Loading your selection…', 'wp-asset-clean-up'),
+                'error'   => __('The selected view could not be loaded. Your current view has been kept. Please try again.', 'wp-asset-clean-up'),
+                'contextUnsavedTitle' => __('Unsaved CSS/JS changes', 'wp-asset-clean-up'),
+                'contextUnsaved' => __('Changing this selection will hide the current CSS/JS Manager. Your changes have not been saved. Stay here and save them first if you want to keep them. If you continue, select another page or term to load its manager.', 'wp-asset-clean-up'),
+                'contextStay' => __('Stay in this manager', 'wp-asset-clean-up'),
+                'contextContinue' => __('Continue without saving', 'wp-asset-clean-up')
+            ));
+        }
 
         // The autocomplete is only used by the separate Specific Critical CSS sub-tab.
         if ($isCriticalCssPage && CriticalCssAdmin::getManagementScope($wpacuFor) !== 'specific') {

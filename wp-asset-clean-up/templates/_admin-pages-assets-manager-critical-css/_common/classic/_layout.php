@@ -20,6 +20,10 @@ if (in_array($data['for'], array('posts', 'pages', 'custom_post_types'), true)) 
 
 if ($canManageCriticalCss) {
     require WPACU_PLUGIN_DIR . '/templates/_common/critical-css/global-status.php';
+    ?>
+    <fieldset id="wpacu-critical-css-content" class="wpacu-critical-css-content<?php echo ! empty($data['critical_css_is_global_disabled']) ? ' is-paused' : ''; ?>" aria-label="<?php esc_attr_e('Critical CSS configuration', 'wp-asset-clean-up'); ?>">
+        <legend class="wpacu-critical-css-paused-legend"><span><?php esc_html_e('Paused', 'wp-asset-clean-up'); ?></span></legend>
+    <?php
 }
 
 include __DIR__ . '/_primary-tabs.php';
@@ -102,7 +106,15 @@ if ($canManageCriticalCss && isset($data['for']) && $data['for']) {
                         ?>
                         <button type="submit"
                            name="submit"
-                           class="button button-primary"><?php echo esc_html($submitButtonLabel); ?></button>
+                           class="button button-primary"><?php
+                            if ($isAddMode) {
+                                echo '<span style="line-height: 1.9;" class="dashicons dashicons-insert"></span>&nbsp;';
+                            } else {
+                                echo '<span style="line-height: 1.9;" class="dashicons dashicons-update"></span>&nbsp;';
+                            }
+
+                            echo esc_attr($submitButtonLabel);
+                            ?></button>
 
                         <div id="wpacu-updating-critical-css" class="wpacu-hide">
                             <img src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" align="top" width="20" height="20" alt="" />
@@ -150,4 +162,8 @@ if ($canManageCriticalCss && isset($data['for']) && $data['for']) {
     );
     </script>
     <?php
+}
+
+if ($canManageCriticalCss) {
+    echo '</fieldset>';
 }

@@ -379,7 +379,7 @@ class PluginsManagerPreview
      */
     public static function getAlwaysLoadedStatus()
     {
-        $label = __('Always loaded', 'wp-asset-clean-up');
+        $label = __('Loaded', 'wp-asset-clean-up');
 
         return sprintf(
             '<span class="wpacu-pm-always-loaded-status wpacu-pm-always-loaded-status--minimal-dot" data-wpacu-always-loaded-status-type="minimal-dot" title="%1$s"><span class="wpacu-pm-always-loaded-status-dot" aria-hidden="true"></span><span class="wpacu-pm-always-loaded-status-text">%2$s</span></span>',

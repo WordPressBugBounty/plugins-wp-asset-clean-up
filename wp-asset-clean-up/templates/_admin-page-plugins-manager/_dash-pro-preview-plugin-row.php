@@ -41,6 +41,7 @@ $wpacuIsAlwaysLoaded = $wpacuPluginView['unload_rules_count'] === 0
             </div>
 
             <span class="wpacu_plugin_title" data-wpacu-plugin-search-highlight><?php echo esc_html($wpacuPluginData['title']); ?></span>
+                    <?php if (!empty($wpacuPluginData['version'])) { ?><span class="wpacu-pm-plugin-version">v<?php echo esc_html($wpacuPluginData['version']); ?></span><?php } ?>
             <span class="wpacu-pm-plugin-statuses" data-wpacu-layout-plugin-statuses aria-live="polite">
                 <span data-wpacu-layout-always-loaded-status<?php echo $wpacuIsAlwaysLoaded ? '' : ' hidden'; ?>><?php
                     echo PluginsManagerPreview::getAlwaysLoadedStatus();
@@ -59,7 +60,7 @@ $wpacuIsAlwaysLoaded = $wpacuPluginView['unload_rules_count'] === 0
                       data-wpacu-layout-header-count="load"
                       data-wpacu-count-singular="<?php echo esc_attr__('exception', 'wp-asset-clean-up'); ?>"
                       data-wpacu-count-plural="<?php echo esc_attr__('exceptions', 'wp-asset-clean-up'); ?>"
-                    <?php echo $wpacuIsAlwaysLoaded ? 'hidden' : ''; ?>><?php
+                    <?php echo $wpacuPluginView['load_exceptions_count'] === 0 ? 'hidden' : ''; ?>><?php
                     printf(
                         esc_html(_n('%d exception', '%d exceptions', $wpacuPluginView['load_exceptions_count'], 'wp-asset-clean-up')),
                         (int)$wpacuPluginView['load_exceptions_count']

@@ -30,7 +30,7 @@ if (empty($data['show_page_options'])) {
     </div>
     </div>
 </div>
-<script>
+<?php ob_start(); ?>
 (function($) {
     'use strict';
 
@@ -75,4 +75,4 @@ if (empty($data['show_page_options'])) {
             }, reducedMotion ? 0 : 220);
         });
 })(jQuery);
-</script>
+<?php echo \WpAssetCleanUp\OwnAssets::getInlineScriptTag(ob_get_clean()); ?>

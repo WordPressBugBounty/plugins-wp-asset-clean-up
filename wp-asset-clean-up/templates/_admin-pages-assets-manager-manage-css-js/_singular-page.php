@@ -64,7 +64,7 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
     if (isset($data['post_type']) && $data['post_type']) {
         $postTypeObject = get_post_type_object( $data['post_type'] );
         $postTypeLabels = $postTypeObject->labels;
-        $postName = $postTypeLabels->singular_name;
+        $postName       = $postTypeLabels->singular_name;
     }
 
     if (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) {
@@ -75,7 +75,15 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
     ?>
     <div class="wpacu_verified">
         <strong><?php echo esc_html($pageUrlTitle); ?>:</strong> <a target="_blank" href="<?php echo esc_url($data['fetch_url']); ?>"><span><?php echo esc_url($data['fetch_url']); ?></span></a>
-        | <strong><?php echo isset($postName) ? esc_html($postName) : ''; ?> Title:</strong> <?php echo get_the_title($data['post_id']); ?> | <strong>Post ID:</strong> <?php echo (int)$data['post_id']; ?>
+        | <strong><?php echo isset($postName) ? esc_html($postName) : ''; ?> Title:</strong> <?php echo esc_html(get_the_title($data['post_id'])); ?> | <strong>Post ID:</strong> <?php echo (int)$data['post_id']; ?>
+        <?php if (!empty($data['post_type'])) {
+            $wpacuSummaryIcon = $data['post_type'] === 'page' ? 'page' : ($data['post_type'] === 'attachment' ? 'media' : 'post');
+        ?>
+        | <span class="wpacu-singular-summary-type" style="display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; white-space: nowrap; color: #3c434a; font-weight: normal;">
+            <i class="dashicons dashicons-admin-<?php echo esc_attr($wpacuSummaryIcon); ?>" aria-hidden="true" style="color: #0f6cab;"></i>
+            <u><?php echo esc_html($data['post_type']); ?></u> <?php echo $data['post_type'] === 'post' ? esc_html__('type.', 'wp-asset-clean-up') : esc_html__('post type.', 'wp-asset-clean-up'); ?>
+        </span>
+        <?php } ?>
     </div>
     <div class="wpacu-redirected-fetch-url-reminder-slot"></div>
 

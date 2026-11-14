@@ -20,7 +20,13 @@ $assetsManagerTabs = array(
     'date'              => __('Date', 'wp-asset-clean-up'),
     '404_not_found'     => __('404 Not Found', 'wp-asset-clean-up')
 );
+$cssJsRulesEnabled = \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled();
 ?>
+<p id="wpacuCssJsGlobalFeedback" class="wpacu-css-js-master-feedback" role="status" aria-live="polite"<?php if ($cssJsRulesEnabled) { ?> hidden<?php } ?>><?php
+    echo $cssJsRulesEnabled ? '' : esc_html(\WpAssetCleanUp\Admin\SettingsAdmin::getCssJsGlobalStatusMessage('off'));
+?></p>
+<fieldset id="wpacu-css-js-content" class="wpacu-css-js-content<?php echo \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled() ? '' : ' is-paused'; ?>">
+<legend class="wpacu-css-js-paused-legend"><span><?php esc_html_e('Paused', 'wp-asset-clean-up'); ?></span></legend>
 <nav class="wpacu-nav-tab-wrapper wpacu-nav-assets-manager">
     <?php
     foreach ($assetsManagerTabs as $assetsManagerTabKey => $assetsManagerTabTitle) {
@@ -75,6 +81,10 @@ if (isset($data['for']) && $data['for']) {
                 wpacuMarkCssJsTabContentAreaAsLoading(); // on page load
 
                 document.addEventListener('change', function (event) {
+                    if (event.wpacuContextNavigationHandled) {
+                        return;
+                    }
+
                     if (event.target.matches('#wpacu-custom-taxonomy-choice, #wpacu-custom-post-type-choice, #wpacu-custom-post-type-archive-choice')) {
                         wpacuMarkCssJsTabContentAreaAsLoading(); // when a selection from the drop-down is made
                     }
@@ -92,3 +102,5 @@ if (isset($data['for']) && $data['for']) {
         }
     }
 }
+?>
+</fieldset>

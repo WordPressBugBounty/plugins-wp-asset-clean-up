@@ -193,6 +193,71 @@ class PluginAnnouncements
     }
 
     /**
+     * Only these built-in campaign themes may be selected by the feed.
+     *
+     * @return array
+     */
+    private function campaignThemes()
+    {
+        return array(
+            'black-friday' => 'Black Friday',
+            'cyber-monday' => 'Cyber Monday',
+            'christmas'    => 'Christmas',
+            'anniversary'  => 'Anniversary',
+            'spring-sale'  => 'Spring Sale',
+            'new-year'     => 'New Year',
+            'major-release' => 'Major Release',
+            'halloween'    => 'Halloween'
+        );
+    }
+
+    /**
+     * @param array  $ann Sanitized announcement data.
+     * @param string $previewLabel Optional local preview label.
+     *
+     * @return void
+     */
+    private function renderCampaignContent($ann, $previewLabel = '')
+    {
+        $themes = $this->campaignThemes();
+        ?>
+        <?php foreach (array('left', 'right') as $side) { ?>
+            <span class="pluginann-campaign-decoration pluginann-campaign-decoration-<?php echo esc_attr($side); ?>" aria-hidden="true">
+                <span class="pluginann-campaign-decoration-art">
+                    <span class="pluginann-campaign-percent"><?php echo $ann['theme'] === 'christmas' ? '✦' : '%'; ?></span>
+                    <span class="pluginann-campaign-tag">
+                        <?php if ($ann['theme'] === 'halloween') { ?>
+                            <svg class="pluginann-pumpkin" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                                <path d="M29 20 C30 12 34 7 40 8 L41 14 C36 13 35 16 35 21 Z" fill="#65723e"/>
+                                <path d="M32 20 C19 10 5 23 7 39 C8 52 18 58 32 55 C46 58 56 52 57 39 C59 23 45 10 32 20 Z" fill="#ed8e32" stroke="#ba632b" stroke-width="2"/>
+                                <ellipse cx="32" cy="37" rx="12" ry="19" fill="#f2a247" stroke="#ce762e" stroke-width="2"/>
+                                <path d="M20 28 L14 37 L27 35 Z M44 28 L50 37 L37 35 Z M29 40 L35 40 L32 35 Z M17 43 L25 46 L25 43 L30 44 L30 48 L35 48 L35 44 L40 43 L40 46 L47 43 Q32 61 17 43 Z" fill="#4c303b"/>
+                            </svg>
+                        <?php } ?>
+                    </span>
+                </span>
+            </span>
+        <?php } ?>
+        <div class="pluginann-campaign-layout">
+            <div class="pluginann-campaign-content">
+                <span class="pluginann-campaign-label"><?php echo esc_html(strtoupper($themes[$ann['theme']])); ?><?php if ($ann['theme'] === 'anniversary') { ?> · AUGUST 4<?php } ?><?php if ($previewLabel !== '') { ?> <span>· <?php echo esc_html($previewLabel); ?></span><?php } ?></span>
+                <?php if ($ann['title'] !== '') { ?>
+                    <p class="pluginann-ann-title"><strong><?php echo wp_kses($ann['title'], $this->allowedTitleHtmlTags); ?></strong></p>
+                <?php } ?>
+                <?php if ($ann['message'] !== '') { ?>
+                    <p class="pluginann-ann-message"><?php echo wp_kses($ann['message'], $this->allowedMessageHtmlTags); ?></p>
+                <?php } ?>
+            </div>
+            <?php if ( ! empty($ann['link']) && ! empty($ann['link_label']) ) { ?>
+                <div class="pluginann-campaign-action">
+                    <a class="button button-primary" href="<?php echo esc_url($ann['link']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($ann['link_label']); ?><span aria-hidden="true"> →</span></a>
+                </div>
+            <?php } ?>
+        </div>
+        <?php
+    }
+
+    /**
      * Add action hooks.
      *
      * @return void
@@ -384,6 +449,293 @@ class PluginAnnouncements
             ul#pluginann-announcement-action-links li a .pluginann-icon.pluginann-block {
                 background-image: url('<?php echo $iconsDir; ?>icon-block.svg');
             }
+
+            #pluginann-announcements-container .pluginann-campaign {
+                position: relative;
+                box-sizing: border-box;
+                width: fit-content;
+                max-width: calc(100% - 16px);
+                margin: 20px 16px 20px 0;
+                padding: 20px 32px 20px 20px;
+                border: 1px solid #39404c;
+                border-left: 4px solid #f4c66a;
+                border-right-color: #687181;
+                border-radius: 8px;
+                background: radial-gradient(ellipse at right center, rgba(244, 198, 106, .18), transparent 65%), linear-gradient(110deg, #171c26, #202633 60%, #343b48);
+                color: #eef1f6;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+            }
+            #pluginann-announcements-container .pluginann-campaign p {
+                color: #eef1f6;
+            }
+            #pluginann-announcements-container .pluginann-campaign-layout {
+                display: grid;
+                width: fit-content;
+                max-width: 1200px;
+                margin: 0;
+                grid-template-columns: minmax(0, max-content) auto;
+                align-items: center;
+                gap: 16px 28px;
+            }
+            #pluginann-announcements-container .pluginann-campaign-content { min-width: 0; }
+            #pluginann-announcements-container .pluginann-campaign-action { max-width: 280px; }
+            #pluginann-announcements-container .pluginann-campaign .pluginann-campaign-label {
+                display: inline-block;
+                margin: 0 0 4px;
+                color: #f4c66a;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 1.5px;
+            }
+            #pluginann-announcements-container .pluginann-campaign .pluginann-ann-title {
+                margin: 6px 0 8px;
+                color: #fff;
+                font-size: 21px;
+                line-height: 1.35;
+            }
+            #pluginann-announcements-container .pluginann-campaign .pluginann-ann-message {
+                margin: 0;
+                max-width: none;
+                line-height: 1.65;
+                overflow-wrap: break-word;
+            }
+            #pluginann-announcements-container .pluginann-campaign a,
+            #pluginann-announcements-container .pluginann-campaign .button-link,
+            #pluginann-announcements-container .pluginann-campaign .notice-dismiss:before {
+                color: #e4e9f1;
+            }
+            #pluginann-announcements-container .pluginann-campaign a:hover,
+            #pluginann-announcements-container .pluginann-campaign .button-link:hover,
+            #pluginann-announcements-container .pluginann-campaign .notice-dismiss:hover:before {
+                color: #f4c66a;
+            }
+            #pluginann-announcements-container .pluginann-campaign a.button {
+                display: inline-flex;
+                gap: 8px;
+                justify-content: center;
+                align-items: center;
+                box-sizing: border-box;
+                max-width: 100%;
+                min-height: 46px;
+                padding: 9px 24px;
+                border: 1px solid #f4c66a;
+                border-radius: 5px;
+                background: #f4c66a;
+                color: #171c26;
+                font-size: 15px;
+                font-weight: 600;
+                line-height: 1.5;
+                white-space: normal;
+                text-align: center;
+                text-decoration: none;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, .15), inset 0 1px rgba(255, 255, 255, .25);
+                text-shadow: none;
+                transition: background-color .15s ease, transform .15s ease;
+            }
+            #pluginann-announcements-container .pluginann-campaign a.button:hover {
+                background: #ffdb93;
+                border-color: #ffdb93;
+                transform: translateY(-1px);
+            }
+            #pluginann-announcements-container .pluginann-campaign a:focus,
+            #pluginann-announcements-container .pluginann-campaign button:focus {
+                outline: 2px solid #f4c66a;
+                outline-offset: 3px;
+                box-shadow: none;
+            }
+            #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px 20px;
+                margin: 0 0 16px;
+            }
+            #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links li {
+                margin: 0;
+            }
+            #pluginann-announcements-container .pluginann-campaign .pluginann-icon {
+                filter: brightness(0) invert(1);
+                opacity: .8;
+            }
+            #pluginann-announcements-container .pluginann-campaign hr {
+                border: 0;
+                border-top: 1px solid #465061;
+                margin: 16px 0;
+            }
+            #pluginann-announcements-container .pluginann-campaign .pluginann-preview-note {
+                margin: 0;
+                color: #bcc5d3;
+                font-size: 12px;
+            }
+            #pluginann-announcements-container .pluginann-preview-toolbar {
+                display: flex;
+                max-width: 1200px;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px 16px;
+                margin: 12px 0 0;
+                padding-top: 10px;
+                border-top: 1px solid rgba(188, 197, 211, .2);
+            }
+            #pluginann-announcements-container .pluginann-preview-toolbar .button-link { font-size: 12px; }
+            #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links { margin: 14px 0 10px; }
+            #pluginann-announcements-container .pluginann-campaign-decoration { display: none; }
+            @supports (container-type: inline-size) and selector(:has(*)) {
+                #pluginann-announcements-container:has(.pluginann-campaign) { container-type: inline-size; }
+                #pluginann-announcements-container .pluginann-campaign { margin-top: 0; }
+                @media (min-width: 1201px) {
+                    #pluginann-announcements-container .pluginann-campaign-decoration {
+                        display: block;
+                        position: absolute;
+                        top: 50%;
+                        width: clamp(0px, calc(50cqw - 50% - 28px), 200px);
+                        height: 140px;
+                        transform: translateY(-50%);
+                        container-type: inline-size;
+                        container-name: pluginann-campaign-wing;
+                        overflow: hidden;
+                        pointer-events: none;
+                        user-select: none;
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-decoration-left {
+                        right: calc(100% + 20px);
+                        -webkit-mask-image: linear-gradient(to right, transparent, #000 45%);
+                        mask-image: linear-gradient(to right, transparent, #000 45%);
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-decoration-right {
+                        left: calc(100% + 20px);
+                        -webkit-mask-image: linear-gradient(to left, transparent, #000 45%);
+                        mask-image: linear-gradient(to left, transparent, #000 45%);
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-decoration-art {
+                        display: none;
+                        position: absolute;
+                        inset: 0;
+                        background: radial-gradient(ellipse at center, rgba(244, 198, 106, .12), transparent 70%);
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-percent {
+                        position: absolute;
+                        top: 8px;
+                        left: 28%;
+                        color: rgba(173, 127, 41, .3);
+                        font: 700 72px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                        transform: rotate(-14deg);
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-tag {
+                        position: absolute;
+                        bottom: 12px;
+                        right: 18%;
+                        width: 42px;
+                        height: 28px;
+                        border: 2px solid rgba(67, 80, 100, .2);
+                        border-radius: 4px 10px 10px 4px;
+                        transform: rotate(16deg);
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-tag:before {
+                        content: "";
+                        position: absolute;
+                        top: 10px;
+                        left: 5px;
+                        width: 4px;
+                        height: 4px;
+                        border: 1px solid rgba(67, 80, 100, .25);
+                        border-radius: 50%;
+                    }
+                    #pluginann-announcements-container .pluginann-campaign-decoration-right .pluginann-campaign-percent { transform: rotate(12deg); }
+                    #pluginann-announcements-container .pluginann-campaign-decoration-right .pluginann-campaign-tag { right: auto; left: 18%; transform: rotate(-16deg); }
+                    @container pluginann-campaign-wing (min-width: 112px) {
+                        #pluginann-announcements-container .pluginann-campaign-decoration-art { display: block; }
+                    }
+                }
+            }
+            @media (min-width: 1201px) {
+                #pluginann-announcements-container .pluginann-campaign { margin-left: auto; margin-right: auto; }
+            }
+            @media (max-width: 960px) {
+                #pluginann-announcements-container .pluginann-campaign { width: calc(100% - 16px); }
+                #pluginann-announcements-container .pluginann-campaign-layout { width: auto; grid-template-columns: minmax(0, 1fr); }
+                #pluginann-announcements-container .pluginann-campaign-action { max-width: 100%; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #pluginann-announcements-container .pluginann-campaign a.button { transition: none; }
+                #pluginann-announcements-container .pluginann-campaign a.button:hover { transform: none; }
+            }
+            @media (max-width: 600px) {
+                #pluginann-announcements-container .pluginann-campaign { padding: 16px; }
+                #pluginann-announcements-container .pluginann-campaign .pluginann-ann-title { font-size: 20px; }
+            }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday { border-left-color: #8beaf4; border-right-color: #6578ae; background: radial-gradient(ellipse at right center, rgba(124, 98, 235, .32), transparent 65%), linear-gradient(115deg, #121d32, #182944 60%, #30335c); }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday .pluginann-campaign-label { color: #8beaf4; }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday a.button { background: #8beaf4; border-color: #8beaf4; color: #102334; }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday a.button:hover { background: #b3f4fa; border-color: #b3f4fa; }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday a:focus,
+            #pluginann-announcements-container .pluginann-theme-cyber-monday button:focus { outline-color: #8beaf4; }
+            #pluginann-announcements-container .pluginann-theme-christmas {
+                border-left-color: #e9c58b;
+                border-right-color: #ae6263;
+                background: radial-gradient(ellipse at right top, rgba(218, 91, 74, .3), transparent 65%), linear-gradient(115deg, #480f1d, #761e2b 60%, #903039);
+            }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-label { color: #ffe3ad; }
+            #pluginann-announcements-container .pluginann-theme-christmas a.button { background: #174b36; border-color: #72aa84; color: #fff4dd; }
+            #pluginann-announcements-container .pluginann-theme-christmas a.button:hover { background: #216448; border-color: #9ac9a8; color: #fff8eb; }
+            #pluginann-announcements-container .pluginann-theme-christmas a:focus,
+            #pluginann-announcements-container .pluginann-theme-christmas button:focus { outline-color: #f4d99f; }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday .pluginann-campaign-percent { color: rgba(59, 111, 180, .3); }
+            #pluginann-announcements-container .pluginann-theme-cyber-monday .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(112, 124, 232, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-percent { color: rgba(157, 42, 52, .32); }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(177, 59, 63, .1), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-tag { border-radius: 3px; border-color: rgba(36, 104, 67, .4); }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-tag:before { top: -2px; left: 17px; width: 5px; height: 28px; border: solid rgba(157, 42, 52, .4); border-width: 0 2px; border-radius: 0; }
+            #pluginann-announcements-container .pluginann-theme-christmas .pluginann-campaign-tag:after { content: ""; position: absolute; top: 7px; left: 0; right: 0; border-top: 3px solid rgba(157, 42, 52, .4); }
+            #pluginann-announcements-container .pluginann-theme-anniversary {
+                border-left-color: #f2ce83;
+                border-right-color: #8c76a9;
+                background: radial-gradient(ellipse at right center, rgba(242, 206, 131, .2), transparent 65%), linear-gradient(115deg, #251b38, #3b2856 60%, #514362);
+            }
+            #pluginann-announcements-container .pluginann-theme-anniversary .pluginann-campaign-label { color: #f2ce83; }
+            #pluginann-announcements-container .pluginann-theme-anniversary a.button { background: #f2ce83; border-color: #f2ce83; color: #291d3b; }
+            #pluginann-announcements-container .pluginann-theme-anniversary a.button:hover { background: #ffe3a7; border-color: #ffe3a7; }
+            #pluginann-announcements-container .pluginann-theme-anniversary a:focus,
+            #pluginann-announcements-container .pluginann-theme-anniversary button:focus { outline-color: #f2ce83; }
+            #pluginann-announcements-container .pluginann-theme-anniversary .pluginann-campaign-percent { color: rgba(122, 83, 170, .3); }
+            #pluginann-announcements-container .pluginann-theme-anniversary .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(176, 139, 221, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-anniversary .pluginann-campaign-tag { border: 0; }
+            #pluginann-announcements-container .pluginann-theme-anniversary .pluginann-campaign-tag:before { content: "✦"; top: -7px; left: 0; width: auto; height: auto; border: 0; color: rgba(173, 127, 41, .3); font-size: 36px; line-height: 1; }
+            #pluginann-announcements-container .pluginann-theme-spring-sale { border-left-color: #b9ecae; border-right-color: #74a485; background: radial-gradient(ellipse at right top, rgba(169, 213, 101, .25), transparent 65%), linear-gradient(115deg, #12382c, #235740 60%, #426b41); }
+            #pluginann-announcements-container .pluginann-theme-spring-sale .pluginann-campaign-label { color: #b9ecae; }
+            #pluginann-announcements-container .pluginann-theme-spring-sale a.button { background: #b9ecae; border-color: #b9ecae; color: #173923; }
+            #pluginann-announcements-container .pluginann-theme-spring-sale a.button:hover { background: #d4f6cb; border-color: #d4f6cb; }
+            #pluginann-announcements-container .pluginann-theme-spring-sale a:focus,
+            #pluginann-announcements-container .pluginann-theme-spring-sale button:focus { outline-color: #b9ecae; }
+            #pluginann-announcements-container .pluginann-theme-spring-sale .pluginann-campaign-percent { color: rgba(75, 134, 69, .3); }
+            #pluginann-announcements-container .pluginann-theme-spring-sale .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(75, 134, 69, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-new-year { border-left-color: #f8e4bd; border-right-color: #7788ac; background: radial-gradient(ellipse at right top, rgba(212, 185, 121, .23), transparent 65%), linear-gradient(115deg, #111f3a, #243b5f 60%, #435574); }
+            #pluginann-announcements-container .pluginann-theme-new-year .pluginann-campaign-label { color: #f8e4bd; }
+            #pluginann-announcements-container .pluginann-theme-new-year a.button { background: #f8e4bd; border-color: #f8e4bd; color: #19243e; }
+            #pluginann-announcements-container .pluginann-theme-new-year a.button:hover { background: #fff1d8; border-color: #fff1d8; }
+            #pluginann-announcements-container .pluginann-theme-new-year a:focus,
+            #pluginann-announcements-container .pluginann-theme-new-year button:focus { outline-color: #f8e4bd; }
+            #pluginann-announcements-container .pluginann-theme-new-year .pluginann-campaign-percent { color: rgba(97, 117, 158, .3); }
+            #pluginann-announcements-container .pluginann-theme-new-year .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(97, 117, 158, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-major-release { border-left-color: #86e3cf; border-right-color: #589b9a; background: radial-gradient(ellipse at right center, rgba(50, 171, 170, .23), transparent 65%), linear-gradient(115deg, #12343e, #1b5360 60%, #286c72); }
+            #pluginann-announcements-container .pluginann-theme-major-release .pluginann-campaign-label { color: #86e3cf; }
+            #pluginann-announcements-container .pluginann-theme-major-release a.button { background: #86e3cf; border-color: #86e3cf; color: #123b39; }
+            #pluginann-announcements-container .pluginann-theme-major-release a.button:hover { background: #b4f5e5; border-color: #b4f5e5; }
+            #pluginann-announcements-container .pluginann-theme-major-release a:focus,
+            #pluginann-announcements-container .pluginann-theme-major-release button:focus { outline-color: #86e3cf; }
+            #pluginann-announcements-container .pluginann-theme-major-release .pluginann-campaign-percent { color: rgba(41, 135, 138, .3); }
+            #pluginann-announcements-container .pluginann-theme-major-release .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(41, 135, 138, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-halloween { border-left-color: #ffb267; border-right-color: #9d704e; background: radial-gradient(ellipse at right center, rgba(220, 109, 35, .28), transparent 65%), linear-gradient(115deg, #281b32, #432544 60%, #603b3c); }
+            #pluginann-announcements-container .pluginann-theme-halloween .pluginann-campaign-label { color: #ffb267; }
+            #pluginann-announcements-container .pluginann-theme-halloween a.button { background: #ffb267; border-color: #ffb267; color: #352015; }
+            #pluginann-announcements-container .pluginann-theme-halloween a.button:hover { background: #ffd09a; border-color: #ffd09a; }
+            #pluginann-announcements-container .pluginann-theme-halloween a:focus,
+            #pluginann-announcements-container .pluginann-theme-halloween button:focus { outline-color: #ffb267; }
+            #pluginann-announcements-container .pluginann-theme-halloween .pluginann-campaign-percent { color: rgba(190, 108, 43, .3); }
+            #pluginann-announcements-container .pluginann-theme-halloween .pluginann-campaign-decoration-art { background: radial-gradient(ellipse at center, rgba(190, 108, 43, .12), transparent 70%); }
+            #pluginann-announcements-container .pluginann-theme-halloween .pluginann-campaign-tag { width: 58px; height: 58px; bottom: 2px; border: 0; }
+            #pluginann-announcements-container .pluginann-theme-halloween .pluginann-campaign-tag:before { display: none; }
+            #pluginann-announcements-container .pluginann-pumpkin { display: block; width: 100%; height: 100%; opacity: .45; }
         </style>
         <?php
         echo $this->filterOutputForUniquePrefix(ob_get_clean());
@@ -538,11 +890,18 @@ class PluginAnnouncements
                 'end_time_unix' => $endTime,
             );
 
+            if (isset($ann['theme']) && is_string($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) {
+                $sanitized['theme'] = $ann['theme'];
+            }
+
             if (isset($ann['link']) && is_string($ann['link'])) {
                 $link = esc_url_raw($this->limitAnnouncementString(trim($ann['link']), 2048));
                 if ($link !== '') {
                     $sanitized['link'] = $link;
                 }
+            }
+            if ( ! empty($sanitized['link']) && isset($ann['link_label']) && is_string($ann['link_label']) ) {
+                $sanitized['link_label'] = sanitize_text_field($this->limitAnnouncementString($ann['link_label'], 120));
             }
             if (array_key_exists('conditions', $ann)) {
                 if ( ! is_array($ann['conditions'])) {
@@ -847,9 +1206,13 @@ class PluginAnnouncements
                     <?php if ($isCallType === 'regular') { ?>
                         <div id="pluginann-announcements-container">
                     <?php } ?>
-                            <div class="notice notice-info is-dismissible pluginann-announcement"
+                            <div class="notice notice-info is-dismissible pluginann-announcement<?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?> pluginann-campaign pluginann-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>"
                                  data-pluginann-annoucement-priority="<?php echo esc_attr($priority); ?>"
                                  data-pluginann-announcement-id="<?php echo esc_attr( $annId ); ?>">
+
+                                <?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?>
+                                    <?php $this->renderCampaignContent($ann); ?>
+                                <?php } else { ?>
 
                                 <?php
                                 if ($sanitizedTitle !== '') {
@@ -864,6 +1227,8 @@ class PluginAnnouncements
                                 <?php
                                 }
                                 ?>
+
+                                <?php } ?>
 
                                 <!-- [Action links] -->
                                 <ul id="pluginann-announcement-action-links">

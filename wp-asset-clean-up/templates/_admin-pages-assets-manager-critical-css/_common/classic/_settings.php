@@ -24,10 +24,23 @@ $inputStyle = Settings::getInputStyle($data['wpacu_settings']);
                 'object_id'    => 0,
                 'is_granular'  => false
             );
-        $storedData = CriticalCssAdmin::getStoredCriticalCssData($storageContext, $locationKey, $criticalCssConfig);
-        $enable     = ! empty($storedData['enable']);
-        $showMethod = ! empty($storedData['show_method']) ? $storedData['show_method'] : 'original';
-        $isGranular = ! empty($storageContext['is_granular']);
+        $storedData        = CriticalCssAdmin::getStoredCriticalCssData($storageContext, $locationKey, $criticalCssConfig);
+        $enable            = ! empty($storedData['enable']);
+        $showMethod        = ! empty($storedData['show_method']) ? $storedData['show_method'] : 'original';
+        $isGranular        = ! empty($storageContext['is_granular']);
+        $otherRulesEnabled = false;
+        if (!$isGranular) {
+            // Keep the parent dot enabled if another group or Specific rule still applies.
+            $otherRuleData = $data;
+            $otherRuleData['critical_css_config'] = $criticalCssConfig;
+            $otherRuleData['critical_css_config'][$locationKey]['enable'] = false;
+            $otherRuleData['critical_css_tabs_all_enabled_locations'] = array_values(array_diff(
+                isset($data['critical_css_tabs_all_enabled_locations']) ? $data['critical_css_tabs_all_enabled_locations'] : array(),
+                array($locationKey)
+            ));
+            $primaryTab        = $data['for'] === 'custom_post_type_archives' ? 'custom_post_types' : $data['for'];
+            $otherRulesEnabled = strpos(CriticalCssAdmin::classToAppendToCriticalCssNavTab($otherRuleData, $primaryTab), 'wpacu-on') !== false;
+        }
 
         $textareaContent = '';
 
@@ -47,24 +60,29 @@ $inputStyle = Settings::getInputStyle($data['wpacu_settings']);
             $customPageTypeData = $data['chosen_taxonomy'] . '_taxonomy';
         }
         ?>
-        <label for="wpacu_critical_css_status" class="wpacu_switch wpacu_with_text">
+        <div class="wpacu-critical-css-group-control">
+        <label for="wpacu_critical_css_status" class="wpacu-critical-css-group-control__label">
             <input type="checkbox"
                    data-wpacu-custom-page-type="<?php echo esc_attr($customPageTypeData); ?>"
                    data-wpacu-is-granular="<?php echo $isGranular ? '1' : '0'; ?>"
+                   <?php if (!$isGranular) { ?>data-wpacu-other-enabled="<?php echo $otherRulesEnabled ? '1' : '0'; ?>"<?php } ?>
                    id="wpacu_critical_css_status"
+                   aria-describedby="wpacu-critical-css-group-help"
                    <?php checked($enable); ?>
                    name="<?php echo WPACU_PLUGIN_ID . '_critical_css'; ?>[enable]"
                    value="1" />
-            <span class="wpacu_slider wpacu_round"></span>
+            <span><?php echo $isGranular
+                ? esc_html__('Enable Critical CSS for this item', 'wp-asset-clean-up')
+                : esc_html__('Enable Critical CSS for this group', 'wp-asset-clean-up'); ?></span>
         </label>
-        &nbsp;
+        <span id="wpacu-critical-css-group-help" class="wpacu-critical-css-group-control__help">
         <?php if ($isGranular) { ?>
-            * <?php esc_html_e('you can enable or disable this Critical CSS rule for the selected item at any time; disabling it will keep the CSS content and allow the General rule to be used as fallback.', 'wp-asset-clean-up'); ?>
+            <?php esc_html_e('Disabling keeps the saved CSS and allows the General rule to be used as fallback.', 'wp-asset-clean-up'); ?>
         <?php } else { ?>
-            * <?php esc_html_e('you can enable/disable at any time the Critical CSS functionality for all the pages from this group (e.g. disabling it will not remove any current CSS content in case you will ever need it again); if you enable it, you have to provide the Critical CSS content.', 'wp-asset-clean-up'); ?>
+            <?php esc_html_e('Disabling keeps the saved CSS. Provide Critical CSS content before enabling.', 'wp-asset-clean-up'); ?>
         <?php } ?>
-
-        <div style="margin: 25px 0 0;" class="clearfix"></div>
+        </span>
+        </div>
 
         <div id="wpacu-critical-css-options-area" class="<?php if ( ! $enable ) { echo 'wpacu-faded'; } ?>">
             <div id="wpacu-css-editor-area">

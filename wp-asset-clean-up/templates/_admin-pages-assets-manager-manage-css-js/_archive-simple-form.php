@@ -10,7 +10,7 @@ if (! isset($data)) {
     <input type="hidden" name="page" value="<?php echo esc_attr(WPACU_PLUGIN_ID); ?>_assets_manager" />
     <input type="hidden" name="wpacu_for" value="<?php echo esc_attr($data['for']); ?>" />
     <?php if ($data['for'] === 'search') { ?>
-        <?php esc_html_e('Search keyword used for the preview:', 'wp-asset-clean-up'); ?>
+        <?php esc_html_e('Search keyword used for the preview', 'wp-asset-clean-up'); ?>:
         <input type="text" name="wpacu_search_query" value="<?php echo esc_attr($data['archive_data']['search_query']); ?>" />
         <button type="submit" class="button button-secondary"><?php esc_html_e('Preview This Search', 'wp-asset-clean-up'); ?></button>
         <p><small><?php $wpacuAssetManagerFormContext = 'search'; require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/form-context-note.php'; ?></small></p>

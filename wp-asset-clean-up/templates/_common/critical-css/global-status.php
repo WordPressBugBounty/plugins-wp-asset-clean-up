@@ -1,93 +1,36 @@
 <?php
-/*
- * No direct access to this file
- */
-if ( ! isset($data) ) {
-    exit;
-}
-
+if (! isset($data)) { exit; }
 $criticalCssIsGlobalDisabled = ! empty($data['critical_css_is_global_disabled']);
-$criticalCssRuleStats = isset($data['critical_css_rule_stats']) && is_array($data['critical_css_rule_stats'])
-    ? $data['critical_css_rule_stats']
-    : array();
-$criticalCssSavedRules   = isset($criticalCssRuleStats['total_count']) ? (int)$criticalCssRuleStats['total_count'] : 0;
-$criticalCssEnabledRules = isset($criticalCssRuleStats['enabled_count']) ? (int)$criticalCssRuleStats['enabled_count'] : 0;
-$criticalCssSettingsUrl  = admin_url(
-    'admin.php?page=' . WPACU_PLUGIN_ID . '_settings'
-    . '&wpacu_selected_tab_area=wpacu-setting-plugin-usage-settings'
-    . '&wpacu_selected_sub_tab_area=wpacu-plugin-usage-settings-assets-management'
-    . '#wpacu-cssjs-critical-css'
-);
-
-if ($criticalCssSavedRules > 0) {
-    $criticalCssRulesSummary = sprintf(
-        __('%1$s saved · %2$s enabled', 'wp-asset-clean-up'),
-        number_format_i18n($criticalCssSavedRules),
-        number_format_i18n($criticalCssEnabledRules)
-    );
-} else {
-    $criticalCssRulesSummary = __('No saved rules yet', 'wp-asset-clean-up');
-}
-
 $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
     ? __('Critical CSS output is paused. All saved rules remain available.', 'wp-asset-clean-up')
     : __('Critical CSS output is active for enabled matching rules.', 'wp-asset-clean-up');
 ?>
 <section id="wpacu-critical-css-global-control"
-         class="wpacu-critical-css-master-panel <?php echo $criticalCssIsGlobalDisabled ? 'is-paused' : 'is-active'; ?>"
+         class="wpacu-critical-css-master-panel <?php echo esc_attr(\WpAssetCleanUp\Settings::getInputStyleCssClasses(\WpAssetCleanUp\Main::instance()->settings)); ?> <?php echo $criticalCssIsGlobalDisabled ? 'is-paused' : 'is-active'; ?>"
          data-wpacu-critical-css-global-control="1"
          data-ajax-url="<?php echo esc_url(admin_url('admin-ajax.php')); ?>"
          data-action="<?php echo esc_attr(WPACU_PLUGIN_ID . '_update_critical_css_global_status'); ?>"
          data-nonce="<?php echo esc_attr(wp_create_nonce('wpacu_update_critical_css_global_status')); ?>"
          aria-labelledby="wpacuCriticalCssGlobalTitle">
-    <div class="wpacu-critical-css-master-panel__top">
-        <div class="wpacu-critical-css-master-panel__control">
-            <label class="wpacu_switch" for="wpacu_critical_css_global_status">
-                <input id="wpacu_critical_css_global_status"
-                       type="checkbox"
-                       value="on"
-                       aria-describedby="wpacuCriticalCssGlobalFeedback"
-                       data-saved-state="<?php echo $criticalCssIsGlobalDisabled ? 'off' : 'on'; ?>"
-                    <?php checked( ! $criticalCssIsGlobalDisabled); ?> />
-                <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
-            </label>
-
-            <label class="wpacu-critical-css-master-panel__control-copy" for="wpacu_critical_css_global_status">
-                <strong id="wpacuCriticalCssGlobalTitle"><?php esc_html_e('Enable all Critical CSS rules', 'wp-asset-clean-up'); ?></strong>
-                <span><?php esc_html_e('Changes save immediately.', 'wp-asset-clean-up'); ?></span>
-            </label>
-        </div>
-
-        <div class="wpacu-critical-css-master-panel__copy">
-            <p><?php esc_html_e('Turn this off temporarily while troubleshooting first-render or layout problems. Existing rules can still be viewed and edited while output is paused.', 'wp-asset-clean-up'); ?></p>
-        </div>
-
-        <div class="wpacu-critical-css-master-panel__meta">
-            <span class="wpacu-critical-css-master-panel__saved-badge"><?php esc_html_e('Rules stay saved', 'wp-asset-clean-up'); ?></span>
-            <span id="wpacuCriticalCssGlobalState"
-                  class="wpacu-critical-css-master-status <?php echo $criticalCssIsGlobalDisabled ? 'is-paused' : 'is-active'; ?>"
-                  aria-live="polite"
-                  data-active-label="<?php esc_attr_e('Active', 'wp-asset-clean-up'); ?>"
-                  data-paused-label="<?php esc_attr_e('Paused', 'wp-asset-clean-up'); ?>"
-                  data-saving-label="<?php esc_attr_e('Saving…', 'wp-asset-clean-up'); ?>">
-                <?php echo $criticalCssIsGlobalDisabled ? esc_html__('Paused', 'wp-asset-clean-up') : esc_html__('Active', 'wp-asset-clean-up'); ?>
-            </span>
-            <span class="wpacu-critical-css-master-panel__rule-count"><?php echo esc_html($criticalCssRulesSummary); ?></span>
-            <a href="<?php echo esc_url($criticalCssSettingsUrl); ?>" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e('View global preference', 'wp-asset-clean-up'); ?>">
-                <span class="dashicons dashicons-external" aria-hidden="true"></span>
-            </a>
-        </div>
-    </div>
-
-    <p id="wpacuCriticalCssGlobalFeedback"
-       class="wpacu-critical-css-master-feedback"
-       aria-live="polite">
+    <span id="wpacuCriticalCssGlobalTitle" hidden><?php esc_html_e('Critical CSS rules', 'wp-asset-clean-up'); ?></span>
+    <input id="wpacu_critical_css_global_status" type="checkbox" data-wpacu-master-input hidden tabindex="-1" aria-hidden="true"
+           value="on" data-saved-state="<?php echo $criticalCssIsGlobalDisabled ? 'off' : 'on'; ?>" <?php checked(! $criticalCssIsGlobalDisabled); ?> />
+    <?php
+    $wpacuMasterBox = array('input' => 'wpacu_critical_css_global_status', 'feedback' => 'wpacuCriticalCssGlobalFeedback',
+        'label' => __('Critical CSS rules', 'wp-asset-clean-up'), 'enabled' => !$criticalCssIsGlobalDisabled);
+    require dirname(__DIR__) . '/manager-status-box.php';
+    ?>
+    <span id="wpacuCriticalCssGlobalState" hidden
+          data-active-label="<?php esc_attr_e('Active', 'wp-asset-clean-up'); ?>"
+          data-paused-label="<?php esc_attr_e('Paused', 'wp-asset-clean-up'); ?>"
+          data-saving-label="<?php esc_attr_e('Saving…', 'wp-asset-clean-up'); ?>"></span>
+    <span id="wpacuCriticalCssGlobalFeedback" class="wpacu-critical-css-master-feedback" aria-live="polite"<?php if (!$criticalCssIsGlobalDisabled) { ?> hidden<?php } ?>>
         <span data-wpacu-critical-css-feedback-message="1"><?php echo esc_html($criticalCssInitialMessage); ?></span>
-        <a class="wpacu-critical-css-master-feedback__help" target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/?p=608">
-            <span class="dashicons dashicons-editor-help" aria-hidden="true"></span>
-            <?php esc_html_e("What's critical CSS & and how to implement it?", 'wp-asset-clean-up'); ?>
-        </a>
-    </p>
+    </span>
+    <a class="wpacu-critical-css-master-feedback__help" target="_blank" rel="noopener noreferrer" href="https://www.assetcleanup.com/docs/?p=608">
+        <span class="dashicons dashicons-editor-help" aria-hidden="true"></span>
+        <span class="wpacu-critical-css-master-feedback__help-text"><?php esc_html_e('About Critical CSS', 'wp-asset-clean-up'); ?></span>
+    </a>
 </section>
 
 <script>
@@ -112,6 +55,18 @@ $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
 
         root.setAttribute('data-initialized', '1');
 
+        var box = document.querySelector('[data-master-input="wpacu_critical_css_global_status"]');
+        var help = root.querySelector('.wpacu-critical-css-master-feedback__help');
+        var toolbar = document.querySelector('[data-wpacu-master-toolbar]');
+        if (box && help && toolbar) {
+            var tools = document.createElement('div');
+            tools.className = 'wpacu-manager-status-tools';
+            toolbar.insertBefore(tools, box);
+            tools.appendChild(help);
+            tools.appendChild(box);
+            root.classList.add('wpacu-critical-css-control-relocated');
+        }
+
         var strings = {
             active: badge.getAttribute('data-active-label'),
             paused: badge.getAttribute('data-paused-label'),
@@ -123,6 +78,10 @@ $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
 
         function setVisualState(status, message, isError) {
             var isActive = status === 'on';
+            var content = document.getElementById('wpacu-critical-css-content');
+            if (content) {
+                content.classList.toggle('is-paused', ! isActive);
+            }
 
             root.classList.toggle('is-active', isActive);
             root.classList.toggle('is-paused', ! isActive);
@@ -136,6 +95,11 @@ $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
 
             feedbackRow.classList.toggle('is-error', Boolean(isError));
             feedback.textContent = message || (isActive ? strings.activeMessage : strings.pausedMessage);
+
+            var spinner = document.getElementById('wpacu-main-loading-spinner');
+            if (spinner) {
+                spinner.classList.add('wpacu_hide');
+            }
         }
 
         function restoreSavedState(message) {
@@ -157,11 +121,15 @@ $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
             toggle.disabled = true;
             root.classList.add('is-saving');
             root.setAttribute('aria-busy', 'true');
-            feedbackRow.classList.remove('is-error');
-            feedback.textContent = strings.saving;
-            badge.classList.remove('is-active', 'is-paused');
-            badge.classList.add('is-saving');
-            badge.textContent = strings.saving;
+            var spinner = document.getElementById('wpacu-main-loading-spinner');
+            if (spinner) {
+                var spinnerText = document.getElementById('wpacu-main-loading-spinner-text');
+                var updatingText = spinner.querySelector('[data-wpacu-updating-text="1"]');
+                if (spinnerText && updatingText) {
+                    spinnerText.textContent = updatingText.textContent.trim();
+                }
+                spinner.classList.remove('wpacu_hide');
+            }
 
             request.open('POST', root.getAttribute('data-ajax-url'), true);
             request.timeout = 15000;
@@ -208,6 +176,7 @@ $criticalCssInitialMessage = $criticalCssIsGlobalDisabled
 
             request.send(requestBody);
         });
+        toggle.setAttribute('data-wpacu-master-ready', '1');
     }
 
     if (document.readyState === 'loading') {

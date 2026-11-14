@@ -83,8 +83,9 @@ class OptimizeCommon
 
             $reps = array('{wpacu_hardcoded_assets}' => base64_encode(wp_json_encode($anyHardCodedAssets)));
 
-            if (isset($_GET['wpacu_print'])) {
-                $anyHardCodedAssetsPrinted                = print_r($anyHardCodedAssets, true);
+            if (isset($_GET['wpacu_print']) && Menu::userCanAccessPlugin()) {
+                // This replacement is inserted into an HTML comment, not a plain-text response.
+                $anyHardCodedAssetsPrinted               = esc_html(print_r($anyHardCodedAssets, true));
                 $reps['{wpacu_hardcoded_assets_printed}'] = $anyHardCodedAssetsPrinted;
             }
 
@@ -269,14 +270,14 @@ class OptimizeCommon
 
 		// LiteSpeed Cache (partial compatibility)
 		add_filter('litespeed_optm_html_head', static function($htmlHead) {
-			if (! Main::instance()->preventAssetsSettings()) {
+			if (! Main::instance()->preventAssetRules()) {
 				$htmlHead = OptimizeCss::ignoreDependencyRuleAndKeepChildrenLoaded($htmlHead);
 				$htmlHead = OptimizeJs::ignoreDependencyRuleAndKeepChildrenLoaded($htmlHead);
 			}
 			return $htmlHead;
 		});
 		add_filter('litespeed_optm_html_foot', static function($htmlFoot) {
-			if (! Main::instance()->preventAssetsSettings()) {
+			if (! Main::instance()->preventAssetRules()) {
 				$htmlFoot = OptimizeCss::ignoreDependencyRuleAndKeepChildrenLoaded($htmlFoot);
 				$htmlFoot = OptimizeJs::ignoreDependencyRuleAndKeepChildrenLoaded($htmlFoot);
 			}
@@ -763,8 +764,9 @@ class OptimizeCommon
         $htmlSource = self::stripAnyReferencesForUnloadedAssets($htmlSource);
         /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
-		$htmlSource = OptimizeCss::alterHtmlSource( $htmlSource );
-		$htmlSource = OptimizeJs::alterHtmlSource( $htmlSource );
+        // Defer cosmetic marker cleanup until all optimization stages have finished.
+        $htmlSource = OptimizeCss::alterHtmlSource($htmlSource, false);
+        $htmlSource = OptimizeJs::alterHtmlSource($htmlSource, false);
 
         /* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_resource_loading'); /* [/wpacu_timing] */
         if (isset(Main::instance()->settings['resource_loading']['_enabled']) && Main::instance()->settings['resource_loading']['_enabled']) {
@@ -790,10 +792,7 @@ class OptimizeCommon
 		$htmlSource = Main::instance()->settings['remove_generator_tag'] ? CleanUp::removeMetaGenerators( $htmlSource ) : $htmlSource;
 		/* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_remove_meta_generators', 'end'); /* [/wpacu_timing] */
 
-        if (strpos($htmlSource, 'data-wpacu-style-handle') !== false) {
-            $htmlSource = preg_replace('#<link(.*)data-wpacu-style-handle=\'(.*)\'#Umi', '<link \\1', $htmlSource);
-        }
-
+        $htmlSource = HtmlCleanup::removeTemporaryAssetAttributes($htmlSource);
 		$htmlSource = preg_replace('#<link(\s+)rel=\'stylesheet\' id=\'#Umi', '<link rel=\'stylesheet\' id=\'', $htmlSource);
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer( 'alter_html_source_cleanup', 'end' ); /* [/wpacu_timing] */
@@ -848,7 +847,8 @@ class OptimizeCommon
 
 		// [CSS Optimisation]
 		if ($for === 'combineCss') {
-			$cleanerDomRegEx = array('@<(noscript|style|script)[^>]*?>.*?</\\1>@si', '#<(meta|img)([^<>]+)/?>#iU');
+			// Inline styles delimit the cascade and must remain visible to the combiner.
+			$cleanerDomRegEx = array('@<(noscript|script)[^>]*?>.*?</\\1>@si', '#<(meta|img)([^<>]+)/?>#iU');
 		}
 
 		if ($for === 'minifyInlineStyleTags') {
@@ -1624,6 +1624,178 @@ class OptimizeCommon
 		return array('cdn_no_prefix' => $cdnNoPrefix, 'rel_href' => $hrefAlt);
 	}
 
+    /**
+     * A cached group is valid only for the current tags, inline data, settings and sources.
+     * Include every source, including the first tag which is replaced before stripping.
+     * The parsed document is also reused when rebuilding groups.
+     *
+     * @param \DOMDocument $dom
+     * @param string $assetType
+     * @return string
+     */
+    public static function getCombineSourceSignature($dom, $assetType, &$sourceHashes = array(), &$inertSources = array(), &$sourceFiles = array(), &$registeredInline = array(), &$resolvedTranslations = null)
+    {
+        global $wp_scripts;
+        $registeredScripts = isset($wp_scripts->registered) ? $wp_scripts->registered : array();
+        $inertSources = self::getInertAssetSources($dom, $assetType);
+        // Version the validation schema so older indices are rebuilt once.
+        $parts = array('combine-validation-v4', Main::instance()->settings, $inertSources);
+        $xpath = new \DOMXPath($dom);
+        $query = $assetType === 'css'
+            ? './/link[(@rel="stylesheet" or @rel="preload") and not(ancestor::template)] | .//style[not(ancestor::template)]'
+            : './/script[not(ancestor::template)]';
+        foreach (array('head', 'body') as $location) {
+            $section = $dom->getElementsByTagName($location)->item(0);
+            if (! $section) { continue; }
+            $parts[] = $location;
+            foreach ($xpath->query($query, $section) as $node) {
+                $separateInline = $assetType === 'js' && ! $node->hasAttribute('src')
+                    && ! CombineJs::isAttachedInlineScript($node, $registeredScripts, $resolvedTranslations);
+                // Nonces vary per response. Compare their presence, retaining the live
+                // value in the document and every other attribute/content difference.
+                $comparisonNode = ($separateInline || $node->hasAttribute('nonce')) ? $node->cloneNode(! $separateInline) : $node;
+                if ($comparisonNode->hasAttribute('nonce')) { $comparisonNode->setAttribute('nonce', ''); }
+                if ($separateInline) {
+                    // Separate inline code stays in the current HTML. Only its attributes,
+                    // position and empty/nonempty state can affect grouping/body defer.
+                    $parts[] = array('separate-inline', $dom->saveHTML($comparisonNode), trim($node->nodeValue) !== '');
+                } else {
+                    // Eligible attached inline data can enter the bundle and must invalidate it.
+                    $parts[] = $dom->saveHTML($comparisonNode);
+                }
+                $url = $node->getAttribute($assetType === 'css' ? 'href' : 'src');
+                $handle = $assetType === 'js' ? trim($node->getAttribute('data-wpacu-script-handle')) : '';
+                if ($assetType === 'js' && $url && $handle !== '') {
+                    if (! isset($registeredInline[$handle])) {
+                        $registeredInline[$handle] = CombineJs::getRegisteredInlineSignature($handle, $registeredScripts, $resolvedTranslations);
+                    }
+                    $parts[] = array('registered-inline', $handle, $registeredInline[$handle]);
+                }
+                if ($url) {
+                    $path = self::getLocalAssetPath($url, $assetType);
+                    $sourceFiles[$url] = $path ? self::getCombineFileHash($path, $sourceHashes) : false;
+                    if ($path) { $parts[] = $sourceFiles[$url]; }
+                }
+            }
+        }
+        return sha1(wp_json_encode($parts));
+    }
+
+    /**
+     * Reuse reads only within the caller's current combine operation. Each new
+     * operation starts with an empty map, so unchanged mtime/size cannot hide edits.
+     * @return string|false
+     */
+    public static function getCombineFileHash($path, &$sourceHashes)
+    {
+        if (! $path) { return false; }
+        if (! array_key_exists($path, $sourceHashes)) {
+            $sourceHashes[$path] = is_file($path) && is_readable($path) ? sha1_file($path) : false;
+        }
+        return $sourceHashes[$path];
+    }
+
+    /** The fast path requires identical complete input, not only matching asset URLs. */
+    public static function getCombineDocumentSignature($htmlSource)
+    {
+        return sha1('combine-validation-v4' . "\0" . wp_json_encode(Main::instance()->settings)
+            . "\0" . (int) Main::instance()->isFrontendEditView . "\0" . $htmlSource);
+    }
+
+    /** Store one validation manifest per index, using public URLs rather than disk paths. */
+    public static function attachCombineValidation(&$groups, $documentSignature, $sourceFiles, $registeredInline = array())
+    {
+        foreach ($groups as &$locationGroups) {
+            foreach ($locationGroups as &$group) {
+                $group['source_validation'] = array(
+                    'version' => 5,
+                    'document_signature' => $documentSignature,
+                    'sources' => $sourceFiles,
+                    'registered_inline' => $registeredInline
+                );
+                return;
+            }
+        }
+    }
+
+    /**
+     * Skip DOM validation only for byte-identical HTML/settings and freshly checked
+     * source contents. Missing/unresolved URLs are recorded too, so newly created
+     * local files cannot slip through. Metadata alone never establishes a hit.
+     * Call only after getAssetCachedData() has checked every generated bundle.
+     */
+    public static function combineCacheMatchesDocument($groups, $documentSignature, $assetType, &$sourceHashes, &$resolvedTranslations = null)
+    {
+        if (! is_array($groups) || ! $groups) { return false; }
+        $validation = null;
+        $sourceSignature = null;
+        foreach ($groups as $locationGroups) {
+            if (! is_array($locationGroups)) { return false; }
+            foreach ($locationGroups as $group) {
+                if (! is_array($group) || empty($group['source_signature'])) { return false; }
+                if ($validation === null) {
+                    if (! isset($group['source_validation']) || ! is_array($group['source_validation'])) { return false; }
+                    $validation = $group['source_validation'];
+                    $sourceSignature = $group['source_signature'];
+                } elseif ($group['source_signature'] !== $sourceSignature) {
+                    return false;
+                }
+            }
+        }
+        if (! isset($validation['version'], $validation['document_signature'], $validation['sources'], $validation['registered_inline'])
+            || $validation['version'] !== 5 || $validation['document_signature'] !== $documentSignature
+            || ! is_array($validation['sources']) || ! is_array($validation['registered_inline'])) { return false; }
+        if ($assetType === 'js') {
+            global $wp_scripts;
+            $registeredScripts = isset($wp_scripts->registered) ? $wp_scripts->registered : array();
+            foreach ($validation['registered_inline'] as $handle => $expectedHash) {
+                if (CombineJs::getRegisteredInlineSignature($handle, $registeredScripts, $resolvedTranslations) !== $expectedHash) { return false; }
+            }
+        }
+        foreach ($validation['sources'] as $url => $expectedHash) {
+            $path = self::getLocalAssetPath($url, $assetType);
+            $hash = $path ? self::getCombineFileHash($path, $sourceHashes) : false;
+            if ($hash !== $expectedHash) { return false; }
+        }
+        return true;
+    }
+
+    /** @return bool */
+    public static function combineCacheMatchesSource($groups, $signature)
+    {
+        if (! is_array($groups) || ! $groups) { return false; }
+        foreach ($groups as $locationGroups) {
+            if (! is_array($locationGroups)) { return false; }
+            foreach ($locationGroups as $group) {
+                if (! isset($group['source_signature']) || $group['source_signature'] !== $signature) { return false; }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Replacement helpers match URLs throughout the HTML. Keep shared template URLs
+     * separate so replacing a live asset cannot consume or activate an inert tag.
+     * @return array
+     */
+    public static function getInertAssetSources($dom, $assetType)
+    {
+        $xpath = new \DOMXPath($dom);
+        $attribute = $assetType === 'css' ? 'href' : 'src';
+        $query = $assetType === 'css' ? '//template//link[@href]' : '//template//script[@src]';
+        $sources = array();
+        foreach ($xpath->query($query) as $node) {
+            $sources[self::getCombineSourceKey($node->getAttribute($attribute))] = true;
+        }
+        return $sources;
+    }
+
+    /** Replacement matching ignores versions, including on root-relative URLs. */
+    public static function getCombineSourceKey($url)
+    {
+        return preg_replace('/[?#].*$/', '', self::getSourceRelPath($url, true));
+    }
+
 	/**
 	 * @param $jsonStorageFile
 	 * @param $relPathAssetCacheDir
@@ -1690,24 +1862,24 @@ class OptimizeCommon
 			$optionValueArray = @json_decode($optionValue, ARRAY_A);
 
 			if ($forType === 'combine') {
-				if (! empty($optionValueArray)) {
+				if (is_array($optionValueArray) && ! empty($optionValueArray)) {
+					$allGroupsExist = true;
+					$groupCount = 0;
 					foreach ($optionValueArray as $assetsValues) {
+						if (! is_array($assetsValues)) { $allGroupsExist = false; break; }
 						foreach ($assetsValues as $finalValues) {
-							// Check if the combined CSS file exists (e.g. maybe it was removed by mistake from the caching directory
-							// Or it wasn't created in the first place due to an error
-							if ($assetType === 'css' && isset($finalValues['uri_to_final_css_file'], $finalValues['link_hrefs'])
-							    && is_file(WP_CONTENT_DIR . OptimizeCss::getRelPathCssCacheDir() . $finalValues['uri_to_final_css_file'])) {
-								return $optionValueArray;
+							$fileKey = 'uri_to_final_'.$assetType.'_file';
+							$sourcesKey = $assetType === 'css' ? 'link_hrefs' : 'script_srcs';
+							if (! is_array($finalValues) || empty($finalValues[$fileKey]) || empty($finalValues[$sourcesKey])
+							    || ! is_readable(WP_CONTENT_DIR . $relPathAssetCacheDir . $finalValues[$fileKey])
+							    || ! is_file(WP_CONTENT_DIR . $relPathAssetCacheDir . $finalValues[$fileKey])) {
+								$allGroupsExist = false;
+								break 2;
 							}
-
-							// Check if the combined JS file exists (e.g. maybe it was removed by mistake from the caching directory
-							// Or it wasn't created in the first place due to an error
-							if ($assetType === 'js' && isset($finalValues['uri_to_final_js_file'], $finalValues['script_srcs'])
-							    && is_file(WP_CONTENT_DIR . OptimizeJs::getRelPathJsCacheDir() . $finalValues['uri_to_final_js_file'])) {
-								return $optionValueArray;
-							}
+							$groupCount++;
 						}
 					}
+					if ($allGroupsExist && $groupCount > 0) { return $optionValueArray; }
 				}
 			} elseif ($forType === 'item') {
 				return $optionValueArray;
@@ -2766,7 +2938,7 @@ class OptimizeCommon
 		foreach ($dirFiles as $targetFile) {
 			if (is_dir($targetFile)) {
 				self::rmNonEmptyItemsStorageDir($targetFile);
-			} elseif(strrchr($targetFile, '.') === '.txt') {
+			} elseif(in_array(strrchr($targetFile, '.'), array('.txt', '.json'), true)) {
 				@unlink($targetFile);
 			}
 		}

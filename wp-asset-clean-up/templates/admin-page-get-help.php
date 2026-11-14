@@ -320,6 +320,8 @@ include_once __DIR__ . '/_top-area.php';
         </div>
     </section>
 
+    <?php do_action('wpacu_internal_lite_help_course'); ?>
+
     <section class="wpacu-help-section">
         <div class="wpacu-help-resource-band">
             <div>

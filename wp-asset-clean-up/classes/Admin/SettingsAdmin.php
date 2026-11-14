@@ -51,6 +51,7 @@ class SettingsAdmin
 
         // e.g. when "Contract All Groups" is used, the state is kept (the setting is updated in the background)
         add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_update_settings', array($this, 'ajaxUpdateSpecificSettings') );
+        add_action('wp_ajax_' . WPACU_PLUGIN_ID . '_update_css_js_global_status', array($this, 'ajaxUpdateCssJsGlobalStatus'));
 
         // "Settings" -- "Plugin Usage Preferences" -- "Prevent features of Asset CleanUp Pro from triggering on certain pages" -- "Add New Rule"
         add_action( 'wp_ajax_' . WPACU_PLUGIN_ID . '_add_new_no_features_load_row', array($this, 'ajaxAddNewNoFeaturesLoadRow') );
@@ -59,6 +60,55 @@ class SettingsAdmin
         FontsGooglePreloadScanner::registerAdminHooks();
         FontsGoogleLocalAdmin::registerAdminHooks();
         FontPreloadScanner::registerAdminHooks();
+    }
+
+    /** Save only the CSS/JS rule-delivery switch from the dedicated manager. */
+    public function ajaxUpdateCssJsGlobalStatus()
+    {
+        $status = isset($_POST['wpacu_status']) && is_string($_POST['wpacu_status'])
+            ? wp_unslash($_POST['wpacu_status']) : '';
+        $nonce = isset($_POST['wpacu_nonce']) && is_string($_POST['wpacu_nonce'])
+            ? wp_unslash($_POST['wpacu_nonce']) : '';
+
+        if (! isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'POST'
+            || ! Menu::userCanAccessPlugin()
+            || ! \WpAssetCleanUp\AssetsManager::instance()->currentUserCanViewAssetsList()
+            || ! wp_verify_nonce($nonce, 'wpacu_update_css_js_global_status')
+            || ! in_array($status, array('on', 'off'), true)) {
+            wp_send_json_error(array('message' => __('The CSS/JS rules status could not be updated. Refresh the page and try again.', 'wp-asset-clean-up')), 403);
+            return;
+        }
+
+        $this->updateOption('css_js_manager_rules_status', $status);
+        // Refresh the option cache, then verify raw storage without default-on normalization.
+        (new Settings())->getAllStored(true);
+        $stored = get_option(WPACU_PLUGIN_ID . '_settings');
+        $stored = is_string($stored) ? json_decode($stored, true) : $stored;
+        if (! is_array($stored) || ! isset($stored['css_js_manager_rules_status'])
+            || $stored['css_js_manager_rules_status'] !== $status) {
+            wp_send_json_error(array('message' => __('The CSS/JS rules status was not saved. Please try again.', 'wp-asset-clean-up')), 500);
+            return;
+        }
+
+        wp_send_json_success(array(
+            'status' => $status,
+            'message' => self::getCssJsGlobalStatusMessage($status)
+        ));
+    }
+
+    /** Shared by the initial manager view and its AJAX status response. */
+    public static function getCssJsGlobalStatusMessage($status)
+    {
+        if ($status !== 'off') {
+            return __('Active. Saved CSS/JS rules apply to matching assets.', 'wp-asset-clean-up');
+        }
+
+        $message = __('Paused. CSS/JS rules have no effect while paused. They remain saved and can still be edited.', 'wp-asset-clean-up');
+        if (\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::isEnabled()
+            && \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getActiveCount() > 0) {
+            $message .= ' ' . __('Alternative Assets remains active and can still replace matching assets.', 'wp-asset-clean-up');
+        }
+        return $message;
     }
 
     /**
@@ -203,7 +253,7 @@ class SettingsAdmin
     }
 
     /**
-     *
+     * @return void
      */
     public function saveSettings()
     {
@@ -219,6 +269,31 @@ class SettingsAdmin
 
         $savedSettings = Misc::getVar('post', WPACU_PLUGIN_ID . '_settings', array());
 
+        // This radio only changes the existing visibility policy; no new stored setting is needed.
+        if (current_user_can(Menu::$defaultAccessRole)
+            && Misc::getVar('post', 'wpacu_cssjs_visibility_scope') === 'all') {
+            $savedSettings['allow_manage_assets_to'] = 'any_admin';
+            $savedSettings['allow_manage_assets_to_list'] = array();
+            $savedSettings['allow_manage_assets_to_roles'] = array();
+            $savedSettings['allow_manage_assets_via_roles'] = 0;
+            $savedSettings['allow_manage_assets_via_users'] = 0;
+        }
+
+        // The shared option can contain preferences owned by an inactive edition.
+        // Accept only this edition's registered fields from the form; trusted hooks
+        // below can still add or migrate settings before the normal validation.
+        $settingsClass      = new Settings();
+        $managedSettingKeys = array_fill_keys(array_merge($settingsClass->settingsKeys, array_keys($settingsClass->defaultSettings)), true);
+        $submittedFieldKeys = $managedSettingKeys;
+
+        // Pro's font-removal form sends a compact transport field that its
+        // submit filter converts into the registered setting and then removes.
+        if (isset($managedSettingKeys['google_fonts_remove_specific'])) {
+            $submittedFieldKeys['google_fonts_remove_specific_serialized'] = true;
+        }
+
+        $savedSettings = is_array($savedSettings) ? array_intersect_key($savedSettings, $submittedFieldKeys) : array();
+
         // Useful for altering the POST data (e.g. for migration purposes) before it's being saved in the database
         $savedSettings = apply_filters('wpacu_settings_form_submit_before_save', $savedSettings);
         $savedSettings = stripslashes_deep($savedSettings);
@@ -227,20 +302,106 @@ class SettingsAdmin
         // e.g. from PluginTracking.php (check if "Allow Usage Tracking" has been enabled)
         do_action('wpacu_before_save_settings', $savedSettings);
 
-        $this->update($savedSettings);
+        $storedSettings    = $settingsClass->getAllStored();
+        $preservedSettings = array_diff_key($storedSettings, $managedSettingKeys, $savedSettings);
+        $savedSettings     = self::preserveUnrepresentedNoLoadFeatures($savedSettings, $storedSettings);
+
+        $this->update($savedSettings, true, $preservedSettings);
+    }
+
+    /**
+     * Keep exclusions for features absent from this edition's form. Row IDs are
+     * regenerated by the renderer, so match by the exact raw pattern and retain hidden-only
+     * rows at their original URL when a visible row is deleted or edited.
+     * Explicit update/delete APIs remain available for intentional cleanup.
+     *
+     * @param array $settings
+     * @param array $storedSettings
+     *
+     * @return array
+     */
+    private static function preserveUnrepresentedNoLoadFeatures($settings, $storedSettings)
+    {
+        if ( empty($storedSettings['do_not_load_plugin_features']) || ! is_array($storedSettings['do_not_load_plugin_features']) ) {
+            return $settings;
+        }
+
+        $editableFeatures = array();
+
+        foreach (self::getNoLoadFeaturesOptionsGroups() as $features) {
+            $editableFeatures = array_merge($editableFeatures, $features);
+        }
+
+        $rows = isset($settings['do_not_load_plugin_features']) && is_array($settings['do_not_load_plugin_features'])
+            ? $settings['do_not_load_plugin_features'] : array();
+        $rowKeysByPattern = array();
+
+        foreach ($rows as $rowKey => $row) {
+            if (isset($row['pattern']) && is_string($row['pattern']) && trim($row['pattern']) !== '') {
+                $rowKeysByPattern[$row['pattern']] = $rowKey;
+            }
+        }
+
+        foreach ($storedSettings['do_not_load_plugin_features'] as $storedRow) {
+            if ( ! is_array($storedRow) || ! isset($storedRow['pattern'], $storedRow['list']) ||
+                 ! is_string($storedRow['pattern']) || ! is_array($storedRow['list']) || trim($storedRow['pattern']) === '' ) {
+                continue;
+            }
+
+            $hiddenFeatures = array();
+
+            foreach ($storedRow['list'] as $feature) {
+                if ( is_string($feature) && $feature !== '' && ! array_key_exists($feature, $editableFeatures) ) {
+                    $hiddenFeatures[] = $feature;
+                }
+            }
+
+            if (empty($hiddenFeatures)) {
+                continue;
+            }
+
+            $pattern = $storedRow['pattern'];
+
+            if (isset($rowKeysByPattern[$pattern])) {
+                $rowKey = $rowKeysByPattern[$pattern];
+                $list   = isset($rows[$rowKey]['list']) && is_array($rows[$rowKey]['list']) ? $rows[$rowKey]['list'] : array();
+
+                foreach ($hiddenFeatures as $feature) {
+                    if ( ! in_array($feature, $list, true) ) {
+                        $list[] = $feature;
+                    }
+                }
+
+                $rows[$rowKey]['list'] = $list;
+            } else {
+                $rows[] = array('pattern' => $storedRow['pattern'], 'list' => array_values(array_unique($hiddenFeatures)));
+                end($rows);
+                $rowKeysByPattern[$pattern] = key($rows);
+            }
+        }
+
+        $settings['do_not_load_plugin_features'] = $rows;
+
+        return $settings;
     }
 
     /**
      * @param $settings
      * @param bool $redirectAfterUpdate
+     * @param array $preservedSettings Existing settings outside the submitted form's managed keys.
      *
      * @return bool|void
      *
      * @noinspection NestedAssignmentsUsageInspection
      */
-    public function update($settings, $redirectAfterUpdate = true)
+    public function update($settings, $redirectAfterUpdate = true, $preservedSettings = array())
     {
         $settingsNotNull = array();
+
+        // Reactivating executable alternatives requires the same permission as editing them.
+        if (Misc::getVar('post', 'wpacu_settings_nonce') && ! Menu::userCanManageAlternativeAssets()) {
+            unset($settings['alternative_assets_status']);
+        }
 
         $settings = self::alwaysPurifyTheseSettingsBeforeUpdate($settings);
 
@@ -258,7 +419,7 @@ class SettingsAdmin
 
         $settingsClass = new Settings();
 
-        if (wp_json_encode($settingsClass->defaultSettings) === wp_json_encode($settingsNotNull)) {
+        if (empty($preservedSettings) && wp_json_encode($settingsClass->defaultSettings) === wp_json_encode($settingsNotNull)) {
             // Do not keep a record in the database (no point of having an extra entry)
             // if the submitted values are the same as the default ones
             delete_option(WPACU_PLUGIN_ID . '_settings');
@@ -273,7 +434,10 @@ class SettingsAdmin
             $settings = self::onlyPurifyTheseSettingsAfterFormSubmit($settings);
         }
 
-        $addUpdateStatus = Misc::addUpdateOption(WPACU_PLUGIN_ID . '_settings', wp_json_encode(MiscArray::filterList($settings)));
+        // Preserve inactive-edition values exactly, including explicit zero/empty
+        // preferences. They must not pass through this edition's form purification.
+        $settingsToStore = array_merge(MiscArray::filterList($settings), $preservedSettings);
+        $addUpdateStatus = Misc::addUpdateOption(WPACU_PLUGIN_ID . '_settings', wp_json_encode($settingsToStore));
 
         Misc::w3TotalCacheFlushObjectCache();
 
@@ -300,6 +464,20 @@ class SettingsAdmin
      */
     public static function alwaysPurifyTheseSettingsBeforeUpdate($settings)
     {
+        if (! array_key_exists('css_js_manager_rules_status', $settings)) {
+            $storedSettings = (new Settings())->getAllStored();
+            $settings['css_js_manager_rules_status'] = isset($storedSettings['css_js_manager_rules_status'])
+                ? $storedSettings['css_js_manager_rules_status'] : 'on';
+        }
+        $settings['css_js_manager_rules_status'] = $settings['css_js_manager_rules_status'] === 'off' ? 'off' : 'on';
+        if (! array_key_exists('alternative_assets_status', $settings)) {
+            $storedSettings = (new Settings())->getAllStored();
+            $settings['alternative_assets_status'] = isset($storedSettings['alternative_assets_status'])
+                ? $storedSettings['alternative_assets_status'] : 'on';
+        }
+        $settings['alternative_assets_status'] = $settings['alternative_assets_status'] === 'off' ? 'off' : 'on';
+        $settings = Settings::normalizeManagementLocations($settings);
+
         $purifyTextAreaForSpecificKeys = array(
             'do_not_load_plugin_patterns',
 
@@ -317,7 +495,11 @@ class SettingsAdmin
 
         foreach ($settings as $settingKey => $settingValue) {
             if (in_array($settingKey, array('local_fonts_preload_files_enable', 'google_fonts_preload_files_enable'), true)) {
-                $settings[$settingKey] = ((string)$settingValue === '1') ? 1 : 0;
+                // Background updates include an empty flag for legacy URL lists. Preserve
+                // their effective state, while explicit OFF survives empty-value filtering.
+                $preloadFilesKey       = str_replace('_enable', '', $settingKey);
+                $preloadFiles          = isset($settings[$preloadFilesKey]) ? $settings[$preloadFilesKey] : '';
+                $settings[$settingKey] = (string) Settings::normalizeFontPreloadEnabledState($settingValue, $preloadFiles);
             }
 
             if ($settingKey === 'google_fonts_local') {
@@ -583,8 +765,10 @@ class SettingsAdmin
             ));
         }
 
-        $rolesVisibilityEnabled = ! empty($settings['allow_manage_assets_via_roles']);
-        $usersVisibilityEnabled = ! empty($settings['allow_manage_assets_via_users']);
+        $rolesVisibilityEnabled = ! empty($settings['allow_manage_assets_via_roles']) && ! empty($settings['allow_manage_assets_to_roles']);
+        $usersVisibilityEnabled = ! empty($settings['allow_manage_assets_via_users']) && ! empty($settings['allow_manage_assets_to_list']);
+        $settings['allow_manage_assets_via_roles'] = $rolesVisibilityEnabled ? 1 : 0;
+        $settings['allow_manage_assets_via_users'] = $usersVisibilityEnabled ? 1 : 0;
 
         if ($rolesVisibilityEnabled && $usersVisibilityEnabled) {
             $settings['allow_manage_assets_to'] = 'selected';
@@ -596,7 +780,11 @@ class SettingsAdmin
             $settings['allow_manage_assets_to'] = 'any_admin';
         }
 
-        return $settings;
+        if (isset($settings['plugins_manager_visibility']) && class_exists('WpAssetCleanUpPro\\SettingsPro')) {
+            $settings['plugins_manager_visibility'] = \WpAssetCleanUpPro\SettingsPro::normalizeManagerVisibility($settings['plugins_manager_visibility']);
+        }
+
+        return SettingsAdminOnlyForAdmin::preserveManagerVisibilityForNonAdmins($settings);
     }
 
 
@@ -732,7 +920,7 @@ class SettingsAdmin
             }
 
         // [Only for admins]
-        SettingsAdminOnlyForAdmin::filterSettingsOnFormSubmit();
+        SettingsAdminOnlyForAdmin::filterSettingsOnFormSubmit($settings);
         // [/Only for admins]
 
         return $settings;
@@ -758,8 +946,11 @@ class SettingsAdmin
      */
     public function updateOption($key, $value)
     {
-        $settingsClass = new Settings();
-        $settings      = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
+        $settingsClass      = new Settings();
+        $settings           = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
+        $managedSettingKeys = array_fill_keys(array_merge($settingsClass->settingsKeys, array_keys($settingsClass->defaultSettings)), true);
+        $preservedSettings  = array_diff_key($settings, $managedSettingKeys);
+        $settings           = array_intersect_key($settings, $managedSettingKeys);
 
         if ( ! is_array($key) ) {
             if ( ! in_array($key, $settingsClass->settingsKeys, true) ) {
@@ -782,7 +973,7 @@ class SettingsAdmin
             }
         }
 
-        return $this->update($settings, false);
+        return $this->update($settings, false, $preservedSettings);
     }
 
     /**
@@ -795,11 +986,14 @@ class SettingsAdmin
             return;
         }
 
-        $settings = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
+        $settings           = self::restoreStoredGoogleFontsSettings($settingsClass->getAllStored(true));
+        $managedSettingKeys = array_fill_keys(array_merge($settingsClass->settingsKeys, array_keys($settingsClass->defaultSettings)), true);
+        $preservedSettings  = array_diff_key($settings, $managedSettingKeys);
+        $settings           = array_intersect_key($settings, $managedSettingKeys);
 
         $settings[$key] = '';
 
-        return $this->update($settings, false);
+        return $this->update($settings, false, $preservedSettings);
     }
 
     /**
@@ -1678,6 +1872,7 @@ class SettingsAdmin
     {
         $tabArea    = Misc::getVar('post', 'wpacu_selected_tab_area', 'wpacu-setting-plugin-usage-settings');
         $subTabArea = Misc::getVar('post', 'wpacu_selected_sub_tab_area', '');
+        $thirdTabArea = Misc::getVar('post', 'wpacu_selected_sub_sub_tab_area', '');
 
         set_transient(WPACU_PLUGIN_ID . '_settings_updated', 1, 30);
 
@@ -1689,6 +1884,17 @@ class SettingsAdmin
 
         if ($subTabArea) {
             $wpacuQueryString['wpacu_selected_sub_tab_area'] = $subTabArea;
+        }
+
+        $thirdTabsByParent = array(
+            'wpacu-plugin-usage-settings-assets-management' => array('manage-css-js', 'critical-css', 'alternative-assets'),
+            'wpacu-plugin-usage-settings-plugins-manager' => array('front-end-rules', 'dashboard-rules')
+        );
+        if ($tabArea === 'wpacu-setting-plugin-usage-settings'
+            && is_string($subTabArea)
+            && isset($thirdTabsByParent[$subTabArea])
+            && in_array($thirdTabArea, $thirdTabsByParent[$subTabArea], true)) {
+            $wpacuQueryString['wpacu_selected_sub_sub_tab_area'] = $thirdTabArea;
         }
 
         wp_redirect(add_query_arg($wpacuQueryString, esc_url(admin_url('admin.php'))));

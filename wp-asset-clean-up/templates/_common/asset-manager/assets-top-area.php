@@ -19,6 +19,7 @@ if (isset($data['post_type'], $data['post_id'])
 }
 
 ?>
+<?php require __DIR__ . '/rules-paused-notice.php'; ?>
 <p><?php echo sprintf(
         esc_html__('Please select the styles &amp; scripts that are %sNOT NEEDED%s from the list below. Not sure which ones to unload? %s Use "Test Mode" (to make the changes apply only to you), while you are going through the trial &amp; error process.', 'wp-asset-clean-up'),
 	'<span style="color: #CC0000;"><strong>',
@@ -48,7 +49,7 @@ if ( ( (isset($data['core_styles_loaded']) && $data['core_styles_loaded']) || (i
 ?>
 <div style="margin-bottom: 10px;" class="wpacu-contract-expand-area">
 	<div class="col-left">
-        <small>* any new change will take effect after you use the "Update" button</small>
+        <small><?php esc_html_e('* Changes take effect after saving.', 'wp-asset-clean-up'); ?></small>
         <table style="width: auto; margin-top: 10px;">
             <tr>
                 <td style="width: auto;"><label for="wpacu_assets_list_layout"><strong>Assets' List Layout:</strong></label></td>
@@ -88,8 +89,16 @@ if ( ( (isset($data['core_styles_loaded']) && $data['core_styles_loaded']) || (i
     </div>
 
 	<div id="wpacu-assets-groups-change-state-area" data-wpacu-groups-current-state="<?php echo esc_attr($data['plugin_settings']['assets_list_layout_areas_status']); ?>" class="col-right">
-        <button id="wpacu-assets-contract-all" class="wpacu_wp_button wpacu_wp_button_secondary"><img class="wpacu_ajax_loader" align="top" src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" alt="" /> <span>Contract All Groups</span></button>&nbsp;
-        <button id="wpacu-assets-expand-all" class="wpacu_wp_button wpacu_wp_button_secondary"><img class="wpacu_ajax_loader" align="top" src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" alt="" /> <span>Expand All Groups</span></button>
+        <button type="button" id="wpacu-assets-expand-all" class="wpacu_wp_button wpacu_wp_button_secondary"<?php if ($data['plugin_settings']['assets_list_layout_areas_status'] !== 'contracted') { ?> disabled="disabled"<?php } ?>>
+            <img class="wpacu_ajax_loader" align="top" src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" alt="" />
+            <span class="dashicons dashicons-editor-expand" aria-hidden="true"></span>
+            <span><?php esc_html_e('Expand All', 'wp-asset-clean-up'); ?></span>
+        </button>
+        <button type="button" id="wpacu-assets-contract-all" class="wpacu_wp_button wpacu_wp_button_secondary"<?php if ($data['plugin_settings']['assets_list_layout_areas_status'] === 'contracted') { ?> disabled="disabled"<?php } ?>>
+            <img class="wpacu_ajax_loader" align="top" src="<?php echo esc_url(admin_url('images/spinner.gif')); ?>" alt="" />
+            <span class="dashicons dashicons-editor-contract" aria-hidden="true"></span>
+            <span><?php esc_html_e('Contract All', 'wp-asset-clean-up'); ?></span>
+        </button>
 	</div>
 	<div class="wpacu_clearfix"></div>
 </div>

@@ -4,14 +4,26 @@ if (! defined('ABSPATH') || ! isset($data, $assetType, $assetTypeS)) {
 }
 
 switch ($data['post_type']) {
-    case 'product':
-        $loadBulkTextViaTax = __('On all WooCommerce "Product" pages if these taxonomies (e.g. Product Category, Product Tag) are set', 'wp-asset-clean-up');
+    case 'page':
+        $loadBulkTextViaTax = __('On all WordPress pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
         break;
-    case 'download':
-        $loadBulkTextViaTax = __('On all Easy Digital Downloads "Download" pages if these taxonomies (e.g. Download Category, Download Tag) are set', 'wp-asset-clean-up');
+    case 'post':
+        $loadBulkTextViaTax = __('On all blog posts assigned to any of these taxonomy terms', 'wp-asset-clean-up');
+        break;
+    case 'product':
+        $loadBulkTextViaTax = __('On all product pages assigned to any of these taxonomy terms', 'wp-asset-clean-up');
         break;
     default:
-        $loadBulkTextViaTax = sprintf(__('On all pages of "<strong>%s</strong>" post type if these taxonomies (e.g. Category, Tag) are set', 'wp-asset-clean-up'), $data['post_type']);
+        $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+        $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+            ? $wpacuPostTypeObject->labels->name
+            : $data['post_type'];
+
+        $loadBulkTextViaTax = sprintf(
+            __('On all %1$s ("%2$s" post type) assigned to any of these taxonomy terms', 'wp-asset-clean-up'),
+            esc_html($wpacuPostTypeLabel),
+            esc_html($data['post_type'])
+        );
 }
 
 $wpacuLoadViaTaxIsPro = defined('WPACU_PRO_PLUGIN_VERSION');

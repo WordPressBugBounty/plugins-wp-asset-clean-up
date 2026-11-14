@@ -69,7 +69,7 @@ class Tools
 	{
 		$wpacuForRaw = Misc::getVar('request', 'wpacu_for', $this->wpacuFor);
 		$wpacuFor = is_string($wpacuForRaw) ? sanitize_key(wp_unslash($wpacuForRaw)) : 'system_info';
-		$allowedTools = array('reset', 'system_info', 'storage', 'debug', 'import_export');
+		$allowedTools = apply_filters('wpacu_internal_tools_sections', array('reset', 'system_info', 'storage', 'debug', 'import_export'));
 		$this->wpacuFor = in_array($wpacuFor, $allowedTools, true) ? $wpacuFor : 'system_info';
 
 		if ($this->wpacuFor === 'storage') {
@@ -193,6 +193,9 @@ class Tools
 			$pluginsManagerRules = PluginsManagerAdmin::getPluginRulesFiltered(false, true);
 			$this->data['has_plugins_manager_front_rules'] = ! empty($pluginsManagerRules['plugins']);
 			$this->data['has_plugins_manager_dash_rules']  = ! empty($pluginsManagerRules['plugins_dash']);
+            if (ProDataCleanup::canAccess()) {
+                $this->data['pro_cleanup_preview'] = ProDataCleanup::preview();
+            }
 		}
 
 		if ($this->data['for'] === 'debug') {
@@ -763,7 +766,7 @@ class Tools
 
 		$wpacuResetValueRaw = Misc::getVar('post', 'wpacu-reset', false);
 		$wpacuResetValue = is_string($wpacuResetValueRaw) ? sanitize_key(wp_unslash($wpacuResetValueRaw)) : '';
-		$allowedResetValues = array('reset_settings', 'reset_critical_css', 'reset_plugins_manager_front', 'reset_plugins_manager_dash', 'reset_everything_except_settings', 'reset_everything', 'remove_all_data_for_uninstall');
+		$allowedResetValues = array('reset_settings', 'reset_critical_css', 'reset_plugins_manager_front', 'reset_plugins_manager_dash', 'reset_everything_except_settings', 'reset_everything', 'remove_all_data_for_uninstall', 'clear_pro_traces');
 
 		if ( ! in_array($wpacuResetValue, $allowedResetValues, true) ) {
 			wp_die(esc_html__('The selected reset action is not valid.', 'wp-asset-clean-up'), '', array('response' => 400));
@@ -788,6 +791,14 @@ class Tools
 		);
 
 		$this->resetChoice = $wpacuResetValue;
+
+        if ($wpacuResetValue === 'clear_pro_traces') {
+            $result = ProDataCleanup::execute(Misc::getVar('post', 'wpacu-pro-cleanup-preview', ''));
+            if (is_wp_error($result)) {
+                wp_die(esc_html($result->get_error_message()), '', array('response' => $result->get_error_code() === 'forbidden' ? 403 : 400));
+            }
+            $this->resetResult = array_merge($this->resetResult, $result);
+        }
 
 		$wpacuPluginId = WPACU_PLUGIN_ID;
 		$preservedCommonUnloads = array();
@@ -1286,6 +1297,13 @@ class Tools
 			$msg = __('All the settings were reset to their default values.', 'wp-asset-clean-up');
 		}
 
+        if ($this->resetChoice === 'clear_pro_traces') {
+            $msg = empty($errors)
+                ? __('The selected Pro data was cleared. Shared Lite settings, rules, Critical CSS and CSS alternatives were preserved.', 'wp-asset-clean-up')
+                : __('Pro data cleanup was only partially completed. Review the errors below.', 'wp-asset-clean-up');
+            $msg .= ' ' . __('Clear your page and CDN caches so visitors receive the updated output.', 'wp-asset-clean-up');
+        }
+
         if ($this->resetChoice === 'reset_critical_css') {
 		    $msg = __('The critical CSS information has been removed and restored to the way it was in the beginning.', 'wp-asset-clean-up');
         }
@@ -1316,6 +1334,9 @@ class Tools
 
 		$resultSummary = array();
 		$resultLabels = array(
+            'updated_options' => __('Shared options updated: %d', 'wp-asset-clean-up'),
+            'updated_meta_keys' => __('Shared metadata updated: %d', 'wp-asset-clean-up'),
+            'deleted_alternatives' => __('JavaScript alternatives removed: %d', 'wp-asset-clean-up'),
 			'deleted_plugin_rules' => __('Plugins Manager rule sets removed: %d', 'wp-asset-clean-up'),
 			'deleted_options'     => __('Options removed: %d', 'wp-asset-clean-up'),
 			'deleted_meta_keys'   => __('Metadata keys removed: %d', 'wp-asset-clean-up'),
@@ -1360,7 +1381,11 @@ class Tools
 
 	    $importedMessage .= '<ul style="list-style: disc; padding-left: 30px; margin-bottom: 0;">';
 
+        $storedProLabels = StoredProDataTransfer::getImportLabels();
 	    foreach ($this->data['import_done_list'] as $importedKey) {
+            if (is_string($importedKey) && isset($storedProLabels[$importedKey])) {
+                $importedMessage .= '<li>' . esc_html($storedProLabels[$importedKey]) . '</li>';
+            }
             if ($importedKey === 'settings') {
 	            $importedMessage .= '<li>"'.esc_html__('Settings', 'wp-asset-clean-up').'"</li>';
             }
@@ -1399,6 +1424,13 @@ class Tools
 
             if ($importedKey === 'plugins_manager_dashboard') {
                 $importedMessage .= '<li>'.esc_html__('Plugins Manager — /wp-admin/ rules', 'wp-asset-clean-up').'</li>';
+            }
+
+            if ($importedKey === 'alternative_assets') {
+                $importedMessage .= '<li>' . esc_html__( 'Alternative Assets: CSS and JavaScript source code, loading conditions, priorities and ON/OFF states', 'wp-asset-clean-up') . '</li>';
+            }
+            if ($importedKey === 'alternative_assets_js_stored') {
+                $importedMessage .= '<li>' . esc_html__('JavaScript alternatives were imported and saved. They will only be applied when Asset CleanUp Pro is active.', 'wp-asset-clean-up') . '</li>';
             }
 
             $importedMessage = apply_filters(

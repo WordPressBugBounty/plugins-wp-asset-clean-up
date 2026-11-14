@@ -134,7 +134,7 @@ class Menu
 		    array(new AssetsManagerAdmin, 'renderPage')
 	    );
 
-	    add_submenu_page(
+	    $pluginsManagerPageHook = add_submenu_page(
 		    $parentSlug,
 		    __('Plugins Manager', 'wp-asset-clean-up'),
 		    __('Plugins Manager', 'wp-asset-clean-up'),
@@ -142,6 +142,16 @@ class Menu
 		    WPACU_PLUGIN_ID . '_plugins_manager',
 		    array(new PluginsManagerAdmin, 'page')
 	    );
+        add_action('load-' . $pluginsManagerPageHook, static function () {
+            if (!PluginsManagerAdmin::currentUserCanViewManager()) {
+                wp_die(esc_html__('Plugins Manager is hidden for your account by its visibility preferences.', 'wp-asset-clean-up'), '', array('response'=>403));
+            }
+        });
+        add_action('admin_head', static function () use ($parentSlug) {
+            if (!PluginsManagerAdmin::currentUserCanViewManager()) {
+                remove_submenu_page($parentSlug, WPACU_PLUGIN_ID . '_plugins_manager');
+            }
+        });
 
 	    add_submenu_page(
 	        $parentSlug,
@@ -278,6 +288,19 @@ class Menu
 
         // Those with 'administrator' role will always be able to access it
         return self::$defaultAccessRole;
+    }
+
+    /**
+     * Delegated optimization access does not grant permission to publish executable code.
+     * The additional WordPress capability check respects multisite and
+     * DISALLOW_UNFILTERED_HTML, including for super administrators.
+     * Applies to management, not to serving approved alternatives to visitors.
+     *
+     * @return bool
+     */
+    public static function userCanManageAlternativeAssets()
+    {
+        return self::userCanAccessPlugin() && current_user_can('unfiltered_html');
     }
 
 	/**

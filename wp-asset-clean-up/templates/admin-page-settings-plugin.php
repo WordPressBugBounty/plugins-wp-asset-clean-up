@@ -18,7 +18,7 @@ $wikiStatus = ($data['wiki_read'] == 1)
     ? '<span class="wpacu-status-badge wpacu-is-reviewed" id="wpacuSidebarReviewBadge">Reviewed</span>'
 	: '<span class="wpacu-status-badge" id="wpacuSidebarReviewBadge">Review</span>';
 
-$selectedTabArea = $selectedSubTabArea = '';
+$selectedTabArea    = $selectedSubTabArea = '';
 $allSettingsSubTabs = array();
 
 $settingsTabs = array(
@@ -51,7 +51,7 @@ foreach ($settingsSubTabsConfigList as $settingTabKey => $settingsTabValue) {
 $settingsTabActive = 'wpacu-setting-plugin-usage-settings';
 
 // Is 'Stripping the "fat"' marked as read? Mark the "General & Files Management" as the default tab
-$defaultTabArea = ($data['wiki_read'] == 1) ? 'wpacu-setting-plugin-usage-settings' : 'wpacu-setting-before-you-start';
+$defaultTabArea    = ($data['wiki_read'] == 1) ? 'wpacu-setting-plugin-usage-settings' : 'wpacu-setting-before-you-start';
 $defaultSubTabArea = 'wpacu-plugin-usage-settings-assets-management';
 
 $selectedTabArea = isset($_REQUEST['wpacu_selected_tab_area'])
@@ -92,7 +92,7 @@ $inputStyle = Settings::getInputStyle($data);
                     $wpacuNavTextSub = '';
 
                     if ($settingsTabKey === 'wpacu-setting-test-mode') {
-                        $testModeStatus = ($data['test_mode'] == 1) ? $wpacuOptionOn : $wpacuOptionOff;
+                        $testModeStatus  = ($data['test_mode'] == 1) ? $wpacuOptionOn : $wpacuOptionOff;
                         $wpacuNavTextSub = '<div class="wpacu-tab-extra-text" style="display: inline-block; margin-left: 8px;"><small><span class="wpacu-status-wrap" data-linked-to="wpacu_test_mode_enable">'.$testModeStatus.'</span></small></div>';
                     }
 
@@ -102,15 +102,15 @@ $inputStyle = Settings::getInputStyle($data);
                             || ! empty($data['remove_comment_feed_link']);
                         $rssFeedIndicatorVisibleClass = $rssSettingsChanged ? ' is-visible' : '';
                         $rssFeedIndicatorPartialClass = empty($data['disable_rss_feed']) && $rssSettingsChanged ? ' wpacu-partial' : '';
-                        $wpacuNavTextSub = '<div id="wpacu-disable-rss-feed-menu-indicator" class="wpacu-tab-extra-text wpacu-settings-changed-indicator' . esc_attr($rssFeedIndicatorVisibleClass) . '"><small><span class="wpacu-status-wrap"><span class="wpacu-circle-status wpacu-attention' . esc_attr($rssFeedIndicatorPartialClass) . '"></span></span></small></div>';
+                        $wpacuNavTextSub              = '<div id="wpacu-disable-rss-feed-menu-indicator" class="wpacu-tab-extra-text wpacu-settings-changed-indicator' . esc_attr($rssFeedIndicatorVisibleClass) . '"><small><span class="wpacu-status-wrap"><span class="wpacu-circle-status wpacu-attention' . esc_attr($rssFeedIndicatorPartialClass) . '"></span></span></small></div>';
                     }
 
                     if ($settingsTabKey === 'wpacu-setting-disable-xml-rpc') {
-                        $disableXmlRpcValue = isset($data['disable_xmlrpc']) ? (string) $data['disable_xmlrpc'] : 'keep_it_on';
-                        $disableXmlRpcChanged = in_array($disableXmlRpcValue, array('disable_pingback', 'disable_all'), true);
+                        $disableXmlRpcValue          = isset($data['disable_xmlrpc']) ? (string) $data['disable_xmlrpc'] : 'keep_it_on';
+                        $disableXmlRpcChanged        = in_array($disableXmlRpcValue, array('disable_pingback', 'disable_all'), true);
                         $xmlRpcIndicatorVisibleClass = $disableXmlRpcChanged ? ' is-visible' : '';
                         $xmlRpcIndicatorPartialClass = ($disableXmlRpcValue === 'disable_pingback') ? ' wpacu-partial' : '';
-                        $wpacuNavTextSub = '<div id="wpacu-disable-xml-rpc-menu-indicator" class="wpacu-tab-extra-text wpacu-settings-changed-indicator' . esc_attr($xmlRpcIndicatorVisibleClass) . '"><small><span class="wpacu-status-wrap"><span class="wpacu-circle-status wpacu-attention' . esc_attr($xmlRpcIndicatorPartialClass) . '"></span></span></small></div>';
+                        $wpacuNavTextSub             = '<div id="wpacu-disable-xml-rpc-menu-indicator" class="wpacu-tab-extra-text wpacu-settings-changed-indicator' . esc_attr($xmlRpcIndicatorVisibleClass) . '"><small><span class="wpacu-status-wrap"><span class="wpacu-circle-status wpacu-attention' . esc_attr($xmlRpcIndicatorPartialClass) . '"></span></span></small></div>';
                     }
 
                     if ($settingsTabKey === 'wpacu-setting-optimize-css') {
@@ -180,26 +180,26 @@ $inputStyle = Settings::getInputStyle($data);
                     }
 
                     if ($settingsTabKey === 'wpacu-setting-resource-loading') {
-                        $resourceLoadingEnabled = ! empty($data['resource_loading']['_enabled']);
-                        $resourceLoadingImageAttrEnabled = ! empty($data['resource_loading']['images']['attr']['_enabled']);
+                        $resourceLoadingEnabled              = ! empty($data['resource_loading']['_enabled']);
+                        $resourceLoadingImageAttrEnabled     = ! empty($data['resource_loading']['images']['attr']['_enabled']);
                         $resourceLoadingImageLazyLoadEnabled = ! empty($data['resource_loading']['images']['lazy_load']['_enabled']);
-                        $resourceLoadingHasEnabledFeatures = $resourceLoadingImageAttrEnabled || $resourceLoadingImageLazyLoadEnabled;
+                        $resourceLoadingHasEnabledFeatures   = $resourceLoadingImageAttrEnabled || $resourceLoadingImageLazyLoadEnabled;
 
                         if ($resourceLoadingEnabled && $resourceLoadingHasEnabledFeatures) {
-                            $resourceLoadingState = 'active';
-                            $resourceLoadingStateLabel = esc_html__('Active', 'wp-asset-clean-up');
+                            $resourceLoadingState            = 'active';
+                            $resourceLoadingStateLabel       = esc_html__('Active', 'wp-asset-clean-up');
                             $resourceLoadingStateDescription = esc_html__('At least one option is enabled', 'wp-asset-clean-up');
                         } elseif ($resourceLoadingEnabled) {
-                            $resourceLoadingState = 'enabled-empty';
-                            $resourceLoadingStateLabel = esc_html__('Enabled', 'wp-asset-clean-up');
+                            $resourceLoadingState            = 'enabled-empty';
+                            $resourceLoadingStateLabel       = esc_html__('Enabled', 'wp-asset-clean-up');
                             $resourceLoadingStateDescription = esc_html__('No options active', 'wp-asset-clean-up');
                         } elseif ($resourceLoadingHasEnabledFeatures) {
-                            $resourceLoadingState = 'paused';
-                            $resourceLoadingStateLabel = esc_html__('Paused', 'wp-asset-clean-up');
+                            $resourceLoadingState            = 'paused';
+                            $resourceLoadingStateLabel       = esc_html__('Paused', 'wp-asset-clean-up');
                             $resourceLoadingStateDescription = esc_html__('Configured options are currently inactive', 'wp-asset-clean-up');
                         } else {
-                            $resourceLoadingState = 'off';
-                            $resourceLoadingStateLabel = '';
+                            $resourceLoadingState            = 'off';
+                            $resourceLoadingStateLabel       = '';
                             $resourceLoadingStateDescription = '';
                         }
 
@@ -211,7 +211,7 @@ $inputStyle = Settings::getInputStyle($data);
                             ? ($resourceLoadingEnabled ? 'wpacu-on' : 'wpacu-paused')
                             : 'wpacu-off';
 
-                        $resourceLoadingBadgeHiddenStyle = ($resourceLoadingState === 'off') ? ' style="display: none;"' : '';
+                        $resourceLoadingBadgeHiddenStyle       = ($resourceLoadingState === 'off') ? ' style="display: none;"' : '';
                         $resourceLoadingDescriptionHiddenStyle = ($resourceLoadingState === 'off') ? ' style="display: none;"' : '';
 
                         $wpacuNavTextSub = '&nbsp; &nbsp;<span id="wpacu-resource-loading-state-badge" class="wpacu-resource-loading-state-badge is-' . esc_attr($resourceLoadingState) . '" data-state="' . esc_attr($resourceLoadingState) . '"' . $resourceLoadingBadgeHiddenStyle . '>' . $resourceLoadingStateLabel . '</span>';
@@ -228,16 +228,16 @@ $inputStyle = Settings::getInputStyle($data);
                     }
 
                     if ($settingsTabKey === 'wpacu-setting-cdn-rewrite-urls') {
-                        $cdnRewriteEnabled = ! empty($data['cdn_rewrite_enable']);
-                        $cdnRewriteCssHostname = isset($data['cdn_rewrite_url_css']) ? trim((string) $data['cdn_rewrite_url_css']) : '';
-                        $cdnRewriteJsHostname = isset($data['cdn_rewrite_url_js']) ? trim((string) $data['cdn_rewrite_url_js']) : '';
+                        $cdnRewriteEnabled       = ! empty($data['cdn_rewrite_enable']);
+                        $cdnRewriteCssHostname   = isset($data['cdn_rewrite_url_css']) ? trim((string) $data['cdn_rewrite_url_css']) : '';
+                        $cdnRewriteJsHostname    = isset($data['cdn_rewrite_url_js']) ? trim((string) $data['cdn_rewrite_url_js']) : '';
                         $cdnRewriteHostnameCount = ($cdnRewriteCssHostname !== '' ? 1 : 0)
                             + ($cdnRewriteJsHostname !== '' ? 1 : 0);
                         $cdnRewriteStatusClass = $cdnRewriteEnabled && $cdnRewriteHostnameCount === 2
                             ? 'wpacu-on'
                             : ($cdnRewriteEnabled && $cdnRewriteHostnameCount === 1 ? 'wpacu-on wpacu-partial' : 'wpacu-off');
                         $cdnRewriteStatus = '<span class="wpacu-circle-status ' . esc_attr($cdnRewriteStatusClass) . '"></span>';
-                        $wpacuNavTextSub = '<div class="wpacu-tab-extra-text" style="display: inline-block; margin-left: 8px;"><small><span id="wpacu-cdn-rewrite-menu-status" class="wpacu-status-wrap" data-linked-to="wpacu_cdn_rewrite_enable">'.$cdnRewriteStatus.'</span></small></div>';
+                        $wpacuNavTextSub  = '<div class="wpacu-tab-extra-text" style="display: inline-block; margin-left: 8px;"><small><span id="wpacu-cdn-rewrite-menu-status" class="wpacu-status-wrap" data-linked-to="wpacu_cdn_rewrite_enable">'.$cdnRewriteStatus.'</span></small></div>';
                         $wpacuNavTextSub .= '<div class="wpacu-tab-extra-text" style="display: inline-block;"><small style="color: gray;"><span>Generated CSS/JS only</span></small></div>';
                     }
 
@@ -335,8 +335,10 @@ $inputStyle = Settings::getInputStyle($data);
                name="wpacu_selected_sub_tab_area"
                id="wpacu-selected-sub-tab-area"
                value="<?php echo esc_attr($selectedSubTabArea); ?>" />
+        <input type="hidden" name="wpacu_selected_sub_sub_tab_area" id="wpacu-selected-sub-sub-tab-area" value="<?php echo isset($_GET['wpacu_selected_sub_sub_tab_area']) && in_array($_GET['wpacu_selected_sub_sub_tab_area'], array('manage-css-js', 'critical-css', 'alternative-assets', 'front-end-rules', 'dashboard-rules'), true) ? esc_attr($_GET['wpacu_selected_sub_sub_tab_area']) : ''; ?>" />
     </form>
 </div>
+<?php require __DIR__ . '/_common/settings/third-level-navigation.php'; ?>
 
 <script type="text/javascript">
     <?php
@@ -592,6 +594,7 @@ $inputStyle = Settings::getInputStyle($data);
             'wpacu_settings_page',
             'wpacu_selected_tab_area',
             'wpacu_selected_sub_tab_area',
+            'wpacu_selected_sub_sub_tab_area',
             'wpacu_settings_nonce',
             '_wp_http_referer',
             'submit'
@@ -603,6 +606,7 @@ $inputStyle = Settings::getInputStyle($data);
                     return ignoredNames.indexOf(control.name) === -1
                         && control.type !== 'submit'
                         && control.type !== 'button'
+                        && ! control.classList.contains('wpacu-nav-input-sub-tab-area')
                         && ! control.classList.contains('wpacu-google-fonts-specific__serialized');
                 });
         }
@@ -647,6 +651,31 @@ $inputStyle = Settings::getInputStyle($data);
             return result;
         }, {});
         var updateTimer;
+        var submitEvent = null;
+        var navigationPromptOpen = false;
+        var leaveConfirmed = false;
+
+        function warnBeforeLeaving(event) {
+            // The custom dialog already confirmed this navigation. Suppress only
+            // this unload, so a navigation cancelled elsewhere stays protected.
+            if (leaveConfirmed) {
+                leaveConfirmed = false;
+                return;
+            }
+
+            // A deferred or cancelled save must keep protecting the unsaved values.
+            if (submitEvent && ! submitEvent.defaultPrevented) {
+                return;
+            }
+
+            // Recheck synchronously: the last edit may precede the debounced count.
+            if (updateCount() === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            event.returnValue = true;
+        }
 
         function updateCount() {
             var controls = getControls();
@@ -681,15 +710,96 @@ $inputStyle = Settings::getInputStyle($data);
             }
 
             saveArea.classList.toggle('wpacu-settings-has-changes', count > 0);
+
+            if (count > 0) {
+                window.addEventListener('beforeunload', warnBeforeLeaving);
+            } else {
+                window.removeEventListener('beforeunload', warnBeforeLeaving);
+            }
+
+            return count;
         }
 
         function scheduleUpdate() {
+            // Protect even a navigation that happens before the timer runs.
+            window.addEventListener('beforeunload', warnBeforeLeaving);
             window.clearTimeout(updateTimer);
             updateTimer = window.setTimeout(updateCount, 20);
         }
 
         form.addEventListener('input', scheduleUpdate);
         form.addEventListener('change', scheduleUpdate);
+
+        // Run after document-level handlers so tabs and other handled actions
+        // can prevent navigation before we consider showing the dialog.
+        window.addEventListener('click', function (event) {
+            if (event.defaultPrevented || event.button !== 0
+                || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+                return;
+            }
+
+            var link = event.target.closest ? event.target.closest('a[href]') : null;
+            if (! link || link.hasAttribute('download')
+                || (link.target && link.target.toLowerCase() !== '_self')
+                || ! /^https?:$/.test(link.protocol)) {
+                return;
+            }
+
+            // Hash navigation leaves the current settings document in place.
+            if (link.href.indexOf('#') !== -1
+                && link.href.split('#')[0] === window.location.href.split('#')[0]) {
+                return;
+            }
+
+            // If the dialog library is unavailable, the native unload warning
+            // still protects changes without blocking normal link navigation.
+            if (! window.wpacuSwal || typeof window.wpacuSwal.fire !== 'function'
+                || updateCount() === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            if (navigationPromptOpen) {
+                return;
+            }
+
+            navigationPromptOpen = true;
+            var destination = link.href;
+            window.wpacuSwal.fire({
+                icon: 'warning',
+                titleText: <?php
+                    /* translators: %s: plugin name, Asset CleanUp or Asset CleanUp Pro. */
+                    echo wp_json_encode(sprintf(__('Unsaved %s settings', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE));
+                ?>,
+                text: <?php echo wp_json_encode(__('You have unsaved changes to your plugin settings. Leaving this page will discard those changes.', 'wp-asset-clean-up')); ?>,
+                showCancelButton: true,
+                confirmButtonText: <?php echo wp_json_encode(esc_html__('Leave Page', 'wp-asset-clean-up')); ?>,
+                cancelButtonText: <?php echo wp_json_encode(esc_html__('Stay on Settings', 'wp-asset-clean-up')); ?>,
+                focusCancel: true,
+                reverseButtons: true
+            }).then(function (result) {
+                navigationPromptOpen = false;
+                if (result.isConfirmed) {
+                    leaveConfirmed = true;
+                    window.location.assign(destination);
+                }
+            });
+        });
+
+        window.addEventListener('submit', function (event) {
+            if (event.target === form) {
+                // Capture before other handlers; inspect their final cancellation
+                // state only when the browser is actually leaving the page.
+                submitEvent = event;
+            }
+        }, true);
+
+        window.addEventListener('pageshow', function () {
+            // Back/Forward may restore this document after a previous submission.
+            submitEvent = null;
+            leaveConfirmed = false;
+            updateCount();
+        });
 
         if (typeof window.MutationObserver !== 'undefined') {
             new window.MutationObserver(scheduleUpdate).observe(

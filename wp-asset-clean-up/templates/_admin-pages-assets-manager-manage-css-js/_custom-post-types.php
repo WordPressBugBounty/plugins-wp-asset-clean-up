@@ -66,9 +66,9 @@ $baseUrl = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager&wpac
             <input type="hidden" name="wpacu_post_type_view" value="archives" />
 
             <label for="wpacu-custom-post-type-archive-choice"><strong><?php esc_html_e('Custom Post Type Archive', 'wp-asset-clean-up'); ?>:</strong></label>
-            <select id="wpacu-custom-post-type-archive-choice" name="wpacu_post_type" onchange="this.form.submit();">
+            <select id="wpacu-custom-post-type-archive-choice" name="wpacu_post_type" data-wpacu-taxonomy-picker onchange="this.form.submit();">
                 <?php foreach ($archives as $postTypeKey => $archive) { ?>
-                    <option value="<?php echo esc_attr($postTypeKey); ?>" <?php selected($selectedPostType, $postTypeKey); ?>>
+                    <option value="<?php echo esc_attr($postTypeKey); ?>" <?php selected($selectedPostType, $postTypeKey); ?><?php if ($archive['count'] < 1) { ?> data-empty="1" style="color: #8c8f94; opacity: .6;"<?php } ?>>
                         <?php echo esc_html($archive['label'] . ' (' . $postTypeKey . ')'); ?>
                     </option>
                 <?php } ?>
@@ -101,10 +101,11 @@ $baseUrl = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_assets_manager&wpac
         require_once __DIR__ . '/_singular-page.php';
     } else {
         // There's no POST ID requested; select a valid context for the search form.
-        $postTypesList = AssetsManagerAdmin::getCustomPostTypesWithPosts();
+        $postTypesList = AssetsManagerAdmin::getCustomPostTypesWithPosts(true);
 
         if ($data['post_type'] === '' || ! isset($postTypesList[$data['post_type']])) {
-            $data['post_type'] = AssetsManagerAdmin::getDefaultCustomPostTypeWithPosts();
+            reset($postTypesList);
+            $data['post_type'] = key($postTypesList);
         }
 
         require_once __DIR__ . '/_singular-page-search-form.php';

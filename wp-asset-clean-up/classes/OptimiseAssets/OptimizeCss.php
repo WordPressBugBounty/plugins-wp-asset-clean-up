@@ -136,7 +136,7 @@ class OptimizeCss
 
                 if ( ! $localAssetPath ) {
                     if (isset($_GET['wpacu_debug'])) {
-                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle'=>$styleHandle, 'src'=>$src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
+                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle' => $styleHandle, 'src' => $src), 'File optimization', 'Skipped', __('This source could not be resolved to a local file.', 'wp-asset-clean-up'));
                     }
                     continue; // not a local file
                 }
@@ -152,8 +152,9 @@ class OptimizeCss
                 // Check if the CSS has any 'data-wpacu-skip' attribute; if it does, do not alter it
                 if ( Misc::hasExactDataAttr($linkSourceTag, 'data-wpacu-skip') ) {
                     if (isset($_GET['wpacu_debug'])) {
-                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle'=>$styleHandle, 'src'=>$src), 'File optimization', 'Skipped', __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up'));
+                    	\WpAssetCleanUp\DebugOptimizationDetails::record('css', (object)array('handle' => $styleHandle, 'src' => $src), 'File optimization', 'Skipped', __('The asset tag has the data-wpacu-skip attribute.', 'wp-asset-clean-up'));
                     }
+
                     unset( $wpStylesDone[ $index ] );
                     continue;
                 }
@@ -416,6 +417,8 @@ class OptimizeCss
 		}
 
 		$transientName = 'wpacu_css_optimize_'.$uniqueAssetStr;
+		// Page options and exclusions can change minification for the same source file.
+		$transientName .= $doFileMinify ? '_minify_1' : '_minify_0';
 		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
 
 		$skipCache = false;
@@ -424,13 +427,20 @@ class OptimizeCss
 			$skipCache = true;
 		}
 
-	    if (! $skipCache) {
+	    if ( ! $skipCache ) {
 		    $savedValuesArray = OptimizeCommon::getTransient($transientName);
 
-		    if (isset($savedValuesArray[0]) && $savedValuesArray[0] === 'no_alter') {
-                if (isset($_GET['wpacu_debug'])) {
-                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Skipped', __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up'));
+		    if ( isset($savedValuesArray[0]) && $savedValuesArray[0] === 'no_alter' ) {
+                if ( isset($_GET['wpacu_debug']) ) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                        'css',
+                        $value,
+                        'File optimization',
+                        'Skipped',
+                        __('A cached decision keeps the original file. Minification was not rechecked in this request; use Bypass optimized-file cache for a fresh check.', 'wp-asset-clean-up')
+                    );
                 }
+
 			    return array();
 		    }
 
@@ -461,28 +471,42 @@ class OptimizeCss
 
         $src = $srcForDynamicCacheCheck;
 
-		if ($cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'simple-custom-css') {
+		if ( $cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'simple-custom-css' ) {
 			$pathToAssetDir = '';
 			$sourceBeforeOptimization = $value->src;
 
-			if (! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('simple-custom-css', $value))) {
+			if ( ! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('simple-custom-css', $value)) ) {
 				return array();
 			}
 		} elseif ($cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'dynamic') {
 			$pathToAssetDir = '';
 			$sourceBeforeOptimization = str_replace('&#038;', '&', $value->src);
 
-			if (! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('dynamic', $value))) {
-                if (isset($_GET['wpacu_debug'])) {
-                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Failed', __('The dynamic asset returned no readable content.', 'wp-asset-clean-up'));
+			if ( ! ($cssContent = DynamicLoadedAssets::getAssetContentFrom('dynamic', $value)) ) {
+                if ( isset($_GET['wpacu_debug']) ) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                        'css',
+                        $value,
+                        'File optimization',
+                        'Failed',
+                        __('The dynamic asset returned no readable content.', 'wp-asset-clean-up')
+                    );
                 }
+
 				return array();
 			}
 		} else {
-			if (! $isCssFile) {
-                if (isset($_GET['wpacu_debug'])) {
-                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Skipped', __('No supported local file was available for this source.', 'wp-asset-clean-up'));
+			if ( ! $isCssFile ) {
+                if ( isset($_GET['wpacu_debug']) ) {
+                	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                        'css',
+                        $value,
+                        'File optimization',
+                        'Skipped',
+                        __('No supported local file was available for this source.', 'wp-asset-clean-up')
+                    );
                 }
+
 				return array();
 			}
 
@@ -524,30 +548,61 @@ class OptimizeCss
 				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogleRemove::applySpecificRemovalToCss($cssContent);
 				if (isset($_GET['wpacu_debug'])) {
-					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+                    $cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe(
+                        'css',
+                        $value,
+                        'Google Fonts removal',
+                        __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'),
+                        $cssContentBeforeAlteration,
+                        $cssContent
+                    );
 				}
 			}
 
 			if ( Main::instance()->settings['google_fonts_local'] ) {
 				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogleLocal::alterContent( $cssContent, 'css' );
-				if (isset($_GET['wpacu_debug'])) {
-					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Local Google Fonts', __('Google Fonts localization changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+
+				if ( isset($_GET['wpacu_debug']) ) {
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe(
+                        'css',
+                        $value,
+                        'Local Google Fonts',
+                        __('Google Fonts localization changed the CSS content.', 'wp-asset-clean-up'),
+                        $cssContentBeforeAlteration,
+                        $cssContent
+                    );
 				}
 			}
 
 			// Move any @imports to top; This also strips any @imports to Google Fonts if the option is chosen
 			$cssContentBeforeAlteration = $cssContent;
 			$cssContent = self::importsUpdate( $cssContent );
+
 			if (isset($_GET['wpacu_debug'])) {
-				$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'CSS imports', __('CSS import processing changed the content; this stage can also remove Google Fonts imports.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+                $cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe(
+                    'css',
+                    $value,
+                    'CSS imports',
+                    __('CSS import processing changed the content; this stage can also remove Google Fonts imports.', 'wp-asset-clean-up'),
+                    $cssContentBeforeAlteration,
+                    $cssContent
+                );
 			}
 
 			if (FontsGoogleRemove::hasSpecificRules()) {
 				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogleRemove::applySpecificRemovalToCss($cssContent);
+
 				if (isset($_GET['wpacu_debug'])) {
-					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe(
+                        'css',
+                        $value,
+                        'Google Fonts removal',
+                        __('Specific Google Fonts removal rules changed the CSS content.', 'wp-asset-clean-up'),
+                        $cssContentBeforeAlteration,
+                        $cssContent
+                    );
 				}
 			}
 		}
@@ -578,15 +633,29 @@ class OptimizeCss
 			if ( Main::instance()->settings['google_fonts_remove'] ) {
 				$cssContentBeforeAlteration = $cssContent;
 				$cssContent = FontsGoogleRemove::cleanFontFaceReferences( $cssContent );
+
 				if (isset($_GET['wpacu_debug'])) {
-					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('css', $value, 'Google Fonts removal', __('Google Fonts font-face references were removed.', 'wp-asset-clean-up'), $cssContentBeforeAlteration, $cssContent);
+					$cssContent = \WpAssetCleanUp\DebugOptimizationDetails::observe(
+                        'css',
+                        $value,
+                        'Google Fonts removal',
+                        __('Google Fonts font-face references were removed.', 'wp-asset-clean-up'),
+                        $cssContentBeforeAlteration,
+                        $cssContent
+                    );
 				}
 			}
 
 			// No changes were made, thus, there's no point in changing the original file location
 			if ( $isCssFile && trim( $cssContentBefore ) === trim( $cssContent ) ) {
                 if (isset($_GET['wpacu_debug'])) {
-                	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'No change needed', __('The processed CSS matches the original content. No optimized file is needed.', 'wp-asset-clean-up'));
+                	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                        'css',
+                        $value,
+                        'File optimization',
+                        'No change needed',
+                        __('The processed CSS matches the original content. No optimized file is needed.', 'wp-asset-clean-up')
+                    );
                 }
 				// There's no point in changing the original CSS (static) file location
 				OptimizeCommon::setTransient($transientName, 'no_alter');
@@ -651,9 +720,15 @@ class OptimizeCss
 			\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', $status, $reason);
         }
 
-		if (! $saveFile && ! $cssContent) {
-            if (isset($_GET['wpacu_debug'])) {
-            	\WpAssetCleanUp\DebugOptimizationDetails::record('css', $value, 'File optimization', 'Failed', __('The optimized file could not be saved or its content was empty.', 'wp-asset-clean-up'));
+		if ( ! $saveFile && ! $cssContent ) {
+            if ( isset($_GET['wpacu_debug']) ) {
+            	\WpAssetCleanUp\DebugOptimizationDetails::record(
+                    'css',
+                    $value,
+                    'File optimization',
+                    'Failed',
+                    __('The optimized file could not be saved or its content was empty.', 'wp-asset-clean-up')
+                );
             }
 			// Fallback to the original CSS if the optimized version can't be created or updated
 			return array();
@@ -676,10 +751,11 @@ class OptimizeCss
 
 	/**
 	 * @param $htmlSource
+	 * @param bool $cleanUpTemporaryAttributes False when the common pipeline cleans both asset types.
 	 *
 	 * @return mixed|void
 	 */
-	public static function alterHtmlSource($htmlSource)
+	public static function alterHtmlSource($htmlSource, $cleanUpTemporaryAttributes = true)
 	{
 		// There has to be at least one "<link" or "<style", otherwise, it could be a feed request or something similar (not page, post, homepage etc.)
 		if ( (stripos($htmlSource, '<link') === false && stripos($htmlSource, '<style') === false) || isset($_GET['wpacu_no_optimize_css']) ) {
@@ -691,7 +767,7 @@ class OptimizeCss
 		// Are there any assets unloaded where their "children" are ignored?
 		// Since they weren't dequeued the WP way (to avoid unloading the "children"), they will be stripped here
         /* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_unload_ignore_deps_css'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
-		if (! Main::instance()->preventAssetsSettings()) {
+		if (! Main::instance()->preventAssetRules()) {
 			$htmlSource = self::ignoreDependencyRuleAndKeepChildrenLoaded($htmlSource);
 		}
         /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
@@ -703,7 +779,7 @@ class OptimizeCss
 		}
 		/* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
-		if ( ! Main::instance()->preventAssetsSettings() ) {
+		if ( ! Main::instance()->preventAssetRules() ) {
 			/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_change_css_position'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
 			if ( ! wpacuIsDefinedConstant('WPACU_NO_POSITIONS_CHANGED_FOR_ASSETS') ) {
                 $htmlSource = apply_filters('wpacu_internal_change_css_position', $htmlSource);
@@ -786,12 +862,13 @@ class OptimizeCss
                 $htmlSource = str_replace(Preloads::DEL_STYLES_PRELOADS, '', $htmlSource);
             }
 
-            if (strpos($htmlSource, 'data-wpacu-link-rel-href-before') !== false || strpos($htmlSource, 'data-wpacu-style-handle') !== false) {
+            if ($cleanUpTemporaryAttributes) {
                 $htmlSource = self::cleanUpTemporaryLinkAttributes($htmlSource);
             }
 
-            // Clear possible empty SCRIPT tags (e.g. left from associated 'before' and 'after' tags after their content was stripped)
-            $htmlSource = preg_replace('#<style(\s+|)(type=\'text/css\'|)(\s+|)>(\s+|)</style>#Umi', '', $htmlSource);
+            // Disabled: document-wide removal also changes STYLE literals inside
+            // JavaScript strings, HTML attributes and textareas. Preserve empty tags.
+            // $htmlSource = preg_replace('#<style(\s+|)(type=\'text/css\'|)(\s+|)>(\s+|)</style>#Umi', '', $htmlSource);
         /* [wpacu_timing] */ Misc::scriptExecTimer($wpacuTimingName, 'end'); /* [/wpacu_timing] */
 
 		/* [wpacu_timing] */ $wpacuTimingName = 'alter_html_source_for_google_fonts_optimization_removal'; Misc::scriptExecTimer($wpacuTimingName); /* [/wpacu_timing] */
@@ -823,17 +900,7 @@ class OptimizeCss
      */
     public static function cleanUpTemporaryLinkAttributes($htmlSource)
     {
-    	if (stripos($htmlSource, '<link') === false || stripos($htmlSource, 'data-wpacu-') === false) {
-    		return $htmlSource;
-    	}
-
-    	return preg_replace_callback('#<link\b[^>]*>#i', static function($matches) {
-    		return preg_replace(
-    			'#\s+data-wpacu-(?:link-rel-href-before|style-handle)=(?:"[^"]*"|\'[^\']*\'|[^\s>]+)#i',
-    			'',
-    			$matches[0]
-    		);
-    	}, $htmlSource);
+        return HtmlCleanup::removeTemporaryAssetAttributes($htmlSource, 'css');
     }
 
 	/**

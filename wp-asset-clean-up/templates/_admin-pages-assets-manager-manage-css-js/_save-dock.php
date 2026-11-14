@@ -86,6 +86,10 @@ if ( ! isset($wpacuNoLoadInTargetPage)) {
         summary.classList.toggle('has-unsaved-changes', count > 0);
     }
     function scheduleRefresh() { window.clearTimeout(timer); timer = window.setTimeout(refresh, 40); }
+    form.wpacuHasUnsavedChanges = function () {
+        refresh();
+        return summary.classList.contains('has-unsaved-changes');
+    };
     function syncDockVisibility() {
         dock.classList.toggle('wpacu-assets-loading', submit.classList.contains('hidden'));
     }

@@ -205,44 +205,28 @@ class AdminBar
                 display: inline-block;
                 box-sizing: border-box;
             }
+
+            #wpadminbar #wp-admin-bar-assetcleanup-clear-css-js-files-cache > .ab-item {
+                padding: 0;
+            }
+
+            #wpadminbar #wp-admin-bar-assetcleanup-clear-css-js-files-cache button.ab-item {
+                width: 100%;
+                margin: 0;
+                padding: 0 10px;
+                border: 0;
+                box-sizing: border-box;
+                background: transparent;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+            }
+
+            #wpadminbar #wp-admin-bar-assetcleanup-clear-css-js-files-cache button.ab-item:hover,
+            #wpadminbar #wp-admin-bar-assetcleanup-clear-css-js-files-cache button.ab-item:focus {
+                color: #72aee6;
+            }
 		</style>
-		<script>
-		document.addEventListener('click', function(event) {
-			var clearCacheLink = event.target.closest('#wp-admin-bar-assetcleanup-clear-css-js-files-cache > a');
-
-			if (! clearCacheLink) {
-				return;
-			}
-
-			event.preventDefault();
-
-			var form = document.createElement('form');
-			form.method = 'post';
-			form.action = <?php echo wp_json_encode(OptimizeCommon::generateClearCachingUrl()); ?>;
-
-			var fields = <?php echo wp_json_encode(array(
-				'action'           => 'assetcleanup_clear_assets_cache',
-				'_wpnonce'         => wp_create_nonce('assetcleanup_clear_assets_cache'),
-				'_wp_http_referer' => isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '/',
-				'wpacu_dash_area'  => is_admin() ? '1' : ''
-			)); ?>;
-
-			Object.keys(fields).forEach(function(name) {
-				if (fields[name] === '') {
-					return;
-				}
-
-				var input = document.createElement('input');
-				input.type = 'hidden';
-				input.name = name;
-				input.value = fields[name];
-				form.appendChild(input);
-			});
-
-			document.body.appendChild(form);
-			form.submit();
-		});
-		</script>
 
         <?php
         ?>
@@ -870,12 +854,21 @@ class AdminBar
 			'href'   => esc_url(admin_url( 'admin.php?page=' . WPACU_PLUGIN_ID . '_settings'))
 		));
 
+        // The cache manager handles this click via AJAX; keep the form as a fallback.
+        // A real POST form also works when JavaScript is disabled or cannot initialize.
+        $clearCacheForm = '<form method="post" action="' . esc_url(OptimizeCommon::generateClearCachingUrl()) . '">'
+            . '<input type="hidden" name="action" value="assetcleanup_clear_assets_cache" />'
+            . '<input type="hidden" name="wpacu_dash_area" value="' . (is_admin() ? '1' : '') . '" />'
+            . wp_nonce_field('assetcleanup_clear_assets_cache', '_wpnonce', true, false)
+            . '<button type="submit" class="ab-item wpacu-clear-cache-link">'
+            . esc_html__('Clear CSS/JS Files Cache', 'wp-asset-clean-up')
+            . '</button></form>';
+
 		$wp_admin_bar->add_menu(array(
 			'parent' => 'assetcleanup-parent',
 			'id'     => 'assetcleanup-clear-css-js-files-cache',
-			'title'  => __('Clear CSS/JS Files Cache', 'wp-asset-clean-up'),
-			'href'   => '#',
-            'meta'   => array('class' => 'wpacu-clear-cache-link')
+			'title'  => $clearCacheForm,
+			'href'   => false
 		));
 
 		// Only trigger in the front-end view
@@ -984,7 +977,7 @@ class AdminBar
 						$wp_admin_bar->add_menu(array(
 							'parent' => 'assetcleanup-asset-unload-rules-css',
 							'id'     => 'assetcleanup-asset-unload-rules-css-'.$cssHandle,
-							'title'  => $cssHandle . self::generateTooltipWithAssetUnloadInfo($assetType, $cssHandle),
+							'title'  => esc_html($cssHandle) . self::generateTooltipWithAssetUnloadInfo($assetType, $cssHandle),
 							'href'   => esc_url(admin_url('admin.php?page=wpassetcleanup_overview#wpacu-overview-css-'.$cssHandle)),
                             'meta'   => array(
                                 'class' => $classToAddToAssetItem
@@ -1015,7 +1008,7 @@ class AdminBar
 						$wp_admin_bar->add_menu(array(
 							'parent' => 'assetcleanup-asset-unload-rules-js',
 							'id'     => 'assetcleanup-asset-unload-rules-js-'.$jsHandle,
-							'title'  => $jsHandle . self::generateTooltipWithAssetUnloadInfo($assetType, $jsHandle),
+							'title'  => esc_html($jsHandle) . self::generateTooltipWithAssetUnloadInfo($assetType, $jsHandle),
 							'href'   => esc_url(admin_url('admin.php?page=wpassetcleanup_overview#wpacu-overview-js-'.$jsHandle)),
                             'meta'   => array(
                                 'class' => $classToAddToAssetItem
@@ -1166,15 +1159,24 @@ class AdminBar
                                   '</li>';
         }
 
-        if ( isset($ruleInfo['matched_value']) && $ruleInfo['matched_value'] ) {
-            $matchedPattern = ''; // default
+        if ( ( isset($ruleInfo['matched_value_html']) && $ruleInfo['matched_value_html'] )
+             || ( isset($ruleInfo['matched_value']) && $ruleInfo['matched_value'] ) ) {
 
-            // e.g. multiple RegEx(es) per line; Highlight the matched one for the current page (request URI)
-            if (isset($ruleInfo['matched_pattern']) && $ruleInfo['matched_pattern']) {
-                $matchedPattern = $ruleInfo['matched_pattern'];
+            if ( isset($ruleInfo['matched_value_html']) && $ruleInfo['matched_value_html'] ) {
+                // Pre-formatted value: the producer built this string with every dynamic part
+                // already passed through esc_html(), so it is safe to output verbatim while
+                // keeping the intended markup (e.g. bold taxonomy label). Do NOT re-escape.
+                $matchedValue = $ruleInfo['matched_value_html'];
+            } else {
+                $matchedPattern = ''; // default
+
+                // e.g. multiple RegEx(es) per line; Highlight the matched one for the current page (request URI)
+                if (isset($ruleInfo['matched_pattern']) && $ruleInfo['matched_pattern']) {
+                    $matchedPattern = $ruleInfo['matched_pattern'];
+                }
+
+                $matchedValue = AdminBar::formatMatchedValueForTooltip($ruleInfo['matched_value'], $matchedPattern);
             }
-
-            $matchedValue = AdminBar::formatMatchedValueForTooltip($ruleInfo['matched_value'], $matchedPattern);
 
             $ruleContentArray[] = '<li data-wpacu-asset-rule-matched-value="true">'.
                                       '<strong>Matched Value:</strong> ' .  trim($matchedValue) .
@@ -1217,7 +1219,7 @@ HTML;
 
         // Single value, no textarea-style multiple lines
         if (strpos($matchedValue, "\n") === false && strpos($matchedValue, "\r") === false) {
-            return $matchedValue;
+            return esc_html($matchedValue);
         }
 
         $lines = preg_split('/\r\n|\r|\n/', $matchedValue);
@@ -1232,11 +1234,11 @@ HTML;
             }
 
             $classToAdd = '';
-            $lineOutput = $line;
+            $lineOutput = esc_html($line);
 
             if ($matchedPattern && $line === $matchedPattern) {
                 $classToAdd = 'wpacu-matched-pattern';
-                $lineOutput = '<strong>'.$line.'</strong>';
+                $lineOutput = '<strong>'.esc_html($line).'</strong>';
             }
 
             $output .= '<li class="'.$classToAdd.'"><span>' . $lineOutput . '</span></li>';

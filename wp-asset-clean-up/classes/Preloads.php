@@ -260,7 +260,7 @@ class Preloads
         }
 
 		// Only valid for front-end pages with LINKs
-		if (! $this->enablePreloads('css') || strpos($htmlTag,'<link ') === false || Main::instance()->preventAssetsSettings()) {
+		if (! $this->enablePreloads('css') || strpos($htmlTag,'<link ') === false || Main::instance()->preventAssetRules()) {
 			/* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
 			return $htmlTag;
 		}
@@ -328,7 +328,7 @@ class Preloads
 		}
 
 		// Only valid for front-end pages with SCRIPTs
-		if (! $this->enablePreloads('js') || strpos($htmlTag,'<script ') === false || Main::instance()->preventAssetsSettings()) {
+		if (! $this->enablePreloads('js') || strpos($htmlTag,'<script ') === false || Main::instance()->preventAssetRules()) {
 			/* [wpacu_timing] */Misc::scriptExecTimer( $wpacuTimingName, 'end' );/* [/wpacu_timing] */
 			return $htmlTag;
 		}
@@ -522,7 +522,9 @@ class Preloads
      */
 	public static function appendPreloadsForScriptsToHead($htmlSource)
 	{
-	    if (self::preventPreload()) {
+	    // Per-asset preload markers are gated when created. Finalize markers from
+	    // independent optimizations too (e.g. automatically preloaded combined JS).
+	    if (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')) {
 	        return $htmlSource;
         }
 
@@ -661,7 +663,7 @@ class Preloads
 	 */
 	public static function preventPreload()
     {
-        if (wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')) {
+		if (! Main::instance()->areAssetRulesEnabled() || wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')) {
             return true;
         }
 

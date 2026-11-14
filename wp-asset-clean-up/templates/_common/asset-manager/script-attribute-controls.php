@@ -6,7 +6,7 @@ if (! defined('ABSPATH') || $assetType !== 'scripts') {
 $wpacuScriptAttrsIsPro = defined('WPACU_PRO_PLUGIN_VERSION');
 ?>
 <div class="wpacu-script-attributes-area <?php echo $wpacuScriptAttrsIsPro ? 'wpacu-pro' : 'wpacu-lite'; ?> wpacu-only-when-kept-loaded">
-    <div><?php esc_html_e('Set the following attributes:', 'wp-asset-clean-up'); ?><?php if (! $wpacuScriptAttrsIsPro) { ?> <em><a class="go-pro-link-no-style" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL)); ?>">* <?php esc_html_e('Pro version', 'wp-asset-clean-up'); ?></a></em><?php } ?></div>
+    <div><?php esc_html_e('Set the following attributes', 'wp-asset-clean-up'); ?>:<?php if (! $wpacuScriptAttrsIsPro) { ?> <em><a class="go-pro-link-no-style" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL)); ?>">* <?php esc_html_e('Pro version', 'wp-asset-clean-up'); ?></a></em><?php } ?></div>
     <?php
     foreach (array('async', 'defer') as $wpacuScriptAttrIndex => $wpacuScriptAttr) {
         $wpacuScriptAttrOnPage = $wpacuScriptAttrsIsPro && in_array($data['row']['obj']->handle, $data['scripts_attributes']['on_this_page'][$wpacuScriptAttr]);

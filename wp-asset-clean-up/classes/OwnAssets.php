@@ -35,6 +35,10 @@ class OwnAssets
 	public static function prepareVars()
     {
         self::$ownAssets['styles'] = array(
+            'style_cache_manager' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-style-cache-manager',
+                'rel_path' => '/assets/style-cache-manager.min.css'
+            ),
             'style_core' => array(
 	            'handle'   => WPACU_PLUGIN_ID . '-style',
 	            'rel_path' => '/assets/style.min.css'
@@ -82,6 +86,10 @@ class OwnAssets
         );
 
         self::$ownAssets['scripts'] = array(
+            'frontend_manager' => array(
+                'handle'   => WPACU_PLUGIN_ID . '-frontend-manager',
+                'rel_path' => '/assets/frontend-manager.min.js'
+            ),
             'script_core' => array(
                 'handle'   => WPACU_PLUGIN_ID . '-script',
                 'rel_path' => '/assets/script.min.js'
@@ -127,6 +135,7 @@ class OwnAssets
         // Read more: https://wordpress.org/support/article/debugging-in-wordpress/#script_debug
 	    if ( (defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ) {
 		    self::$ownAssets['styles']['style_core']['rel_path']   = '/assets/style.css';
+            self::$ownAssets['styles']['style_cache_manager']['rel_path'] = '/assets/style-cache-manager.css';
             self::$ownAssets['styles']['local_fonts_preload_scanner']['rel_path'] = '/assets/local-fonts-preload-scanner.css';
             self::$ownAssets['styles']['google_fonts_local']['rel_path'] = '/assets/google-fonts-local.css';
 		    self::$ownAssets['styles']['critical_css_admin']['rel_path'] = '/assets/critical-css-admin.css';
@@ -362,17 +371,38 @@ JS;
     }
 
     /**
-     * This method is used for both front-end and /wp-admin/ view as the top admin bar can be loaded on both sides
+     * Render trusted plugin JavaScript through WordPress' CSP integration filters.
      *
-     * @return void
+     * @return string
+     */
+    public static function getInlineScriptTag($script, $attributes = array())
+    {
+        if (function_exists('wp_get_inline_script_tag')) {
+            return wp_get_inline_script_tag($script, $attributes);
+        }
+
+        // WordPress before 5.7: retain the nonce integration filter as well.
+        $attributes = apply_filters('wp_inline_script_attributes', $attributes, $script);
+        $htmlAttributes = '';
+        foreach ($attributes as $name => $value) {
+            if (is_bool($value)) {
+                $htmlAttributes .= $value ? ' '.esc_attr($name) : '';
+            } else {
+                $htmlAttributes .= ' '.esc_attr($name).'="'.esc_attr($value).'"';
+            }
+        }
+        return '<script'.$htmlAttributes.'>'.$script.'</script>';
+    }
+
+    /**
+     * Cache feedback for the toolbar in both the front end and wp-admin.
      */
     public function inlineCommonCodeFooter()
     {
         if (Main::isPluginClearCacheLinkAccessible()) {
-            global $wp_styles, $wp_scripts;
+            global $wp_scripts;
 
-            if ( ! in_array(self::$ownAssets['styles']['style_core']['handle'], array_keys($wp_styles->registered)) ||
-                 ! in_array(self::$ownAssets['scripts']['script_cache_manager']['handle'], array_keys($wp_scripts->registered)) ) {
+            if ( ! in_array(self::$ownAssets['scripts']['script_cache_manager']['handle'], array_keys($wp_scripts->registered)) ) {
                 return;
             }
             ?>
@@ -1063,6 +1093,13 @@ JS;
 	private function _enqueueAdminStyles()
     {
         if ( ! self::shouldLoadCoreAssets()) {
+            // The toolbar cache manager also needs feedback outside the plugin's own pages.
+            wp_enqueue_style(
+                self::$ownAssets['styles']['style_cache_manager']['handle'],
+                plugins_url(self::$ownAssets['styles']['style_cache_manager']['rel_path'], WPACU_PLUGIN_FILE),
+                array(),
+                self::assetVer(self::$ownAssets['styles']['style_cache_manager']['rel_path'])
+            );
             return;
         }
 
@@ -1072,6 +1109,17 @@ JS;
             array(),
             self::assetVer(self::$ownAssets['styles']['style_core']['rel_path'])
         );
+
+        if (in_array(Misc::getVar('get', 'page'), array(WPACU_PLUGIN_ID . '_assets_manager', WPACU_PLUGIN_ID . '_plugins_manager'), true)) {
+            $selectsSuffix = (defined('SCRIPT_DEBUG') && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ? '' : '.min';
+            $selectsPath   = '/assets/admin/manager-selects' . $selectsSuffix . '.css';
+            wp_enqueue_style(
+                WPACU_PLUGIN_ID . '-manager-selects',
+                WPACU_PLUGIN_URL . $selectsPath,
+                array(self::$ownAssets['styles']['style_core']['handle']),
+                filemtime(WPACU_PLUGIN_DIR . $selectsPath)
+            );
+        }
 
         if (Misc::getVar('get', 'page') === WPACU_PLUGIN_ID . '_settings') {
             wp_enqueue_style(
@@ -1100,7 +1148,7 @@ JS;
         wp_register_script(
             self::$ownAssets['scripts']['script_cache_manager']['handle'],
             plugins_url(self::$ownAssets['scripts']['script_cache_manager']['rel_path'], WPACU_PLUGIN_FILE),
-            array('jquery'),
+            array(),
             self::assetVer(self::$ownAssets['scripts']['script_cache_manager']['rel_path'])
         );
 
@@ -1346,9 +1394,27 @@ jQuery(document).ready(function($) {
           .toggleClass('wpacu-enabled', isEnabled)
           .toggleClass('wpacu-disabled', ! isEnabled)
           .text(isEnabled ? 'Enabled' : 'Disabled');
+
+      if (\$statusInput.attr('data-wpacu-other-enabled') !== undefined) {
+          var parentEnabled = isEnabled || \$statusInput.attr('data-wpacu-other-enabled') === '1';
+          $('#wpacu-critical-css-manager-tab-menu > .wpacu-nav-tab-active')
+              .toggleClass('wpacu-on', parentEnabled).toggleClass('wpacu-off', !parentEnabled);
+          $('.wpacu-critical-css-classic-scope-tabs > [aria-current="page"]')
+              .toggleClass('wpacu-on', isEnabled).toggleClass('wpacu-off', !isEnabled);
+          var customType = \$statusInput.attr('data-wpacu-custom-page-type');
+          if (customType) {
+              $('.wpacu-circle-status[data-wpacu-custom-page-type]').filter(function () {
+                  return $(this).attr('data-wpacu-custom-page-type') === customType;
+              }).toggleClass('wpacu-on', isEnabled).toggleClass('wpacu-off', !isEnabled);
+          }
+      }
   }
 
   $(document).on('change', '#wpacu_critical_css_status', function() {
+      wpacuUpdateCriticalCssRuleUi($(this));
+  });
+
+  $('#wpacu_critical_css_status[data-wpacu-other-enabled]').each(function() {
       wpacuUpdateCriticalCssRuleUi($(this));
   });
 
@@ -1809,6 +1875,11 @@ HTML;
 	 */
 	public function loadjQueryChosen()
     {
+        // The isolated manager loads its own copy; do not attach it to the theme's jQuery.
+        if (FrontendManagerFrame::isEnabled()) {
+            return;
+        }
+
         // [Start] Chosen Style
 		wp_register_style(
 			self::$ownAssets['styles']['chosen']['handle'],
@@ -1846,11 +1917,25 @@ CSS;
      */
     private function enqueuePublicStyles()
     {
+        // The full manager stylesheet belongs to its iframe. The parent page only
+        // needs the toolbar overlay, compiled from the shared loading SCSS.
+        $style = self::$ownAssets['styles']['style_cache_manager'];
+        $file = dirname(__DIR__) . $style['rel_path'];
+        $inlineCss = is_readable($file) ? file_get_contents($file) : false;
+
+        if (is_string($inlineCss) && trim($inlineCss) !== '') {
+            wp_register_style($style['handle'], false, array(), null);
+            wp_enqueue_style($style['handle']);
+            wp_add_inline_style($style['handle'], $inlineCss);
+            return;
+        }
+
+        // Keep cache feedback styled if the local file cannot be read by PHP.
         wp_enqueue_style(
-            self::$ownAssets['styles']['style_core']['handle'],
-            plugins_url(self::$ownAssets['styles']['style_core']['rel_path'], WPACU_PLUGIN_FILE),
+            $style['handle'],
+            plugins_url($style['rel_path'], WPACU_PLUGIN_FILE),
             array(),
-            self::assetVer(self::$ownAssets['styles']['style_core']['rel_path'])
+            self::assetVer($style['rel_path'])
         );
     }
 
@@ -1863,7 +1948,7 @@ CSS;
         wp_register_script(
             self::$ownAssets['scripts']['script_cache_manager']['handle'],
             plugins_url(self::$ownAssets['scripts']['script_cache_manager']['rel_path'], WPACU_PLUGIN_FILE),
-            array('jquery'),
+            array(),
             self::assetVer(self::$ownAssets['scripts']['script_cache_manager']['rel_path']),
             true
         );
@@ -1876,7 +1961,17 @@ CSS;
 
         wp_enqueue_script(self::$ownAssets['scripts']['script_cache_manager']['handle']);
 
-        if (self::shouldLoadCoreAssets()) {
+        if (FrontendManagerFrame::isEnabled()) {
+            $debug = (defined('SCRIPT_DEBUG') && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']);
+            $frameScript = '/assets/frontend-manager' . ($debug ? '' : '.min') . '.js';
+            wp_enqueue_script(
+                WPACU_PLUGIN_ID . '-frontend-manager',
+                plugins_url($frameScript, WPACU_PLUGIN_FILE),
+                array(),
+                self::assetVer($frameScript),
+                true
+            );
+        } elseif (self::shouldLoadCoreAssets()) {
             // Core file (it also calls the cache manager)
             wp_register_script(
                 self::$ownAssets['scripts']['script_core']['handle'],
@@ -1948,19 +2043,67 @@ CSS;
         return self::shouldLoadCoreAssets();
     }
 
-	/**
-	 * @param $relativePath
-	 *
-	 * @return false|string
-	 */
-	public static function assetVer($relativePath)
+    /**
+     * Uses release-time content hashes, independent of archive file timestamps.
+     *
+     * @param string $relativePath
+     *
+     * @return string
+     */
+    public static function assetVer($relativePath)
     {
-		return @filemtime(dirname(WPACU_PLUGIN_FILE) . $relativePath) ?: date('dmYHi');
-	}
+        static $manifest = null;
+        static $versions = array();
+
+        if (isset($versions[$relativePath])) {
+            return $versions[$relativePath];
+        }
+
+        $version = defined('WPACU_PRO_PLUGIN_VERSION') ? WPACU_PRO_PLUGIN_VERSION : WPACU_PLUGIN_VERSION;
+
+        if ( ! self::isVersionedAssetPath($relativePath) ) {
+            return $version;
+        }
+
+        if ($manifest === null) {
+            $manifestFile = dirname(WPACU_PLUGIN_FILE) . '/assets/asset-versions.php';
+            $manifest     = is_readable($manifestFile) ? include $manifestFile : array();
+
+            // A manifest copied from DEV before stripping is not a release manifest.
+            $manifest = is_array($manifest) && empty($manifest['development'])
+                && isset($manifest['hashes']) && is_array($manifest['hashes'])
+                ? $manifest['hashes'] : array();
+        }
+
+        $hash = isset($manifest[$relativePath]) ? $manifest[$relativePath] : '';
+
+        if ( ! is_string($hash) || ! preg_match('/^[a-f0-9]{40}$/D', $hash) ) {
+            // A partial update or a missing manifest must not break the interface.
+            // Hash only the requested file and reuse its result during this request.
+            $hash = @sha1_file(dirname(WPACU_PLUGIN_FILE) . $relativePath);
+        }
+
+        $versions[$relativePath] = $version . ($hash ? '-' . $hash : '');
+
+        return $versions[$relativePath];
+    }
+
+    /**
+     * @param string $relativePath
+     *
+     * @return bool
+     */
+    private static function isVersionedAssetPath($relativePath)
+    {
+        return is_string($relativePath)
+            && strpos($relativePath, '..') === false
+            && strpos($relativePath, '/./') === false
+            && (bool) preg_match('#^/(?:assets|lite/assets|pro/assets)/[a-zA-Z0-9_./-]+\.(?:css|js)$#D', $relativePath);
+    }
 
 	/**
-	 * Prevent "?ver=" or "&ver=" from being stripped when loading plugin's own assets
-	 * It will force them to refresh whenever there's a change in either of the files
+	 * Version every own CSS/JS URL, including separately enqueued manager assets.
+	 * Keep the dedicated parameter to avoid generic "ver" stripping.
 	 *
 	 * @param $src
 	 * @param $handle
@@ -1969,15 +2112,29 @@ CSS;
 	 */
 	public function ownAssetLoaderSrc($src, $handle)
 	{
-	    if (in_array($handle, self::getOwnAssetsHandles())) {
-			$src = str_replace(
-				array('?ver=',          '&ver='),
-				array('?wpacuversion=', '&wpacuversion='),
-                $src
-            );
-		}
+        if ( ! is_string($src) || $src === '' ) {
+            return $src;
+        }
 
-		return $src;
+        // Match the plugin URL, not the handle: external replacements stay untouched.
+        $assetUrl  = preg_replace('#^https?:#i', '', $src);
+        $pluginUrl = rtrim(preg_replace('#^https?:#i', '', WPACU_PLUGIN_URL), '/') . '/';
+
+        if (strpos($assetUrl, $pluginUrl) !== 0) {
+            return $src;
+        }
+
+        $relativePath = '/' . substr($assetUrl, strlen($pluginUrl));
+        $relativePath = substr($relativePath, 0, strcspn($relativePath, '?#'));
+
+        if ( ! self::isVersionedAssetPath($relativePath) ) {
+            return $src;
+        }
+
+        return add_query_arg(
+            array('ver' => false, 'wpacuversion' => self::assetVer($relativePath)),
+            $src
+        );
 	}
 
 	/**
@@ -2142,6 +2299,8 @@ HTML;
      */
     public static function wpacuObjectDataConfirmsAlertsMsg($wpacuObjectData)
     {
+        $wpacuObjectData['cache_cleared_message'] = __('Cache cleared.', 'wp-asset-clean-up');
+
         $wpacuObjectData['jquery_migration_disable_confirm_msg'] =
             __('Make sure to properly test your website if you unload the jQuery migration library.', 'wp-asset-clean-up')."\n\n".
             __('In some cases, due to old jQuery code triggered from plugins or the theme, unloading this migration library could cause those scripts not to function anymore and break some of the front-end functionality.', 'wp-asset-clean-up')."\n\n".

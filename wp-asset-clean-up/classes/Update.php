@@ -501,7 +501,7 @@ SQL;
         // The post might have the following page option: "Do not load Asset CleanUp Pro on this page (this will disable any functionality of the plugin)"
         // If the admin changed the slug, we need to update the page URI as well that is used very early in the triggering of the plugin
         // when get_permalink() is not available (e.g. outside any action hook or in the MU plugin)
-	    $pageOptionJson = $wpdb->get_var( 'SELECT meta_value FROM `' . $wpdb->prefix . 'postmeta` WHERE post_id=\''.$postId.'\' && meta_key=\'_'.WPACU_PLUGIN_ID.'_page_options\' && meta_value LIKE \'%no_wpacu_load%\'' );
+	    $pageOptionJson = $wpdb->get_var( 'SELECT meta_value FROM `' . $wpdb->prefix . 'postmeta` WHERE post_id=\''.$postId.'\' AND meta_key=\'_'.WPACU_PLUGIN_ID.'_page_options\' AND meta_value LIKE \'%no_wpacu_load%\'' );
 
 	    $postPageOptions = @json_decode($pageOptionJson, ARRAY_A);
 

@@ -40,7 +40,7 @@ if (! $wpacuAssetPositionIsPro) {
 } elseif ($assetType === 'scripts' || $assetHandleHasSrc) {
     ?>
     <div class="wpacu-wrap-choose-position">
-        <?php esc_html_e('Location:', 'wp-asset-clean-up'); ?>
+        <?php esc_html_e('Location', 'wp-asset-clean-up'); ?>:
         <select data-wpacu-input="position-select"
                 name="<?php echo esc_attr(WPACU_FORM_ASSETS_POST_KEY); ?>[<?php echo esc_attr($assetType); ?>][<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>][position]"
                 style="<?php if ($assetPosition !== $assetPositionNew) {

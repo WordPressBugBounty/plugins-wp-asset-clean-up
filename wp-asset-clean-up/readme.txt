@@ -3,7 +3,7 @@ Contributors: gabelivan
 Tags: unused css, critical css, page speed, minify css, minify javascript
 Requires at least: 4.7
 Tested up to: 7.1
-Stable tag: 1.4.0.6
+Stable tag: 1.4.0.7
 Requires PHP: 5.6
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -84,6 +84,14 @@ When an administrator opens an Asset CleanUp Dashboard screen, the plugin may re
 **Google Fonts preload audit**
 
 When an administrator runs the Google Fonts preload audit, Asset CleanUp may request discovered stylesheets and font files from [Google Fonts](https://fonts.google.com/) to analyze their preload requirements. These requests occur only during the administrator-initiated audit and can include the requested font URLs and standard HTTP metadata. See the [Google Privacy Policy](https://policies.google.com/privacy).
+
+**Optional email course**
+
+Asset CleanUp Lite offers an optional seven-lesson email course through Getting Started, Help and contextual invitations during initial setup or after saving CSS/JS rules. Only after you explicitly consent and submit a course form, the plugin sends your chosen email address, optional first name, consent indicator and version, plugin version, fixed Lite source and invitation placement to the developer's [course subscription service](https://www.gabelivan.com/wp-json/wpacu-mailster/v1/course-subscribe). Viewing or dismissing an invitation does not send a subscription request. The site URL, plugin/theme inventory, settings, rules and site content are not included. Mailster handles the confirmation email and course delivery. The course includes occasional information about Asset CleanUp Pro, and you can unsubscribe at any time. See the [privacy policy](https://www.gabelivan.com/privacy-policy/).
+
+Choosing `Continue to setup` records your choice locally and does not send a subscription request. The email field also provides an advisory mail-server check: only the email domain is checked through your WordPress server's DNS resolver. This check does not send your name or full email address to the course service and never prevents submission. The plugin does not periodically contact the course service to check whether you confirmed your email.
+
+After an accepted course request, the submitted email address is stored in the current WordPress user's metadata so the confirmation reminder can identify it and prefill the correction form. The submitted first name is not stored by this feature.
 
 The following two Asset CleanUp-operated services are optional. Both are disabled by default and require an administrator to opt in from `Asset CleanUp > Settings > Plugin Usage Preferences`.
 
@@ -177,7 +185,29 @@ Yes. Each site can be configured independently.
 4. Getting Started — follow a guided, safety-first workflow from Test Mode to your first optimization.
 5. Settings — configure asset retrieval, cleanup, Test Mode, and plugin behavior from clearly organized sections.
 
+CSP integration note: The isolated front-end manager uses `wp_script_attributes` for external script nonces and `wp_inline_script_attributes` for inline script nonces. If an external script still has no nonce, it can call `script_loader_tag` as a fallback with the actual handle and URL. Only the nonce is retained; defer, async, delay, preload and other tag transformations are discarded to preserve the manager's dependency order. Inline scripts still need nonces supplied through `wp_inline_script_attributes`.
+
 == Changelog ==
+= 1.4.0.7 =
+* **New:** Added Alternative Assets for CSS. Create and edit alternative versions of enqueued stylesheets and choose where they apply without modifying the original files. JavaScript alternatives require Pro.
+* **New:** Pause and resume CSS/JS rules and Alternative Assets independently without deleting their saved configuration.
+* **Improvement:** The front-end CSS/JS Manager now runs in an isolated iframe to prevent styling conflicts with themes and plugins. Custom CSS/JS integrations targeting the manager in the parent document need to be adapted; links navigate the top-level page by default unless explicitly targeted or handled within the manager.
+* **Improvement:** Manual AJAX cache clearing now confirms success without reloading the page or requiring jQuery.
+* **Improvement:** Add a locked Plugins Manager preview beside the front-end CSS/JS Manager, showing the contextual By page layout and preserved rules for the current page. The preview tab is hidden on 404 pages.
+* **Improvement:** Import/Export now includes Alternative Assets and preserves stored Pro settings and rules when transferred through Lite, without enabling Pro-only features. Improved import validation and preservation of backslashes in saved rule data.
+* **Fix:** Improve CSS/JS combining to preserve stylesheet order, media conditions and JavaScript execution order around inline code, translations and deferred scripts.
+* **Fix:** Revalidate combined CSS/JS caches when source files or relevant page markup change, preventing reuse of outdated bundles.
+* **Fix:** Keep manual local and Google Fonts preloading disabled when switched off, even if saved URLs remain.
+* **Fix:** Use content-based versions for the plugin's own CSS/JS files so browsers request updated files after plugin updates.
+* **Fix:** Preserve settings belonging to the inactive plugin edition when saving Settings or changing individual options through AJAX controls. Validate submitted form fields against the active edition's settings.
+* **Security:** Restrict asset diagnostic dumps to users with plugin access and escape their HTML output, including hardcoded asset data.
+* **Security:** Validate CSS/JS unload query handles and escape admin-bar output to prevent reflected cross-site scripting.
+* **Security:** Replace document-wide temporary-attribute cleanup to prevent stored cross-site scripting through published comment content. Cleanup preserves quoted values, inline code and text content and also works on older WordPress versions. Ambiguous or unsupported HTML is left unchanged, including its cosmetic markers.
+* **Security:** Restrict credentialed front-end CORS responses to trusted origins while preserving requests from the primary Dashboard to WPML/Polylang language domains. Additional trusted origins can be configured with `wpacu_frontend_cors_allowed_origins`.
+* **Fix:** Keep Critical CSS preview cleanup confined to actual stylesheet tags, preserving marker-like text in other page content.
+* **Fix:** Preserve empty SCRIPT/STYLE markup in page content during cleanup, including STYLE literals used by JavaScript to create elements dynamically.
+* **Fix:** Remove temporary JS source markers from preload links, and handle whitespace consistently in CSS/JS unload query lists.
+
 = 1.4.0.6 =
 * **New:** Admin Bar transfer savings estimates for unloaded CSS/JS files and removed inline code, with AJAX-based measurements and Brotli/GZIP indicators.
 * **Improvement:** Separate effective asset unloads from rules that had no effect on the current page, with inactive rules grouped by asset type.
@@ -273,90 +303,5 @@ Yes. Each site can be configured independently.
 * **Fix - PHP Warning:** Undefined global variable $wpassetcleanup_external_srcs_ref
 * Updated the external links to the help pages
 
-= 1.3.9.9 =
-* **Fix:** Server Side Request Forgery (SSRF) has been discovered on an AJAX call within the CSS/JS manager; New parameters were added to the call to avoid any unsanitized input
-
-= 1.3.9.8 =
-* **Fix:** Avoid deprecated PHP notice if PHP version >= 8.1; A "null" parameter was passed to the native WordPress function add_submenu_page(), instead of an empty string ''
-* **Fix:** When using Query Monitor, the "Update" button from the CSS/JS manager was showing up on top of the bottom Query Monitor data
-
-= 1.3.9.7 =
-* CSS assets can now be preloaded asynchronously via the CSS/JS Manager. [Read more](https://www.assetcleanup.com/docs/?p=202#preload-async-css)
-* Reduce the total number of SQL queries used to obtain information
-* Stop triggering PHP code and SQL queries on pages where they are not relevant
-* Cache SQL queries that are time consuming, which is ideal for websites with a very large database (e.g. tens / hundred of thousands of users)
-
-= 1.3.9.6 =
-* **Fix:** The "usermeta" table is populated with duplicate entries, leading to a larger database, and sometimes, leading to a high CPU usage
-
-= 1.3.9.5 =
-* **New Option:** "Settings" -- "Plugin Usage Preferences" -- "Plugin Access" / Choose user roles or particular users, apart from administrators, that could have access to the plugin area / e.g. the admin could give Asset CleanUp Pro access within the Dashboard to a developer that is optimizing the website, but the developer does not have the "administrator" role for security reasons
-* "wpacu_access_role" filter is no longer active (related to the option mentioned above), as it wasn't 100% effective into changing who accesses the Asset CleanUp Pro area
-* "Nextend Social Login and Register" plugin compatibility / Make sure the homepage is still detected if the following query string is in the URI: "nsl_bypass_cache"
-* **Fix:** When oEmbed is disabled, make sure the REST route is also inactive
-* **Fix:** When the plugin's main menu is hidden from the left sidebar, make sure the following option stays selected whenever a plugin page is accessed: "Settings" -- "Asset CleanUp"
-
-= 1.3.9.4 =
-* Option to manage critical CSS (in "CSS & JS Manager" » "Manage Critical CSS") from the Dashboard (add/update/delete), while keeping the option to use the "wpacu_critical_css" hook for custom/singular pages
-* **Preload CSS feature:** When a .css file is preloaded (Basic), the "media" attribute is preserved if it's not missing and different than "all"
-* **Hardcoded assets' sorting:** The assets are now sorted based on the option chosen in "Assets List Layout:" (e.g. if you sort them by their size, you can view the hardcoded assets from the largest one to the the smallest)
-* **"GTranslate" plugin compatibility:** The JavaScript handle starting from "gt_widget_script_" and having a random number on each page reload gets an alias ("gt_widget_script_gtranslate") to avoid misinterpretation that the asset is a different one on each page reload (this way it could be unloaded, preloaded, etc.)
-* **Combined CSS/JS:** Whenever a file from a plugin or a theme is updated by the developer/admin, there's no need to clear the cache afterwards, as sometimes, users forget about this; the plugin automatically recognizes the change and a new combined CSS/JS is created and re-cached
-* **CSS/JS manager:** When the "src" of a SCRIPT tag or "href" of a LINK tag starts with "data:text/javascript;base64," and "data:text/css;base64," respectively, a note will be shown with the option to view the decoded CSS/JS code
-* If the menu from the sidebar is not showing up, make sure that "Asset CleanUp" from "Settings" (Dashboard sidebar) is always highlighted, whenever a plugin page is visited
-* **Improvement:** When using specific themes, the navigation sub-tabs from the "CSS & JS Manager" were overwritten by the theme's style (added unique references to the HTML classes)
-* **Improvement:** Make sure the red background is kept whenever a load exception is unchecked if there was already an unloading rule set (this is more for aesthetics reasons)
-* **Improvement:** Backend Speed - The plugin processes its PHP code faster, thus reducing the total processing time by ~50 milliseconds for non-cached pages (e.g. backend speed testing plugins such as "Query Monitor" and "Code Profiler" were used to optimize the PHP code)
-* **Improvement:** CSS Minifier - Specific "var()" statements were minified incorrectly in Bootstrap / more: https://github.com/matthiasmullie/minify/issues/422
-* **Improvement:** Added the option to change the way the assets are retrieved ("Direct" as if the admin is visiting the page /  "WP Remote POST" as if a guest is visiting the page) from the CSS & JS manager within the Dashboard (for convenience, to avoid going through the "Settings" as it was the case so far)
-* **Improvement:** Higher accuracy in detecting the "type" and "data-alt-type" attribute before determining if an inline SCRIPT tag has to be minified
-* **Improvement:** In very rare cases in the "options" table, if "page_on_front" has a value and "show_on_front" is set to "posts" (this happens when there's an incomplete update of the settings in the database), it will confuse Asset CleanUp Pro and consider that "Your homepage displays" is actually set to "A static page" which is wrong
-* **Improvement:** The plugin is optimised to load fewer functions than before (e.g. PHP classes that aren't required on the targeted page) in order to reduce the total front-end optimization time
-* **Improvement:** Removed unused PHP code from specific files
-* **Improvement:** CSS/JS Minifier - Prevent calling @is_file() when it's not the case to avoid on specific environments errors such as: "is_file(): open_basedir restriction in effect"
-* **Improvement:** Whenever the following option is enabled, the META generator tags are stripped faster after being cached: 'HTML Source CleanUp' -- 'Remove All "generator" meta tags?'
-* **Improvement:** Apply "font-display:" CSS property for Google Fonts when they are loaded via Web Font Loader (source: https://github.com/typekit/webfontloader)
-* **Rank Math & other SEO plugins compatibility:** Prevent Asset CleanUp Pro from triggering, thus saving extra resources, whenever URIs such as /sitemap_index.xml are loaded to avoid altering the XML structure or generate 404 not found errors
-* **"WooCommerce" plugin compatibility:** Avoid using extra resources in Asset CleanUp Pro to process specific CSS files (they are loading after the latest WooCommerce plugin release) that are already minified
-* **"SiteGround Optimizer" plugin compatibility:** When enabled, on some environments, errors are triggering if Asset CleanUp's JavaScript minify option is turned on
-* **"GiveWP" plugin compatibility:** Prevent Asset CleanUp Pro from loading whenever the URI is like /give/donation-form?giveDonationFormInIframe=1 as the page loaded within the iFrame is already optimized and there are users that had problems when Asset CleanUp Pro was triggering its rules there
-* **"GiveWP" plugin compatibility:** Prevent CSS/JS minification as the files are already optimized and there's no point in wasting extra resources
-* **"Settings":** Replaced text that sometimes caused confusion (e.g. some people didn't notice the small "if" and thought their caching directory is not writable)
-* **"Settings" -- "Plugin Usage Preferences":** Re-organised the tab contents into multiple sub-tabs for easier access and understanding the options
-* **"Settings" -- "Plugin Usage Preferences" - "Do not load on specific pages":** "Prevent features of Asset CleanUp Pro from triggering on specific pages"; This allows you to stop triggering specific plugin features on certain pages (e.g. you might want to prevent combining JavaScript files on all /product/ (WooCommerce) pages due to some broken functionality on those specific pages)
-* **Fix:** In some environments, the tags with "as" attribute were not properly detected (e.g. when "DOMDocument" is not enabled by default in the PHP configuration)
-* **Fix:** Sometimes the "src" value was detected incorrectly on hardcoded assets due to the fact that the string "src=" was inside document.write() within the <SCRIPT> tags (which had no "src" attribute at all) / e.g. <script type="text/javascript">console.log('test'); document.write('<scri' + 'pt src="//path-to-specific-file.js"></sc' + 'ript>');</script>
-* **Fix:** When "WP Remote Post" was used as a fetch method of the CSS/JS assets within the Dashboard, information about the targeted URL was showing up twice (e.g. the admin could be confused of viewing redundant text printing out)
-* **Fix:** Make sure 'post__in' is never empty when called within a WP_Query whenever a post search is made within "CSS & JS Manager" -- "Manage CSS/JS"
-* **Fix:** On some environments, FS_CHMOD_DIR and FS_CHMOD_FILE weren't defined, triggering errors such as: Uncaught Error: Undefined constant "WpAssetCleanUp\FS_CHMOD_DIR"
-* **Fix:** In specific environments that loaded similar code to the one from Asset CleanUp Pro, errors were showing up, thus more uniqueness had to be added to avoid conflicts such as unique PHP namespaces
-* **Fix:** On some environments, the following error would show up when WP CLI is used: "PHP Fatal error: Uncaught Error: Call to a member function getScriptAttributesToApplyOnCurrentPage() on null"
-* **Fix:** Combined CSS/JS - The preload and stylesheet LINK tags had the same "id" attribute which shouldn't be like that as the "id" should be unique for each HTML element
-* **Fix:** After a theme is switched, there's sometimes a browser error showing up related to multiple failed redirects
-
-= 1.3.9.3 =
-* **WordPress 6.3 compatibility:** Updated the code to avoid the following notice: "Function WP_Scripts::print_inline_script is deprecated since version 6.3.0"
-* **"WPML Multilingual CMS" plugin compatibility:** Syncing post changes on all its associated translated posts / e.g. if you unload an asset on a page level in /contact/ (English) page, it will also be unloaded (synced) in /contacto/ (Spanish) and /kontakt/ (German) pages
-* **"WP Rocket" plugin compatibility:** "Settings" -- "Optimize JavaScript" -- "Combine loaded JS (JavaScript) into fewer files" is automatically disabled when the following option is turned on in "WP Rocket": "File Optimization" -- "JavaScript Files" -- "Delay JavaScript execution"
-* **"Hide My WP Ghost – Security Plugin" plugin compatibility:** Asset CleanUp's HTML alteration is done before the one of the security plugin so minify/combine CSS/JS will work fine
-* **"Site Kit by Google" plugin compatibility:** JavaScript files from this plugin are added to the ignore list to avoid minifying as they are already minified (with just a few extra comments) and minifying them again, due to their particular structure, resulted in JS errors in the browser's console
-* **Improvement:** Changed the name of the cached files to make them more unique as sometimes, handles that had UNIX timestamps and random strings (developers use them for various reason, including debugging), were causing lots of redundant files to be generated in the assets' caching directory
-* Added jQuery Migrate script to the ignore list to avoid minifying it (along with jQuery leave it as it is, if the developer decided to load the large versions of the files, for debugging purposes)
-* **Front-end view:** In the "Asset CleanUp" top admin bar menu, a new link is added that goes directly to the manage CSS/JS area for the current visited page for convenience
-* Remove the usage of "/wp-content/cache/storage/_recent_items" directory from the CSS/JS caching directory as it was redundant to the caching functionality
-* Option to skip "Cache Enabler" cache clearing via using the "WPACU_DO_NOT_ALSO_CLEAR_CACHE_ENABLER_CACHE" constant (e.g. set to 'true' in wp-config.php) - read more: https://www.assetcleanup.com/docs/?p=1502#wpacu-cache-enabler
-* **"Knowledge Base for Documents and FAQs" plugin:** Do not show the CSS/JS manager at the bottom of the page when "Edit KB Article Page" is ON
-* **New "Brizy - Page Builder" setup:** Prevent Asset CleanUp from triggering when the editor is ON
-* **Fix:** "Do not load Asset CleanUp on this page (this will disable any functionality of the plugin)" - if turned ON, make sure the hardcoded list loads fine in the front-end view (Manage CSS/JS)
-* **Fix:** Use the same "chmod" values from FS_CHMOD_DIR and FS_CHMOD_FILE (WordPress constants) for all the files and directories from the assets' caching directory when attempting to create a file/directory to avoid permission errors on specific environments
-
-= 1.3.9.2 =
-* **New Option:** Contract / Expand All Assets within an area (e.g. from a plugin)
-* **"Overview" area:** Added notifications about deleted posts, post types, taxonomies and users, making the admin aware that some rules might not be relevant anymore (e.g. the admin uninstalled WooCommerce, but unload rules about "product" post types or a specific product page remained in the database)
-* Stopped using the "error" class (e.g. on HTML DIV elements) and renamed it to "wpacu-error" as some plugins/themes sometimes interfere with it (e.g. not showing the error at all, thus confusing the admin)
-* **Keep the same strict standard for the values within the following HTML attributes:** "id", "for" to prevent any errors by avoiding any interferences with other plugins
-* **Improvement:** Only print the notice (as an HTML comment) about the "photoswipe" unload to the administrator (it's a special case where the HTML has to be hidden in case the CSS file gets unloaded)
-* **WPML Fix:** Prevent Asset CleanUp from triggering whenever /?wpml-app=ate-widget is loaded (in some environments, the content returned was empty and the automatic translation area was not loading)
-
 = Previous versions =
-Older releases: [View the complete changelog](https://plugins.trac.wordpress.org/export/3137290/wp-asset-clean-up/trunk/changelog.txt)
+For versions before 1.4, see the [changelog archive](https://plugins.svn.wordpress.org/wp-asset-clean-up/trunk/changelog.txt).

@@ -1,0 +1,141 @@
+@charset "UTF-8";
+/*
+ * Asset CleanUp — Settings / Plugin Usage Preferences / CSS/JS Manager
+ *
+ * The module is isolated inside its own sub-tab. Existing field IDs, setting
+ * names, Chosen hooks and show/hide targets remain intact for compatibility.
+ */
+/* Keep the normal delivery state alongside navigation, without another toolbar row. */
+.wpacu-sub-page-tabs-wrap.wpacu-css-js-tabs-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 4px;
+}
+
+.wpacu-css-js-master-panel {
+  position: relative;
+  top: -5px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 4px auto;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid #cbd5da;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #505b64;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.wpacu-css-js-master-panel #wpacuCssJsGlobalState {
+  font-weight: 600;
+}
+.wpacu-css-js-master-panel.is-paused {
+  border-color: #e0c078;
+  background: #fff8e5;
+  color: #795711;
+}
+.wpacu-css-js-master-panel.is-initializing {
+  border-color: transparent;
+  background: transparent;
+}
+.wpacu-css-js-master-panel.is-initializing > :not([data-master-loading]) {
+  visibility: hidden;
+}
+.wpacu-css-js-master-panel [data-master-loading] {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 21px;
+  height: 21px;
+  margin: -10.5px 0 0;
+  box-sizing: border-box;
+  border: 2px solid #d7e1e6;
+  border-top-color: #17627e;
+  border-radius: 50%;
+  animation: wpacu-master-status-spin 0.8s linear infinite;
+}
+.wpacu-css-js-master-panel [data-master-loading][hidden] {
+  display: none;
+}
+
+@keyframes wpacu-master-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wpacu-css-js-master-action {
+  appearance: none;
+  padding: 3px 12px;
+  border: 1px solid #b4c5ce;
+  border-radius: 4px;
+  background: #fff;
+  color: #17627e;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.wpacu-css-js-master-action:hover {
+  border-color: #2271b1;
+  background: #edf5f9;
+  color: #135e96;
+}
+.wpacu-css-js-master-action:focus-visible {
+  outline: 2px solid #2271b1;
+  outline-offset: 3px;
+}
+.wpacu-css-js-master-action:disabled {
+  cursor: wait;
+}
+
+.wpacu-css-js-master-feedback {
+  margin: 0 0 14px;
+  color: #795711;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wpacu-css-js-master-feedback[hidden] {
+  display: none;
+}
+.wpacu-css-js-master-feedback.is-error {
+  color: #9b2c2c;
+}
+
+/* The saved-state controls share a toolbar; only paused details remain above the list. */
+#wpacu-critical-css-global-control {
+  min-height: 0;
+  margin: 0 0 14px;
+}
+#wpacu-critical-css-global-control .wpacu-critical-css-master-feedback[hidden] {
+  display: none;
+}
+
+.wpacu-manager-status-box [data-master-state] {
+  font-weight: 600;
+}
+
+input[data-wpacu-master-input][hidden] {
+  display: none !important;
+}
+
+.wpacu-manager-status-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-left: auto;
+}
+.wpacu-manager-status-tools > .wpacu-manager-status-box {
+  margin-left: 0;
+}
+.wpacu-manager-status-tools > .wpacu-critical-css-master-feedback__help {
+  margin-left: 0;
+}
+
+#wpacu-critical-css-global-control.wpacu-critical-css-control-relocated:has(> #wpacuCriticalCssGlobalFeedback[hidden]) {
+  display: none;
+}

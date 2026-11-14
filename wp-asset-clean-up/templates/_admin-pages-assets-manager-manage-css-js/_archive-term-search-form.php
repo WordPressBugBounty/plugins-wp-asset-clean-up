@@ -15,9 +15,12 @@ $taxonomy                  = isset($data['archive_taxonomy']) ? $data['archive_t
 
 $showAllTermsIfCountIsUpTo = 5;
 $showAllTermsOnFocus       = false;
+?>
+<div class="wpacu-assets-context-picker">
+<?php
 
 if (isset($data['for']) && $data['for'] === 'custom_taxonomies') {
-    $taxonomiesList = AssetsManagerAdmin::getCustomTaxonomiesWithTerms();
+    $taxonomiesList = AssetsManagerAdmin::getCustomTaxonomiesWithTerms(true);
 
     if (empty($taxonomiesList)) {
         $loadSearchForm = false;
@@ -29,6 +32,10 @@ if (isset($data['for']) && $data['for'] === 'custom_taxonomies') {
     } else {
         if ((empty($taxonomy) || ! isset($taxonomiesList[$taxonomy])) && ! empty($taxonomiesList)) {
             $taxonomy = AssetsManagerAdmin::getDefaultCustomTaxonomyWithTerms();
+            if ($taxonomy === '') {
+                reset($taxonomiesList);
+                $taxonomy = key($taxonomiesList);
+            }
         }
 
         if (isset($taxonomiesList[$taxonomy]['count']) && $taxonomiesList[$taxonomy]['count'] > 0) {
@@ -38,8 +45,8 @@ if (isset($data['for']) && $data['for'] === 'custom_taxonomies') {
         <form id="wpacu-custom-taxonomy-form" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="margin: 0 0 15px;">
             <input type="hidden" name="page" value="<?php echo esc_attr(WPACU_PLUGIN_ID); ?>_assets_manager" />
             <input type="hidden" name="wpacu_for" value="custom_taxonomies" />
-            <?php esc_html_e('Choose the custom taxonomy first, then search within its terms:', 'wp-asset-clean-up'); ?>
-            <select id="wpacu-custom-taxonomy-choice" name="wpacu_taxonomy" onchange="this.form.submit();">
+            <?php esc_html_e('Choose the custom taxonomy first, then search within its terms', 'wp-asset-clean-up'); ?>:
+            <select id="wpacu-custom-taxonomy-choice" name="wpacu_taxonomy" data-wpacu-taxonomy-picker>
                 <?php foreach ($taxonomiesList as $taxonomyKey => $taxonomyData) { ?>
                     <?php
                     $termsCountText = sprintf(
@@ -47,12 +54,18 @@ if (isset($data['for']) && $data['for'] === 'custom_taxonomies') {
                         number_format_i18n($taxonomyData['count'])
                     );
                     ?>
-                    <option <?php selected($taxonomy, $taxonomyKey); ?> value="<?php echo esc_attr($taxonomyKey); ?>">
+                    <option <?php selected($taxonomy, $taxonomyKey); ?> value="<?php echo esc_attr($taxonomyKey); ?>"<?php if ($taxonomyData['count'] < 1) { ?> data-empty="1" style="color: #8c8f94; opacity: .6;"<?php } ?>>
                         <?php echo esc_html($taxonomyData['label']); ?> (<?php echo esc_html($taxonomyKey); ?>, <?php echo esc_html($termsCountText); ?>)
                     </option>
                 <?php } ?>
             </select>
+            <noscript><button type="submit" class="button"><?php esc_html_e('View taxonomy', 'wp-asset-clean-up'); ?></button></noscript>
         </form>
+        <?php if ($taxonomiesList[$taxonomy]['count'] < 1) {
+            $loadSearchForm = false;
+            ?>
+            <p><?php esc_html_e('This taxonomy has no terms yet. Choose another taxonomy or add a term to enable the search.', 'wp-asset-clean-up'); ?></p>
+        <?php } ?>
         <?php
     }
 }
@@ -103,16 +116,22 @@ if ($loadSearchForm) {
         $placeholder = esc_attr__('Type a keyword or the WooCommerce product tag ID to search for the term', 'wp-asset-clean-up');
     }
     ?>
-    <form id="wpacu-search-form-assets-manager">
-        <?php esc_html_e('Load assets manager for:', 'wp-asset-clean-up'); ?>
+    <form id="wpacu-search-form-assets-manager" class="wpacu-assets-entry-search">
+        <span class="wpacu-assets-search-caption"><?php esc_html_e('Load assets manager for', 'wp-asset-clean-up'); ?>:</span>
+        <span class="wpacu-assets-search-input-wrap">
         <input type="text"
                class="search-field"
                value=""
+               data-wpacu-search-context-type="taxonomy"
+               data-wpacu-search-context-value="<?php echo esc_attr($taxonomy); ?>"
+               aria-describedby="wpacu-assets-search-note"
                data-wpacu-show-all-on-focus="<?php echo $showAllTermsOnFocus ? '1' : '0'; ?>"
                data-wpacu-show-all-limit="<?php echo esc_attr($showAllTermsIfCountIsUpTo); ?>"
                placeholder="<?php echo $placeholder; ?>"
                style="max-width: 800px; width: 100%; padding-right: 15px;" />
-        * <small><?php $wpacuAssetManagerFormContext = 'taxonomy'; require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/form-context-note.php'; ?></small>
+            <img class="wpacu-assets-context-loader" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/loader-horizontal.svg'); ?>" width="90" height="20" alt="" aria-hidden="true" hidden />
+        </span>
+        <small id="wpacu-assets-search-note" class="wpacu-assets-search-note"><?php $wpacuAssetManagerFormContext = 'taxonomy'; require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/form-context-note.php'; ?></small>
         <div style="display: none; padding: 10px; color: #cc0000;" id="wpacu-search-form-assets-manager-no-results"><span class="dashicons dashicons-warning"></span> <?php esc_html_e('There are no results based on your search.', 'wp-asset-clean-up'); ?></div>
     </form>
 
@@ -125,3 +144,5 @@ if ($loadSearchForm) {
     </div>
     <?php
 }
+?>
+</div>

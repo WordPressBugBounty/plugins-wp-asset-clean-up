@@ -6,7 +6,11 @@ if (! defined('WPACU_PLUGIN_CLASSES_PATH')) {
     exit;
 }
 
-// Autoload Classes
+/**
+ * @param $class
+ *
+ * @return void
+ */
 function includeWpAssetCleanUpClassesAutoload($class)
 {
     if (strncmp($class, 'WpAssetCleanUp', 14) !== 0) {
@@ -69,10 +73,27 @@ add_action('init', function() {
 \WpAssetCleanUp\Main::instance();
 \WpAssetCleanUp\Main::instance()->loadAllSettings();
 
+// Dashboard-managed CSS/JS source replacements. The compact rules index is
+// autoloaded, while the potentially large source code is stored separately with
+// autoload disabled. Avoid loading the runtime class when no rules exist.
+if ( ! is_admin() && get_option('wpassetcleanup_alternative_assets_rules', array())) {
+    $wpacuAlternativeAssets = new \WpAssetCleanUp\OptimiseAssets\AlternativeAssets();
+    $wpacuAlternativeAssets->init();
+}
+
 if (is_admin()) {
     \WpAssetCleanUp\Admin\MainAdmin::instance();
 
-    } else {
+    $wpacuAdminPage = isset($_GET['page']) && is_string($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+    $wpacuAjaxAction = isset($_REQUEST['action']) && is_string($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+    $wpacuLoadAlternativeAssetsAdmin = ($wpacuAdminPage === WPACU_PLUGIN_ID . '_assets_manager')
+        || (defined('DOING_AJAX') && DOING_AJAX && strpos($wpacuAjaxAction, WPACU_PLUGIN_ID . '_') === 0);
+
+    if ($wpacuLoadAlternativeAssetsAdmin) {
+        $wpacuAlternativeAssetsAdmin = \WpAssetCleanUp\Admin\AlternativeAssetsAdmin::instance();
+        $wpacuAlternativeAssetsAdmin->init();
+    }
+} else {
     // Situations when methods from MainAdmin are needed in the front-end view
     // e.g. when "wp_assetcleanup_load=1" is used or when the admin manages the assets in the front-end view (bottom of the page)
     add_action('init', function () {
@@ -113,7 +134,7 @@ add_action('init', function() {
     \WpAssetCleanUp\AssetsManager::instance();
 
     $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache = is_admin() ||
-        (Main::showAssetsManagerInFrontend() || Main::isPluginClearCacheLinkAccessible());
+        (\WpAssetCleanUp\FrontendManagerFrame::isEnabled() || Main::isPluginClearCacheLinkAccessible());
 
     if ( $withinAdminAreaOrFrontendWithCssJsManagerOrClearCache ) {
         $wpacuOwnAssets = new \WpAssetCleanUp\OwnAssets;
@@ -218,9 +239,8 @@ if (is_admin()) {
             \WpAssetCleanUp\Main::instance()->settings['remove_comment_feed_link'] ||
 
             \WpAssetCleanUp\Main::instance()->settings['disable_rss_feed']         ||
-            in_array(
-                \WpAssetCleanUp\Main::instance()->settings['disable_xmlrpc'],
-                array('disable_all', 'disable_pingback'), true)              ||
+            in_array(\WpAssetCleanUp\Main::instance()->settings['disable_xmlrpc'],
+                     array('disable_all', 'disable_pingback'), true)          ||
 
             \WpAssetCleanUp\Main::instance()->settings['remove_html_comments'];
 

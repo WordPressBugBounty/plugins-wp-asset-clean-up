@@ -1,0 +1,403 @@
+// Independent stylesheet: compile this file, then minify frontend-manager.css.
+@import "save-dock";
+html {
+  // Core form styles use this token for selected controls and focus outlines.
+  --wp-admin-theme-color: #2271b1;
+  // Admin CSS sets html/body to 100%; use natural height for frame measurement.
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+  background: #fff;
+}
+
+body.wpacu-frontend-manager-document {
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #1d2327;
+  background: #fff;
+
+  .wpacu-frontend-manager-content {
+    display: flow-root;
+    min-width: 0;
+    border: 1px solid var(--wpacu-manager-accent);
+    border-radius: 5px;
+    background: #fff;
+  }
+
+  .wpacu-frontend-workspaces {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 16px -1px;
+    padding: 0;
+
+    a {
+      --wpacu-workspace-soft: #e8f5f6;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border: 1px solid #d5e1e5;
+      border-radius: 5px 5px 0 0;
+      background: var(--wpacu-workspace-soft);
+      color: var(--wpacu-workspace-accent);
+      text-decoration: none;
+      font-weight: 600;
+      &[data-wpacu-manager-tab="plugins"] { --wpacu-workspace-soft: #f2edf8; }
+      .dashicons { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; box-sizing: border-box; width: 28px; height: 28px; border: 1px solid var(--wpacu-workspace-accent); border-radius: 6px; background: var(--wpacu-workspace-accent); color: #fff; font-size: 19px; }
+      &:hover { background: var(--wpacu-workspace-soft); border-color: var(--wpacu-workspace-accent); }
+      &:not(.is-current) { border-bottom-color: var(--wpacu-manager-accent); }
+      &:focus { outline: none; box-shadow: none; }
+      &.is-current { background: #fff; border-color: var(--wpacu-workspace-accent); border-bottom-color: #fff; box-shadow: inset 0 2px 0 var(--wpacu-workspace-accent); }
+      &:focus-visible { outline: 2px solid var(--wpacu-workspace-accent); outline-offset: 2px; }
+    }
+    @media screen and (max-width: 480px) {
+      margin-right: 8px;
+      margin-left: 8px;
+      gap: 4px;
+      a { flex: 1 1 0; min-width: 0; gap: 6px; padding: 8px; font-size: 12px; }
+    }
+  }
+
+  .wpacu-pm-page { box-sizing: border-box; width: 100%; padding: 0; }
+
+  .wpacu-page-summary--frontend {
+    box-sizing: border-box;
+    margin: 0 0 14px;
+    padding: 10px;
+    border-left: 1px solid #ddd;
+    background: #f5f5f5;
+    color: #3c434a;
+    line-height: 1.5;
+
+    .wpacu-page-summary-items {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 24px;
+      // Clip the decorative dot of the first item on each wrapped line.
+      overflow: hidden;
+    }
+    .wpacu-page-summary-item {
+      position: relative;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      &::before {
+        content: "";
+        position: absolute;
+        left: -14px;
+        top: 8px;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #9ba5ad;
+      }
+    }
+    .wpacu-page-summary-context, .wpacu-page-summary-type {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .wpacu-page-summary-id, .wpacu-page-summary-type { white-space: nowrap; }
+    .dashicons, img { flex-shrink: 0; color: #0f6cab; }
+    .wpacu-page-summary-woo { width: 28px; height: 28px; }
+    a { color: #0073aa; font-weight: 600; }
+    .wpacu-redirected-fetch-url-reminder { margin-top: 10px; overflow-wrap: anywhere; }
+  }
+
+  .wpacu-page-template { overflow-wrap: anywhere; }
+  .wpacu-pm-frontend-guidance {
+    margin: 18px 0 22px;
+    .wpacu-pm-plugin-caution {
+      margin: 14px 0;
+      padding: 10px 12px;
+      border: 1px solid #dba617;
+      border-radius: 4px;
+      background: #fffaf0;
+    }
+    .wpacu-pm-save-hint { margin: 0; font-size: 12px; }
+  }
+
+  // The frame grows with the manager. Its dialogs must use the part currently
+  // visible in the parent, rather than the full iframe height (100vh).
+  .wpacu-modal,
+  .wpacu-swal2-container {
+    // SweetAlert's default 1060 sits below the legacy manager wrapper (10000).
+    z-index: 1000001;
+    top: var(--wpacu-visible-top, 0px);
+    left: var(--wpacu-visible-left, 0px);
+    right: auto;
+    bottom: auto;
+    width: var(--wpacu-visible-width, 100%);
+    height: var(--wpacu-visible-height, 100vh);
+    box-sizing: border-box;
+    padding: 14px 9px !important;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .wpacu-modal[style*="display: block"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wpacu-modal > .wpacu-modal-content,
+  .wpacu-swal2-popup {
+    box-sizing: border-box;
+    max-height: calc(var(--wpacu-visible-height, 100vh) - 28px) !important;
+    margin: 0 auto;
+    overflow-y: auto !important;
+  }
+
+  .wpacu-source-viewer-modal > .wpacu-modal-content {
+    // Keep its heading and close button in view while the decoded source scrolls.
+    overflow: hidden !important;
+  }
+
+  .wpacu-source-viewer-modal__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    pre {
+      min-height: 0;
+      max-height: none;
+      flex: 1 1 auto;
+    }
+  }
+
+  // Override the legacy front-end wrapper geometry inside the isolated document.
+  #wpacu_wrap_assets {
+    box-sizing: border-box;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    border: 0;
+    // Keep the white wrapper inside the panel's 5px outer corner curve.
+    border-radius: 4px;
+
+    // Undo legacy front-end resets that override Dashboard control geometry.
+    .wpacu-input-style-enhanced input[type="checkbox"],
+    .wpacu-input-style-enhanced input[type="radio"],
+    .wpacu-input-style-standard input[type="checkbox"],
+    .wpacu-input-style-standard input[type="radio"] {
+      box-sizing: border-box;
+      width: 1rem !important;
+      height: 1rem;
+      min-width: 1rem;
+      flex-shrink: 0;
+
+      @media screen and (max-width: 782px) {
+        // Match the larger mobile checkmark supplied by WordPress forms.css.
+        width: 1.5625rem !important;
+        height: 1.5625rem;
+        min-width: 1.5625rem;
+      }
+    }
+
+    .wpacu-input-style-enhanced input[type="radio"],
+    .wpacu-input-style-standard input[type="radio"] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      &:checked::before {
+        margin: 0;
+      }
+    }
+
+    .wpacu-switch-enhanced .wpacu_switch input[type="checkbox"] {
+      display: none;
+    }
+
+    // Page Options has its own 18px checkbox and checkmark. Keep that pair
+    // together instead of mixing it with the general/mobile form controls.
+    #wpacu-page-options-ul > li > label {
+      > input[type="checkbox"] {
+        width: 18px !important;
+        min-width: 18px;
+        height: 18px;
+        margin: 0 !important;
+      }
+
+      > span > small {
+        display: block !important;
+      }
+    }
+
+    .wpacu_unload_regex_area_wrap,
+    .wpacu_manage_via_tax_area_wrap {
+      box-sizing: border-box;
+      max-width: calc(100% - 10px);
+
+      ul.wpacu_asset_options,
+      ul.wpacu_asset_options > li {
+        flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .wpacu_handle_unload_regex_input_wrap,
+      .wpacu_handle_manage_post_type_via_tax_input_wrap {
+        flex-basis: 100%;
+        min-width: 0;
+        margin-top: 8px;
+      }
+
+    }
+
+    .wpacu_unload_regex_area_wrap {
+      width: 540px;
+    }
+
+    // AJAX loading feedback occupies the same new row as the taxonomy picker.
+    .wpacu_manage_via_tax_area_wrap [data-wpacu-tax-terms-options-loader] {
+      flex-basis: 100%;
+      min-width: 0;
+      max-width: 100%;
+      margin: 8px 0 0 !important;
+    }
+
+    .wpacu_exception_options_area > li {
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .wpacu_load_regex_input_wrap,
+    .wpacu_handle_manage_post_type_via_tax_input_wrap {
+      width: 540px;
+      max-width: 100%;
+      margin-top: 8px;
+    }
+
+    .wpacu_handle_manage_post_type_via_tax_input_wrap {
+      .wpacu_manage_via_tax_rule_area {
+        min-width: 0 !important;
+      }
+
+      select,
+      .chosen-container {
+        width: 100% !important;
+        max-width: 100%;
+      }
+    }
+
+    .wpacu_regex_rule_textarea {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    @media screen and (max-width: 782px) {
+      .wpacu_list_table {
+        table-layout: fixed;
+        width: 100%;
+      }
+
+      .wpacu_asset_row > td {
+        overflow-wrap: anywhere;
+      }
+
+      // Native selects size themselves from their longest option, which can
+      // exceed a narrow asset row and be clipped by the collapsible group.
+      .wpacu_asset_row select {
+        box-sizing: border-box;
+        min-width: 0;
+        max-width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+      }
+
+      .wpacu_exception_options_area_load_exception,
+      .wpacu_exception_options_area_wrap {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+      }
+
+      .wpacu_exception_options_area_wrap fieldset {
+        min-width: 0;
+      }
+    }
+  }
+
+  #wpacu-update-front-settings-area {
+    position: relative;
+    // Emulate bottom-sticky against the parent's visible area. Keep the actual
+    // submit control and its natural layout space inside the iframe's form.
+    transform: translateY(var(--wpacu-update-offset, 0px));
+    display: block;
+    margin-bottom: 0;
+    padding: 12px 0;
+    background: #fff;
+    border-top: 1px solid #cdcdcd;
+    z-index: 1000000;
+  }
+
+  #wpacu-updating-front-settings {
+    top: 16px;
+  }
+
+  #wpacu-update-front-settings-area .wpacu_update_btn {
+    // Override the legacy update button while reusing the Plugins Manager style.
+    @include wpacu-save-button(!important);
+    &:hover:not(:disabled), &:focus:not(:disabled) { border-color: #003d52 !important; background: #004f68 !important; }
+    &:focus-visible { outline-color: rgba(0, 101, 132, .28); }
+    &:active { top: 0 !important; }
+    &:disabled { border-color: #e2e2e2 !important; background: #e2e2e2 !important; color: #8a8a8a !important; cursor: default !important; }
+  }
+
+  #wpacu-plugins-frontend-form #wpacu-update-front-settings-area .button.button-primary {
+    border-color: #60448e;
+    background: #7254a3;
+    box-shadow: 0 2px 5px rgba(114, 84, 163, .2);
+    &:hover:not(:disabled), &:focus:not(:disabled) { border-color: #51377c; background: #60448e; color: #fff; box-shadow: 0 3px 8px rgba(114, 84, 163, .25); }
+    &:focus-visible { outline-color: rgba(114, 84, 163, .28); }
+    &:active { box-shadow: 0 1px 3px rgba(114, 84, 163, .2); }
+    &:disabled { box-shadow: none; }
+  }
+
+  @media screen and (max-width: 600px) {
+    .wpacu-contract-expand-area {
+      .col-left table,
+      .col-left tbody,
+      .col-left tr,
+      .col-left td {
+        display: block;
+        box-sizing: border-box;
+        width: 100% !important;
+      }
+
+      .col-left td {
+        padding: 0 !important;
+      }
+
+      #wpacu_assets_list_layout {
+        width: 100%;
+        max-width: 100% !important;
+        margin-top: 6px;
+      }
+
+      .col-right {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        transform: none;
+      }
+    }
+  }
+}

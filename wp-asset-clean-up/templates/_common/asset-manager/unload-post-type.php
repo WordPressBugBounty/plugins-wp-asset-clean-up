@@ -17,39 +17,75 @@ if (isset($data['row']['global_unloaded']) && $data['row']['global_unloaded']) {
 if ($assetType === 'scripts') {
     if (isset($data['row']['obj']->tag_output) && strncasecmp($data['row']['obj']->tag_output, '<noscript', 9) === 0) {
         // NOSCRIPT tags / since v1.2.2.8
-        switch ( $data['post_type'] ) {
-            case 'product':
-                $unloadInPostTypeText = esc_html__( 'Unload NOSCRIPT tag on all WooCommerce "Product" pages', 'wp-asset-clean-up' );
+        switch ($data['post_type']) {
+            case 'page':
+                $unloadInPostTypeText = esc_html__('Unload this NOSCRIPT tag on all WordPress pages', 'wp-asset-clean-up');
                 break;
-            case 'download':
-                $unloadInPostTypeText = esc_html__( 'Unload NOSCRIPT tag on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up' );
+            case 'post':
+                $unloadInPostTypeText = esc_html__('Unload this NOSCRIPT tag on all blog posts', 'wp-asset-clean-up');
+                break;
+            case 'product':
+                $unloadInPostTypeText = esc_html__('Unload this NOSCRIPT tag on all product pages', 'wp-asset-clean-up');
                 break;
             default:
-                $unloadInPostTypeText = sprintf( __( 'Unload NOSCRIPT tag on all pages of "<strong>%s</strong>" post type', 'wp-asset-clean-up' ), $data['post_type'] );
+                $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+                $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                    ? $wpacuPostTypeObject->labels->name
+                    : $data['post_type'];
+
+                $unloadInPostTypeText = sprintf(
+                    __('Unload this NOSCRIPT tag on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+                    esc_html($wpacuPostTypeLabel),
+                    esc_html($data['post_type'])
+                );
         }
     } else {
         // Default
-        switch ( $data['post_type'] ) {
-            case 'product':
-                $unloadInPostTypeText = esc_html__( 'Unload JS on all WooCommerce "Product" pages', 'wp-asset-clean-up' );
+        switch ($data['post_type']) {
+            case 'page':
+                $unloadInPostTypeText = esc_html__('Unload this JS on all WordPress pages', 'wp-asset-clean-up');
                 break;
-            case 'download':
-                $unloadInPostTypeText = esc_html__( 'Unload JS on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up' );
+            case 'post':
+                $unloadInPostTypeText = esc_html__('Unload this JS on all blog posts', 'wp-asset-clean-up');
+                break;
+            case 'product':
+                $unloadInPostTypeText = esc_html__('Unload this JS on all product pages', 'wp-asset-clean-up');
                 break;
             default:
-                $unloadInPostTypeText = sprintf( __( 'Unload JS on all pages of "<strong>%s</strong>" post type', 'wp-asset-clean-up' ), $data['post_type'] );
+                $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+                $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                    ? $wpacuPostTypeObject->labels->name
+                    : $data['post_type'];
+
+                $unloadInPostTypeText = sprintf(
+                    __('Unload this JS on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+                    esc_html($wpacuPostTypeLabel),
+                    esc_html($data['post_type'])
+                );
         }
     }
 } else {
-    switch ( $data['post_type'] ) {
-        case 'product':
-            $unloadInPostTypeText = esc_html__( 'Unload CSS on all WooCommerce "Product" pages', 'wp-asset-clean-up' );
+    switch ($data['post_type']) {
+        case 'page':
+            $unloadInPostTypeText = esc_html__('Unload this CSS on all WordPress pages', 'wp-asset-clean-up');
             break;
-        case 'download':
-            $unloadInPostTypeText = esc_html__( 'Unload CSS on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up' );
+        case 'post':
+            $unloadInPostTypeText = esc_html__('Unload this CSS on all blog posts', 'wp-asset-clean-up');
+            break;
+        case 'product':
+            $unloadInPostTypeText = esc_html__('Unload this CSS on all product pages', 'wp-asset-clean-up');
             break;
         default:
-            $unloadInPostTypeText = sprintf( __( 'Unload CSS on all pages of "<strong>%s</strong>" post type', 'wp-asset-clean-up' ), $data['post_type'] );
+            $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+            $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+                ? $wpacuPostTypeObject->labels->name
+                : $data['post_type'];
+
+            $unloadInPostTypeText = sprintf(
+                __('Unload this CSS on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+                esc_html($wpacuPostTypeLabel),
+                esc_html($data['post_type'])
+            );
     }
 }
 
@@ -78,39 +114,75 @@ if ($data['bulk_unloaded_type'] === 'post_type') {
 		    if ($assetType === 'scripts') {
                 if (isset($data['row']['obj']->tag_output) && strncasecmp($data['row']['obj']->tag_output, '<noscript', 9) === 0) {
                     // NOSCRIPT tags / since v1.2.2.8
-	                switch ( $data['post_type'] ) {
-		                case 'product':
-			                $alreadyUnloadedInPostTypeText = __( 'This NOSCRIPT tag is unloaded on all WooCommerce "Product" pages', 'wp-asset-clean-up' );
-			                break;
-		                case 'download':
-			                $alreadyUnloadedInPostTypeText = __( 'This NOSCRIPT tag is unloaded on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up' );
-			                break;
-		                default:
-			                $alreadyUnloadedInPostTypeText = sprintf( __( 'This NOSCRIPT tag is unloaded on all <u>%s</u> post types', 'wp-asset-clean-up' ), $data['post_type'] );
+	                switch ($data['post_type']) {
+	                    case 'page':
+	                        $alreadyUnloadedInPostTypeText = __('This NOSCRIPT tag is unloaded on all WordPress pages', 'wp-asset-clean-up');
+	                        break;
+	                    case 'post':
+	                        $alreadyUnloadedInPostTypeText = __('This NOSCRIPT tag is unloaded on all blog posts', 'wp-asset-clean-up');
+	                        break;
+	                    case 'product':
+	                        $alreadyUnloadedInPostTypeText = __('This NOSCRIPT tag is unloaded on all product pages', 'wp-asset-clean-up');
+	                        break;
+	                    default:
+	                        $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+	                        $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+	                            ? $wpacuPostTypeObject->labels->name
+	                            : $data['post_type'];
+
+	                        $alreadyUnloadedInPostTypeText = sprintf(
+	                            __('This NOSCRIPT tag is unloaded on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+	                            esc_html($wpacuPostTypeLabel),
+	                            esc_html($data['post_type'])
+	                        );
 	                }
                 } else {
                     // Default
-	                switch ( $data['post_type'] ) {
-		                case 'product':
-			                $alreadyUnloadedInPostTypeText = __( 'This JS is unloaded on all WooCommerce "Product" pages', 'wp-asset-clean-up' );
-			                break;
-		                case 'download':
-			                $alreadyUnloadedInPostTypeText = __( 'This JS is unloaded on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up' );
-			                break;
-		                default:
-			                $alreadyUnloadedInPostTypeText = sprintf( __( 'This JS is unloaded on all <u>%s</u> post types', 'wp-asset-clean-up' ), $data['post_type'] );
+	                switch ($data['post_type']) {
+	                    case 'page':
+	                        $alreadyUnloadedInPostTypeText = __('This JS is unloaded on all WordPress pages', 'wp-asset-clean-up');
+	                        break;
+	                    case 'post':
+	                        $alreadyUnloadedInPostTypeText = __('This JS is unloaded on all blog posts', 'wp-asset-clean-up');
+	                        break;
+	                    case 'product':
+	                        $alreadyUnloadedInPostTypeText = __('This JS is unloaded on all product pages', 'wp-asset-clean-up');
+	                        break;
+	                    default:
+	                        $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+	                        $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+	                            ? $wpacuPostTypeObject->labels->name
+	                            : $data['post_type'];
+
+	                        $alreadyUnloadedInPostTypeText = sprintf(
+	                            __('This JS is unloaded on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+	                            esc_html($wpacuPostTypeLabel),
+	                            esc_html($data['post_type'])
+	                        );
 	                }
                 }
 		    } else {
 			    switch ($data['post_type']) {
-				    case 'product':
-					    $alreadyUnloadedInPostTypeText = __('This CSS is unloaded on all WooCommerce "Product" pages', 'wp-asset-clean-up');
-					    break;
-				    case 'download':
-					    $alreadyUnloadedInPostTypeText = __('This CSS is unloaded on all Easy Digital Downloads "Download" pages', 'wp-asset-clean-up');
-					    break;
-				    default:
-					    $alreadyUnloadedInPostTypeText = sprintf(__('This CSS is unloaded on all <u>%s</u> post types', 'wp-asset-clean-up'), $data['post_type']);
+			        case 'page':
+			            $alreadyUnloadedInPostTypeText = __('This CSS is unloaded on all WordPress pages', 'wp-asset-clean-up');
+			            break;
+			        case 'post':
+			            $alreadyUnloadedInPostTypeText = __('This CSS is unloaded on all blog posts', 'wp-asset-clean-up');
+			            break;
+			        case 'product':
+			            $alreadyUnloadedInPostTypeText = __('This CSS is unloaded on all product pages', 'wp-asset-clean-up');
+			            break;
+			        default:
+			            $wpacuPostTypeObject = get_post_type_object($data['post_type']);
+			            $wpacuPostTypeLabel  = $wpacuPostTypeObject && !empty($wpacuPostTypeObject->labels->name)
+			                ? $wpacuPostTypeObject->labels->name
+			                : $data['post_type'];
+
+			            $alreadyUnloadedInPostTypeText = sprintf(
+			                __('This CSS is unloaded on all %1$s ("%2$s" post type)', 'wp-asset-clean-up'),
+			                esc_html($wpacuPostTypeLabel),
+			                esc_html($data['post_type'])
+			            );
 			    }
 		    }
 			?>
@@ -151,7 +223,7 @@ if ($data['bulk_unloaded_type'] === 'post_type') {
 					              type="checkbox"
 					              name="wpacu_bulk_unload_<?php echo $assetType; ?>[post_type][<?php echo esc_attr($data['post_type']); ?>][]"
 					              value="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"/>
-						<?php echo wp_kses($unloadInPostTypeText, array('strong' => array(), 'u' => array(), 'em' => array())); ?> <small>* <?php _e('bulk unload', 'wp-asset-clean-up'); ?></small></label>
+						<?php echo wp_kses($unloadInPostTypeText, array('strong' => array(), 'u' => array(), 'em' => array())); ?></label>
 				</li>
 				<?php
 			}

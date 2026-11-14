@@ -278,8 +278,7 @@ class MainFront
 		    }
 	    }
 
-        // This is for WPML and other similar plugins compatibility
-        // e.g. es.domain.com is fetching something from de.domain.com
+        // Allow dashboard requests across explicitly trusted origins (e.g. multilingual sites).
 
         // These headers are set in the front-end view only (e.g. not within is_admin()),
         // and only when specific parameters are set on these public URLs
@@ -291,13 +290,76 @@ class MainFront
                                             $_GET['wpacu_preload'] && $_GET['wpacu_no_frontend_show'] && $_GET['wpacu_time_r'];
 
         if ( ($assetsFetchDashboardDirectMethod || $targetPagePreloadFromDashboard) && is_user_logged_in() ) {
-            $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : get_site_url();
+            // Append rather than replace any existing Vary header, including on denied origins.
+            header('Vary: Origin', false);
+            $origin = self::getAllowedFrontendCorsOrigin();
 
-            header('Access-Control-Allow-Origin: '.$origin); // Allow all origins since it's public
+            if ($origin === '') {
+                return;
+            }
+
+            header('Access-Control-Allow-Origin: '.$origin);
             header('Access-Control-Allow-Credentials: true');
             header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
             header('Access-Control-Allow-Headers: Content-Type, Authorization, X-WP-Nonce');
         }
+    }
+
+    /**
+     * Only configured or explicitly trusted origins may read authenticated frontend responses.
+     *
+     * @return string The allowed request origin, or an empty string when no CORS grant is needed.
+     */
+    private static function getAllowedFrontendCorsOrigin()
+    {
+        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+
+        if ( ! is_string($origin) || $origin === '' || $origin === 'null' || preg_match('/[\x00-\x20\x7f]/', $origin)) {
+            return '';
+        }
+
+        $originParts = parse_url($origin);
+
+        if ( ! is_array($originParts) || empty($originParts['host']) || empty($originParts['scheme']) ||
+             ! in_array($originParts['scheme'], array('http', 'https'), true) ||
+             array_diff(array_keys($originParts), array('scheme', 'host', 'port'))) {
+            return '';
+        }
+
+        $allowedOrigins = array();
+        $configuredHome = get_option('home');
+
+        // Multilingual plugins can rewrite all three URL helpers to the current language domain.
+        // Keep the configured primary origin and its HTTPS admin variant trusted too.
+        $allowedUrls = array(home_url(), site_url(), admin_url(), $configuredHome, set_url_scheme($configuredHome, 'admin'));
+
+        foreach ($allowedUrls as $url) {
+            $parts = parse_url($url);
+
+            if ( ! is_array($parts) || empty($parts['host']) || empty($parts['scheme'])) {
+                continue;
+            }
+
+            $scheme = strtolower($parts['scheme']);
+
+            if ( ! in_array($scheme, array('http', 'https'), true)) {
+                continue;
+            }
+
+            $allowedOrigin = $scheme . '://' . strtolower($parts['host']);
+            $defaultPort   = $scheme === 'https' ? 443 : 80;
+
+            if (isset($parts['port']) && (int) $parts['port'] !== $defaultPort) {
+                $allowedOrigin .= ':' . $parts['port'];
+            }
+
+            $allowedOrigins[] = $allowedOrigin;
+        }
+
+        // Add only exact trusted origins (scheme, host and optional port), never wildcards.
+        $allowedOrigins = apply_filters('wpacu_frontend_cors_allowed_origins', array_unique($allowedOrigins));
+
+        return is_array($allowedOrigins) && in_array($origin, $allowedOrigins, true) ? $origin : '';
     }
 
 	/**
@@ -547,7 +609,7 @@ class MainFront
                             $list[] = $handleStyle;
 
                             Main::addAssetToUnloadReasonList($handleStyle, $assetType, array(
-                                'rule_label' => 'Unload on all <span><strong>' . $post->post_type . '</strong></span> type pages'
+                                'rule_label' => 'Unload on all <span><strong>' . esc_html($post->post_type) . '</strong></span> type pages'
                             ));
                         }
                     }
@@ -624,7 +686,7 @@ class MainFront
                             $list[] = $handleScript;
 
                             Main::addAssetToUnloadReasonList($handleScript, $assetType, array(
-                                'rule_label' => 'Unload on all  <strong>' . $post->post_type . '</strong> type pages'
+                                'rule_label' => 'Unload on all  <strong>' . esc_html($post->post_type) . '</strong> type pages'
                             ));
                         }
                     }
@@ -787,7 +849,7 @@ class MainFront
 				return;
 			}
 
-			if ( Main::instance()->preventAssetsSettings(array('assets_call')) ) {
+			if ( Main::instance()->preventAssetRules(array('assets_call')) ) {
 				/* [wpacu_timing] */Misc::scriptExecTimer( 'filter_dequeue_styles', 'end' ); /* [/wpacu_timing] */
 				return;
 			}
@@ -1023,7 +1085,7 @@ class MainFront
 			}
 
 			// e.g. for test/debug mode or AJAX calls (where all assets have to load)
-			if ( isset($_REQUEST['wpacu_no_js_unload']) || Main::instance()->preventAssetsSettings(array('assets_call')) ) {
+			if ( isset($_REQUEST['wpacu_no_js_unload']) || Main::instance()->preventAssetRules(array('assets_call')) ) {
 				/* [wpacu_timing] */Misc::scriptExecTimer( 'filter_dequeue_scripts', 'end' ); /* [/wpacu_timing] */
 				return;
 			}
@@ -1136,6 +1198,8 @@ class MainFront
 			$this->skipAssets[$getForAssetsType] = array_merge(
 				array(
 					'admin-bar',            // The top admin bar
+					'wpacu-admin-bar-savings',
+					'wpacu-admin-bar-inactive-help', // Own toolbar helpers, registered outside OwnAssets
 					'autoptimize-toolbar',
 					'query-monitor',
 					'wpfc-toolbar'          // WP Fastest Cache plugin toolbar JS

@@ -350,6 +350,7 @@ $wpacuLoadRules = array(
             <div class="wpacu-pm-plugin-identity">
                 <div class="wpacu-pm-plugin-title-line">
                     <span class="wpacu_plugin_title" data-wpacu-plugin-search-highlight><?php echo esc_html($wpacuPluginData['title']); ?></span>
+                    <?php if (!empty($wpacuPluginData['version'])) { ?><span class="wpacu-pm-plugin-version">v<?php echo esc_html($wpacuPluginData['version']); ?></span><?php } ?>
 
                     <?php if ( ! empty($wpacuPluginData['network_activated'])) { ?>
                         <span title="<?php echo esc_attr__('Network Activated', 'wp-asset-clean-up'); ?>"
@@ -378,7 +379,7 @@ $wpacuLoadRules = array(
                               data-wpacu-layout-header-count="load"
                               data-wpacu-count-singular="<?php echo esc_attr__('exception', 'wp-asset-clean-up'); ?>"
                               data-wpacu-count-plural="<?php echo esc_attr__('exceptions', 'wp-asset-clean-up'); ?>"
-                            <?php echo $wpacuIsAlwaysLoaded ? 'hidden' : ''; ?>><?php
+                            <?php echo $wpacuPluginView['load_exceptions_count'] === 0 ? 'hidden' : ''; ?>><?php
                             printf(
                                 esc_html(_n('%d exception', '%d exceptions', $wpacuPluginView['load_exceptions_count'], 'wp-asset-clean-up')),
                                 (int)$wpacuPluginView['load_exceptions_count']
@@ -407,6 +408,7 @@ $wpacuLoadRules = array(
                         </div>
                         <span class="wpacu-pm-count-badge wpacu-pm-count-badge--unload"
                               data-wpacu-layout-total-count="unload"
+                              <?php echo $wpacuPluginView['unload_rules_count'] === 0 ? 'hidden' : ''; ?>
                               data-wpacu-count-singular="<?php echo esc_attr__('active rule', 'wp-asset-clean-up'); ?>"
                               data-wpacu-count-plural="<?php echo esc_attr__('active rules', 'wp-asset-clean-up'); ?>"><?php
                             printf(
@@ -476,6 +478,7 @@ $wpacuLoadRules = array(
                             <span class="wpacu-pm-exceptions-title"><?php esc_html_e('Load Exceptions', 'wp-asset-clean-up'); ?></span>
                             <span class="wpacu-pm-count-badge wpacu-pm-count-badge--load"
                                   data-wpacu-layout-total-count="load"
+                              <?php echo $wpacuPluginView['load_exceptions_count'] === 0 ? 'hidden' : ''; ?>
                                   data-wpacu-count-singular="<?php echo esc_attr__('active exception', 'wp-asset-clean-up'); ?>"
                                   data-wpacu-count-plural="<?php echo esc_attr__('active exceptions', 'wp-asset-clean-up'); ?>"><?php
                                 printf(

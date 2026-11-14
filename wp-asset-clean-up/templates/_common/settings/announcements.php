@@ -62,13 +62,13 @@ if ( ! $isLoadedViaAjax ) { ?>
                         <span class="wpacu-announcements-control-label">
                             <strong><?php echo $showAnnouncements ? esc_html__('Opted in', 'wp-asset-clean-up') : esc_html__('Not opted in', 'wp-asset-clean-up'); ?></strong>
                             <small><?php esc_html_e('Save changes after toggling.', 'wp-asset-clean-up'); ?></small>
+                            <small><a href="https://www.gabelivan.com/privacy-policy/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Privacy details', 'wp-asset-clean-up'); ?></a></small>
                         </span>
                     </div>
                     <div class="wpacu-announcements-master-copy">
                         <span class="wpacu-announcements-master-kicker"><?php esc_html_e('Main setting', 'wp-asset-clean-up'); ?></span>
                         <h3 id="pluginannAnnouncementsToggleTitle"><?php esc_html_e('Show plugin announcements', 'wp-asset-clean-up'); ?></h3>
                         <p><?php esc_html_e('When enabled, Asset CleanUp may contact its CloudFront announcement feed. When disabled, the feed is not requested and no Asset CleanUp announcement notices are shown. Your optimization settings and normal WordPress update checks are not affected.', 'wp-asset-clean-up'); ?></p>
-                        <p><small><?php esc_html_e('The request necessarily exposes the server IP address and standard HTTP metadata to the feed provider. Asset CleanUp does not intentionally add the site URL, administrator details, or site content.', 'wp-asset-clean-up'); ?> <a href="https://www.gabelivan.com/privacy-policy/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Privacy policy', 'wp-asset-clean-up'); ?></a></small></p>
                     </div>
                 </section>
 

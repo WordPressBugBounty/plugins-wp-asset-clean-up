@@ -16,17 +16,17 @@ class FontsGoogleFilteredCss
     {
         $error = array('status' => 'error', 'url' => '', 'path' => '', 'error' => 'The local stylesheet is not available.');
 
-        if (! is_array($entry)
+        if ( ! is_array($entry)
             || empty($entry['local_css_path'])
             || ! is_string($entry['local_css_path'])
             || ! is_file($entry['local_css_path'])
             || empty($entry['local_css_url'])
-            || ! is_string($entry['local_css_url'])
-        ) {
+            || ! is_string($entry['local_css_url']) ) {
             return $error;
         }
 
         $ruleMap = self::ruleMap($rules);
+
         if (empty($ruleMap)) {
             return array(
                 'status' => 'unchanged',
@@ -37,7 +37,8 @@ class FontsGoogleFilteredCss
         }
 
         $sourceCss = @file_get_contents($entry['local_css_path']);
-        if (! is_string($sourceCss)) {
+
+        if ( ! is_string($sourceCss) ) {
             return $error;
         }
 
@@ -50,11 +51,12 @@ class FontsGoogleFilteredCss
             $sourceCss
         );
 
-        if (! is_string($filteredCss)) {
+        if ( ! is_string($filteredCss) ) {
             return array('status' => 'error', 'url' => '', 'path' => '', 'error' => 'The local stylesheet could not be filtered.');
         }
 
         $meaningfulCss = trim(preg_replace('#/\\*.*?\\*/#s', '', $filteredCss));
+
         if ($meaningfulCss === '') {
             return array('status' => 'empty', 'url' => '', 'path' => '', 'error' => '');
         }
@@ -70,12 +72,17 @@ class FontsGoogleFilteredCss
 
         $tokens = array_keys($ruleMap);
         sort($tokens);
+
         $sourceHash = hash('sha256', $sourceCss);
+
         $version = isset($entry['processed_at']) ? (string) max(0, (int) $entry['processed_at']) : '0';
         $hash = substr(hash('sha256', $sourceHash . '|' . $version . '|' . implode("\n", $tokens)), 0, 20);
+
         $sourceDirectory = dirname($entry['local_css_path']);
         $targetDirectory = $sourceDirectory;
+
         $extension = substr($entry['local_css_path'], -8) === '.min.css' ? '.min.css' : '.css';
+
         $targetPath = $targetDirectory . '/filtered-' . $hash . $extension;
         $targetUrl = rtrim(dirname($entry['local_css_url']), '/') . '/' . basename($targetPath);
 
@@ -85,13 +92,14 @@ class FontsGoogleFilteredCss
             }
 
             $temporaryPath = @tempnam($targetDirectory, 'wpacu-gf-');
-            if (! is_string($temporaryPath)
+
+            if ( ! is_string($temporaryPath)
                 || @file_put_contents($temporaryPath, $filteredCss, LOCK_EX) === false
-                || ! @rename($temporaryPath, $targetPath)
-            ) {
+                || ! @rename($temporaryPath, $targetPath) ) {
                 if (is_string($temporaryPath) && is_file($temporaryPath)) {
                     @unlink($temporaryPath);
                 }
+
                 return array('status' => 'error', 'url' => '', 'path' => '', 'error' => 'The filtered stylesheet could not be published.');
             }
         }
@@ -99,26 +107,41 @@ class FontsGoogleFilteredCss
         return array('status' => 'ready', 'url' => $targetUrl, 'path' => $targetPath, 'error' => '');
     }
 
+    /**
+     * @param $rules
+     *
+     * @return array
+     */
     private static function ruleMap($rules)
     {
         $map = array();
+
         foreach ((array) $rules as $rule) {
             $decoded = FontsGoogleVariantInventory::decodeTuple($rule);
+
             if (empty($decoded)) {
                 continue;
             }
+
             $map[self::lookupKey($decoded['family'], $decoded['weight'], $decoded['style'])] = true;
         }
+
         return $map;
     }
 
+    /**
+     * @param $block
+     *
+     * @return string
+     */
     private static function fontFaceTuple($block)
     {
-        if (! preg_match('/font-family\\s*:\\s*(?:"([^"]+)"|\'([^\']+)\'|([^;}]+))/i', $block, $familyMatch)) {
+        if ( ! preg_match('/font-family\\s*:\\s*(?:"([^"]+)"|\'([^\']+)\'|([^;}]+))/i', $block, $familyMatch) ) {
             return '';
         }
 
         $family = '';
+
         foreach (array(1, 2, 3) as $index) {
             if (isset($familyMatch[$index]) && trim($familyMatch[$index]) !== '') {
                 $family = trim($familyMatch[$index]);
@@ -127,24 +150,33 @@ class FontsGoogleFilteredCss
         }
 
         $weight = '400';
-        if (preg_match('/font-weight\\s*:\\s*([^;}]+)/i', $block, $weightMatch)) {
+
+        if ( preg_match('/font-weight\\s*:\\s*([^;}]+)/i', $block, $weightMatch) ) {
             $weight = strtolower(trim($weightMatch[1]));
             $weight = $weight === 'normal' ? '400' : ($weight === 'bold' ? '700' : $weight);
         }
-        if (! preg_match('/^[1-9]00$/', $weight)) {
+
+        if ( ! preg_match('/^[1-9]00$/', $weight) ) {
             return '';
         }
 
         $style = 'normal';
-        if (preg_match('/font-style\\s*:\\s*([^;}]+)/i', $block, $styleMatch)
-            && strtolower(trim($styleMatch[1])) === 'italic'
-        ) {
+
+        if ( preg_match('/font-style\\s*:\\s*([^;}]+)/i', $block, $styleMatch)
+            && strtolower(trim($styleMatch[1])) === 'italic' ) {
             $style = 'italic';
         }
 
         return self::lookupKey($family, $weight, $style);
     }
 
+    /**
+     * @param $family
+     * @param $weight
+     * @param $style
+     *
+     * @return string
+     */
     private static function lookupKey($family, $weight, $style)
     {
         return strtolower(trim((string) $family)) . '|' . trim((string) $weight) . '|'

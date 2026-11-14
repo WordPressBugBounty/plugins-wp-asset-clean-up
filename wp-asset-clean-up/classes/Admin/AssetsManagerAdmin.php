@@ -601,14 +601,16 @@ class AssetsManagerAdmin
     }
 
     /**
-     * Returns all public and publicly queryable custom post types that have at least one
-     * published or private entry in the current Dashboard language context.
+     * Returns public and publicly queryable custom post types, alphabetically with
+     * populated types first. Counts follow the current Dashboard language context.
      * Used by the Dashboard CSS/JS Manager so the post type dropdown,
      * selected URL context and autocomplete use the same source.
      *
+     * @param bool $includeEmpty Include empty types after the populated ones.
+     *
      * @return array
      */
-    public static function getCustomPostTypesWithPosts()
+    public static function getCustomPostTypesWithPosts($includeEmpty = false)
     {
         $postTypes = get_post_types(
             array(
@@ -647,7 +649,7 @@ class AssetsManagerAdmin
 
             $postsCount = (int)$query->found_posts;
 
-            if ($postsCount < 1) {
+            if (!$includeEmpty && $postsCount < 1) {
                 continue;
             }
 
@@ -658,6 +660,13 @@ class AssetsManagerAdmin
                 'count' => $postsCount
             );
         }
+
+        uasort($postTypesList, function ($first, $second) {
+            $firstEmpty  = $first['count'] < 1;
+            $secondEmpty = $second['count'] < 1;
+            if ($firstEmpty !== $secondEmpty) { return $firstEmpty ? 1 : -1; }
+            return strnatcasecmp($first['label'], $second['label']);
+        });
 
         return $postTypesList;
     }
@@ -693,7 +702,8 @@ class AssetsManagerAdmin
             '_builtin'           => false
         ), 'objects');
 
-        $archives = array();
+        $archives       = array();
+        $postTypesList  = self::getCustomPostTypesWithPosts(true);
 
         foreach ($postTypes as $postTypeKey => $postTypeObj) {
             if (empty($postTypeObj->has_archive)) {
@@ -708,9 +718,17 @@ class AssetsManagerAdmin
 
             $archives[$postTypeKey] = array(
                 'label' => isset($postTypeObj->labels->name) ? $postTypeObj->labels->name : $postTypeKey,
-                'url'   => $archiveUrl
+                'url'   => $archiveUrl,
+                'count' => isset($postTypesList[$postTypeKey]) ? $postTypesList[$postTypeKey]['count'] : 0
             );
         }
+
+        uasort($archives, function ($first, $second) {
+            $firstEmpty  = $first['count'] < 1;
+            $secondEmpty = $second['count'] < 1;
+            if ($firstEmpty !== $secondEmpty) { return $firstEmpty ? 1 : -1; }
+            return strnatcasecmp($first['label'], $second['label']);
+        });
 
         return $archives;
     }
@@ -734,13 +752,26 @@ class AssetsManagerAdmin
 
 
     /**
-     * Returns all public custom taxonomies that have at least one term.
+     * Loads the shared, CSS-styled taxonomy and custom post type selector.
+     */
+    public static function enqueueCustomTaxonomyPicker()
+    {
+        $suffix = (defined('SCRIPT_DEBUG') && SCRIPT_DEBUG) || isset($_GET['wpacu_debug']) ? '' : '.min';
+        $handle = WPACU_PLUGIN_ID . '-taxonomy-picker';
+        $base   = '/assets/admin/taxonomy-picker';
+        wp_enqueue_style($handle, WPACU_PLUGIN_URL . $base . $suffix . '.css', array(), filemtime(WPACU_PLUGIN_DIR . $base . $suffix . '.css'));
+        wp_enqueue_script($handle, WPACU_PLUGIN_URL . $base . $suffix . '.js', array('jquery-ui-selectmenu'), filemtime(WPACU_PLUGIN_DIR . $base . $suffix . '.js'), true);
+    }
+
+    /**
+     * Returns public custom taxonomies alphabetically, with empty ones last if requested.
      * Used by the Dashboard CSS/JS Manager so the taxonomy dropdown and autocomplete
      * use the same default source on the initial Custom Taxonomy tab load.
      *
+     * @param bool $includeEmpty
      * @return array
      */
-    public static function getCustomTaxonomiesWithTerms()
+    public static function getCustomTaxonomiesWithTerms($includeEmpty = false)
     {
         $taxonomies = get_taxonomies(array('public' => true), 'objects');
 
@@ -765,7 +796,7 @@ class AssetsManagerAdmin
 
             $termsCount = (int)$termsCount;
 
-            if ($termsCount < 1) {
+            if (!$includeEmpty && $termsCount < 1) {
                 continue;
             }
 
@@ -774,6 +805,15 @@ class AssetsManagerAdmin
                 'count' => $termsCount
             );
         }
+
+        uasort($taxonomiesList, function ($first, $second) {
+            $firstEmpty  = $first['count'] < 1;
+            $secondEmpty = $second['count'] < 1;
+            if ($firstEmpty !== $secondEmpty) {
+                return $firstEmpty ? 1 : -1;
+            }
+            return strnatcasecmp($first['label'], $second['label']);
+        });
 
         return $taxonomiesList;
     }

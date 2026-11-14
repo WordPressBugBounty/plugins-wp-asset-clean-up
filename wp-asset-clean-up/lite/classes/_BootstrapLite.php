@@ -1,6 +1,7 @@
 <?php
 namespace WpAssetCleanUpLite;
 
+use WpAssetCleanUpLite\Admin\CourseOptIn;
 use WpAssetCleanUpLite\Admin\MainAdminLite;
 use WpAssetCleanUpLite\Admin\PluginLite;
 use WpAssetCleanUpLite\Admin\ProPreview;
@@ -32,11 +33,16 @@ class _BootstrapLite
         self::registerInternalLiteHooksFor('MainFrontLite');
         self::registerInternalLiteHooksFor('OwnAssetsLite');
 
+        add_filter('wpacu_internal_frontend_workspaces', array(FrontendPluginsPreview::class, 'workspaces'));
+        add_action('wp_footer', array(FrontendPluginsPreview::class, 'render'), PHP_INT_MAX);
+        add_action('template_redirect', array(FrontendPluginsPreview::class, 'preventCaching'));
+
         // /classes/Admin
         self::registerInternalLiteHooksFor('PluginLite');
         self::registerInternalLiteHooksFor('UpgradeNotices');
         self::registerInternalLiteHooksFor('MainAdminLite');
         self::registerInternalLiteHooksFor('ProPreview');
+        self::registerInternalLiteHooksFor('CourseOptIn');
     }
 
     /**
@@ -148,6 +154,26 @@ class _BootstrapLite
         if ($class === 'ProPreview') {
             add_action('admin_init',            array(ProPreview::class, 'blockProOnlyWrites'), 0);
             add_action('admin_enqueue_scripts', array(ProPreview::class, 'enqueueAssets'), 40);
+        }
+
+        if ($class === 'CourseOptIn') {
+            /** @var CourseOptIn $instance */
+            $instance = self::getLazyInternalLiteInstance(CourseOptIn::class);
+            add_action('admin_init', array($instance, 'prepareOnboarding'), 0);
+            add_action('wpacu_internal_getting_started_before_hero', array($instance, 'renderOnboarding'), 10, 1);
+            add_action('wpacu_internal_getting_started_before_final_cta', array($instance, 'renderGettingStarted'), 10, 1);
+            add_action('wpacu_internal_lite_help_course', array($instance, 'renderHelp'));
+            add_action('wpacu_internal_after_common_update_rules_stored', array($instance, 'afterRulesSaved'));
+            add_action('wpacu_internal_front_page_update_after_common_updates', array($instance, 'afterRulesSaved'));
+            add_action('wpacu_admin_notices', array($instance, 'renderContextInvitation'), 50);
+            add_action('admin_post_wpacu_lite_course_optin', array($instance, 'handleSubscribe'));
+            add_action('wp_ajax_wpacu_lite_course_optin', array($instance, 'handleSubscribeAjax'));
+            add_action('admin_post_wpacu_lite_course_optin_dismiss', array($instance, 'handleDismiss'));
+            add_action('wp_ajax_wpacu_lite_course_optin_dismiss', array($instance, 'handleDismissAjax'));
+            add_action('admin_post_wpacu_lite_course_optin_restore', array($instance, 'handleRestore'));
+            add_action('wp_ajax_wpacu_lite_course_optin_restore', array($instance, 'handleRestoreAjax'));
+            add_action('admin_post_wpacu_lite_course_continue', array($instance, 'handleContinue'));
+            add_action('wp_ajax_wpacu_lite_course_optin_mx', array($instance, 'checkEmailDomain'));
         }
 
         if ($class === 'OwnAssetsLite') {

@@ -986,7 +986,7 @@ SQL;
                 if ( ! empty($wpacuGlobalDataArray[$assetType][$dataType])) {
                     foreach ($wpacuGlobalDataArray[$assetType][$dataType] as $assetHandle => $dataValue) {
                         if ($dataType === 'everywhere' && $assetType === 'scripts' && isset($dataValue['attributes'])) {
-                            if (count($dataValue['attributes']) === 0) {
+                            if ( ! is_array($dataValue['attributes']) || count($dataValue['attributes']) === 0) {
                                 continue;
                             }
                             // async/defer applied site-wide
@@ -1076,6 +1076,15 @@ SQL;
             }
         }
 
+        // Keep handles with alternatives visible even when they have no unload rules.
+        foreach (\WpAssetCleanUp\OptimiseAssets\AlternativeAssets::getRules() as $alternativeRule) {
+            if ( ! \WpAssetCleanUp\OptimiseAssets\AlternativeAssets::supportsAssetType($alternativeRule['type'])) {
+                continue;
+            }
+            $alternativeType = $alternativeRule['type'] === 'css' ? 'styles' : 'scripts';
+            $allHandles[$alternativeType][$alternativeRule['handle']]['alternative_assets'][] = $alternativeRule;
+        }
+
         if (isset($allHandles['styles'])) {
             ksort($allHandles['styles']);
         }
@@ -1108,7 +1117,7 @@ SQL;
 
         $this->data['page_options_results'] = array();
 
-        $pageOptionsResults = $wpdb->get_results('SELECT post_id, meta_value FROM `' . $wpdb->postmeta . "` WHERE meta_key='_" . WPACU_PLUGIN_ID . "_page_options' && meta_value !=''",
+        $pageOptionsResults = $wpdb->get_results('SELECT post_id, meta_value FROM `' . $wpdb->postmeta . "` WHERE meta_key='_" . WPACU_PLUGIN_ID . "_page_options' AND meta_value !=''",
                 ARRAY_A);
 
         foreach ($pageOptionsResults as $pageOptionResult) {
@@ -2544,8 +2553,9 @@ SQL;
                                 );
                             } else {
                                 $clearForFullTextViewMode = sprintf(
-                                        __('You can switch to %s"Edit Mode"%s to clear all the rules for this inactive handle',
-                                                'wp-asset-clean-up'),
+                                        $assetType === 'scripts' && ! defined('WPACU_PRO_PLUGIN_VERSION')
+                                            ? __('You can switch to %s"Edit Mode"%s to clear available rules for this inactive handle. Saved JavaScript alternatives and their source code are preserved in Lite.', 'wp-asset-clean-up')
+                                            : __('You can switch to %s"Edit Mode"%s to clear all the rules for this inactive handle', 'wp-asset-clean-up'),
                                         '<a href="' . admin_url('admin.php?page=wpassetcleanup_overview&wpacu_edit_mode=1') . '">',
                                         '</a>'
                                 );
@@ -2612,6 +2622,10 @@ SQL;
             }
 
             // [Advanced/Pro ones]
+            if ( ! empty($handleData['alternative_assets'])) {
+                include WPACU_PLUGIN_DIR . '/templates/_admin-page-overview-areas/_alternative-assets.php';
+            }
+
             // Any media query load?
             if (isset($handleData['media_queries_load']['enable']) && $handleData['media_queries_load']['enable']) {
                 $enableStatus    = (int)$handleData['media_queries_load']['enable'];

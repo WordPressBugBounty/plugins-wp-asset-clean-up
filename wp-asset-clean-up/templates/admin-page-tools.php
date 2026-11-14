@@ -17,12 +17,17 @@ do_action('wpacu_admin_notices');
 ?>
 <div class="wpacu-wrap wpacu-tools-area">
     <nav class="wpacu-tab-nav-wrapper wpacu-nav-tab-wrapper wpacu-tools-nav" aria-label="<?php esc_attr_e('Tools sections', 'wp-asset-clean-up'); ?>">
+        <?php if ( ! is_network_admin()) { ?>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=system_info')); ?>" class="wpacu-nav-tab wpacu-tools-nav__system-info <?php if ($data['for'] === 'system_info') { ?>wpacu-nav-tab-active<?php } ?>" <?php if ($data['for'] === 'system_info') { ?>aria-current="page"<?php } ?>><span class="dashicons dashicons-media-text" aria-hidden="true"></span><span><?php esc_html_e('System Info', 'wp-asset-clean-up'); ?></span></a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=storage')); ?>" class="wpacu-nav-tab wpacu-tools-nav__storage <?php if ($data['for'] === 'storage') { ?>wpacu-nav-tab-active<?php } ?>" <?php if ($data['for'] === 'storage') { ?>aria-current="page"<?php } ?>><span class="dashicons dashicons-database" aria-hidden="true"></span><span><?php esc_html_e('Storage', 'wp-asset-clean-up'); ?></span></a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=debug')); ?>" class="wpacu-nav-tab wpacu-tools-nav__debug <?php if ($data['for'] === 'debug') { ?>wpacu-nav-tab-active<?php } ?>" <?php if ($data['for'] === 'debug') { ?>aria-current="page"<?php } ?>><span class="dashicons dashicons-admin-tools" aria-hidden="true"></span><span><?php esc_html_e('Debugging', 'wp-asset-clean-up'); ?></span></a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=import_export')); ?>" class="wpacu-nav-tab wpacu-tools-nav__import-export <?php if ($data['for'] === 'import_export') { ?>wpacu-nav-tab-active<?php } ?>" <?php if ($data['for'] === 'import_export') { ?>aria-current="page"<?php } ?>><span class="dashicons dashicons-migrate" aria-hidden="true"></span><span><?php esc_html_e('Import & Export', 'wp-asset-clean-up'); ?></span></a>
+        <?php } ?>
+        <?php do_action('wpacu_internal_tools_navigation', $data['for']); ?>
+        <?php if ( ! is_network_admin()) { ?>
         <span class="wpacu-tools-nav__separator" aria-hidden="true"></span>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_for=reset')); ?>" class="wpacu-nav-tab wpacu-tools-nav__reset <?php if ($data['for'] === 'reset') { ?>wpacu-nav-tab-active<?php } ?>" <?php if ($data['for'] === 'reset') { ?>aria-current="page"<?php } ?>><span class="dashicons dashicons-image-rotate" aria-hidden="true"></span><span><?php esc_html_e('Reset', 'wp-asset-clean-up'); ?></span></a>
+        <?php } ?>
     </nav>
 
 	<div class="wpacu-tools-container">
@@ -59,6 +64,10 @@ do_action('wpacu_admin_notices');
                         <option data-id="wpacu-warning-reset-plugins-manager-dash" data-submit-label="<?php esc_attr_e('Reset /wp-admin/ plugin rules', 'wp-asset-clean-up'); ?>" value="reset_plugins_manager_dash"><?php esc_html_e('Reset Plugins Manager rules — /wp-admin/', 'wp-asset-clean-up'); ?></option>
                     <?php } ?>
 
+                    <?php if (isset($data['pro_cleanup_preview'])) { ?>
+                    <option data-id="wpacu-warning-clear-pro-traces" data-submit-label="<?php esc_attr_e('Clear all Pro traces', 'wp-asset-clean-up'); ?>" value="clear_pro_traces" <?php selected(\WpAssetCleanUp\Misc::getVar('get', 'wpacu_reset_scope'), 'pro'); ?>><?php esc_html_e('Clear all Pro traces', 'wp-asset-clean-up'); ?></option>
+                    <?php } ?>
+
                     <option data-id="wpacu-warning-reset-everything-except-settings" data-submit-label="<?php esc_attr_e('Reset all data except Settings', 'wp-asset-clean-up'); ?>" value="reset_everything_except_settings"><?php esc_html_e('Reset all plugin data except Settings', 'wp-asset-clean-up'); ?></option>
                     <option data-id="wpacu-warning-reset-everything" data-submit-label="<?php esc_attr_e('Reset everything', 'wp-asset-clean-up'); ?>" value="reset_everything"><?php esc_html_e('Reset everything', 'wp-asset-clean-up'); ?></option>
                     <option data-id="wpacu-warning-remove-all-data-for-uninstall" data-submit-label="<?php esc_attr_e('Remove all data for uninstall', 'wp-asset-clean-up'); ?>" value="remove_all_data_for_uninstall"><?php esc_html_e('Remove all data for uninstall', 'wp-asset-clean-up'); ?></option>
@@ -90,7 +99,7 @@ do_action('wpacu_admin_notices');
                 // [CRITICAL CSS]
                 ?>
                 <div id="wpacu-warning-reset-critical-css" class="wpacu-warning">
-                    <p><?php _e('This will remove all the critical CSS information from <em>"CSS &amp; JS Manager" -&gt; "Manage Critical CSS"</em> and restore it the way it was by default. This is useful, for instance, when you redesign your website &amp; a new critical CSS needs to be added on all pages, rather then having any unneeded leftovers from the old CSS printing on certain pages.', 'wp-asset-clean-up'); ?></p>
+                    <p><?php _e('This will remove all the critical CSS information from <em>"CSS &amp; JS Manager" -&gt; "Manage Critical CSS"</em> and restore it the way it was by default. This is useful, for instance, when you redesign your website &amp; a new critical CSS needs to be added on all pages, rather then having any unneeded leftovers from the old CSS printing on certain pages.', 'wp-asset-clean-up-pro'); ?></p>
                 </div>
                 <?php
                 // [/CRITICAL CSS]
@@ -103,6 +112,38 @@ do_action('wpacu_admin_notices');
                 <div id="wpacu-warning-reset-plugins-manager-dash" class="wpacu-warning">
                     <p><?php esc_html_e('This will remove every unload rule and load exception configured in Plugins Manager for WordPress administration pages. Front-end rules will be preserved.', 'wp-asset-clean-up'); ?></p>
                 </div>
+
+                <?php if (isset($data['pro_cleanup_preview'])) {
+                    $proPreview = $data['pro_cleanup_preview'];
+                ?>
+                <div id="wpacu-warning-clear-pro-traces" class="wpacu-warning" data-can-clear="<?php echo $proPreview['allowed'] && empty($proPreview['errors']) ? '1' : '0'; ?>">
+                    <h3><span class="dashicons dashicons-trash" aria-hidden="true"></span> <?php esc_html_e('Review Pro data cleanup', 'wp-asset-clean-up'); ?></h3>
+                    <p style="margin-bottom: 20px;"><?php esc_html_e('Remove stored Pro configuration from this site, including Plugins Manager rules, advanced asset rules, JavaScript alternatives and local license details. Export your configuration first if you may want to restore it.', 'wp-asset-clean-up'); ?></p>
+                    <table class="widefat striped">
+                        <thead><tr><th><?php esc_html_e('Data affected', 'wp-asset-clean-up'); ?></th><th><?php esc_html_e('Records', 'wp-asset-clean-up'); ?></th></tr></thead>
+                        <tbody>
+                        <?php foreach (array(
+                            'options' => __('Pro options removed or shared options updated', 'wp-asset-clean-up'),
+                            'metadata' => __('Page, taxonomy and author metadata updated or removed', 'wp-asset-clean-up'),
+                            'javascript_alternatives' => __('JavaScript alternatives and their stored source', 'wp-asset-clean-up')
+                        ) as $key => $label) { ?>
+                            <tr><td><?php echo esc_html($label); ?></td><td><?php echo esc_html(number_format_i18n($proPreview['counts'][$key])); ?></td></tr>
+                        <?php } ?>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 20px;"><strong><?php esc_html_e('Kept:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Shared Lite settings, page and site-wide unloads, post-type unloads, preloads, Critical CSS, locally hosted fonts and CSS alternatives.', 'wp-asset-clean-up'); ?></p>
+                    <p><?php esc_html_e('This is a database cleanup. Plugin files and the MU-plugin loader remain installed. Generated CSS/JS files follow the normal retention policy to protect cached pages. Pro updater caches, temporary notices and its font-processing schedule are also cleared.', 'wp-asset-clean-up'); ?></p>
+                    <p><?php esc_html_e('Removing local license details does not deactivate your license remotely or free an activation slot. If Pro remains active, its defaults and operational records may be recreated.', 'wp-asset-clean-up'); ?></p>
+                    <?php if ($proPreview['shared_user_meta_preserved']) { ?>
+                    <p><strong><?php esc_html_e('Multisite:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Network-shared author metadata and network records are preserved because they may be used by other sites.', 'wp-asset-clean-up'); ?></p>
+                    <?php } ?>
+                    <?php if ( ! $proPreview['allowed']) { ?>
+                    <p class="notice notice-warning"><?php esc_html_e('Removing saved JavaScript alternatives requires the unfiltered_html capability. No data can be cleared through this action with your current permissions.', 'wp-asset-clean-up'); ?></p>
+                    <?php } ?>
+                    <?php foreach ($proPreview['errors'] as $error) { ?><p class="notice notice-error"><?php echo esc_html($error); ?></p><?php } ?>
+                    <input type="hidden" name="wpacu-pro-cleanup-preview" value="<?php echo esc_attr($proPreview['token']); ?>" />
+                </div>
+                <?php } ?>
 
                 <div id="wpacu-warning-reset-everything-except-settings" class="wpacu-warning">
                     <p><?php esc_html_e('This removes unload rules, load exceptions, Critical CSS, page-level metadata, transients and other Asset CleanUp data while preserving the values from Settings and all Pro license data.', 'wp-asset-clean-up'); ?></p>
@@ -175,9 +216,9 @@ do_action('wpacu_admin_notices');
                     </label>
 
                     <div class="wpacu-system-info-actions">
-                        <button name="submit" id="wpacu-download-system-info-btn" class="button button-primary">
+                        <button type="submit" name="submit" id="wpacu-download-system-info-btn" class="button button-primary" data-busy-label="<?php esc_attr_e('Preparing report...', 'wp-asset-clean-up'); ?>">
                             <span class="dashicons dashicons-download" aria-hidden="true"></span>
-                            <?php esc_html_e('Generate and download report', 'wp-asset-clean-up'); ?>
+                            <span data-wpacu-button-label><?php esc_html_e('Generate and download report', 'wp-asset-clean-up'); ?></span>
                         </button>
                         <span class="wpacu-system-info-action-note"><?php esc_html_e('The report is generated only after you click the button.', 'wp-asset-clean-up'); ?></span>
                     </div>
@@ -186,6 +227,8 @@ do_action('wpacu_admin_notices');
 		</form>
 
         <?php
+        do_action('wpacu_internal_tools_content', $data['for']);
+
         if ($data['for'] === 'storage') {
             $storageArea = isset($data['storage_area']) && in_array($data['storage_area'], array('generated_files', 'database_map'), true)
                 ? $data['storage_area']

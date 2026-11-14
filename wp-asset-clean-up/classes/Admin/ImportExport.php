@@ -79,7 +79,8 @@ class ImportExport
                 }
 
                 foreach ($valuesArray['global_data'][$assetType] as $ruleType => $rules) {
-                    if ( ! is_string($ruleType) || ! is_array($rules)) {
+                    // JSON object key "404" becomes an integer when decoded by PHP.
+                    if (( ! is_string($ruleType) && $ruleType !== 404) || ! is_array($rules)) {
                         return __('The global asset rules in the import file are not valid.', 'wp-asset-clean-up');
                     }
                 }
@@ -100,7 +101,71 @@ class ImportExport
             }
         }
 
-        return '';
+        if ( ! self::hasValidImportedScriptAttributes($valuesArray)) {
+            return __('The script attributes in the import file are invalid. No data was imported.', 'wp-asset-clean-up');
+        }
+
+        // Extensions must validate their sections before any imported data is saved.
+        $error = StoredProDataTransfer::validateImport($valuesArray);
+        $error = AlternativeAssetsTransfer::validateImport($error, $valuesArray);
+        return apply_filters('wpacu_internal_import_export_validation_error', $error, $valuesArray);
+    }
+
+    /** Validate the known async/defer containers, leaving extension data intact. */
+    private static function hasValidImportedScriptAttributes($valuesArray)
+    {
+        if (isset($valuesArray['front_page_data']) && is_array($valuesArray['front_page_data'])
+            && ! self::hasValidScriptAttributeData($valuesArray['front_page_data'])) {
+            return false;
+        }
+        if (isset($valuesArray['global_data']) && is_array($valuesArray['global_data'])
+            && ! self::hasValidScriptAttributeData($valuesArray['global_data'], true)) {
+            return false;
+        }
+        foreach (array('posts_metas', 'terms_metas', 'users_metas') as $section) {
+            if (empty($valuesArray[$section]) || ! is_array($valuesArray[$section])) { continue; }
+            foreach ($valuesArray[$section] as $row) {
+                if ( ! is_array($row) || ! isset($row['meta_key'])
+                    || $row['meta_key'] !== '_' . WPACU_PLUGIN_ID . '_data'
+                    || ! array_key_exists('meta_value', $row)) { continue; }
+                if (in_array($row['meta_value'], array('', null, false), true)) { continue; }
+                if ( ! is_string($row['meta_value'])) { return false; }
+                $data = json_decode($row['meta_value'], true);
+                if ( ! is_array($data) || ! self::hasValidScriptAttributeData($data)) { return false; }
+            }
+        }
+        return true;
+    }
+
+    /** $grouped is used by the global option's per-location rule maps. */
+    private static function hasValidScriptAttributeData($data, $grouped = false)
+    {
+        foreach (array('scripts', 'scripts_attributes_no_load') as $key) {
+            if ( ! array_key_exists($key, $data)) { continue; }
+            if ( ! is_array($data[$key])) { return false; }
+            $groups = $grouped ? $data[$key] : array('everywhere' => $data[$key]);
+            foreach ($groups as $location => $rules) {
+                // Other global maps (positions, preload, regex, etc.) have
+                // different schemas and are not async/defer rule containers.
+                if ($grouped && ! in_array((string)$location, array('everywhere', '404', 'search', 'date'), true)
+                    && strpos((string)$location, 'custom_post_type_archive_') !== 0) { continue; }
+                if ( ! is_array($rules)) { return false; }
+                foreach ($rules as $values) {
+                    if ( ! is_array($values)) { return false; }
+                    if ($key === 'scripts') {
+                        if ( ! array_key_exists('attributes', $values)) { continue; }
+                        $values = $values['attributes'];
+                        // Older empty attributes never enabled a loading rule.
+                        if (in_array($values, array('', null, false), true)) { continue; }
+                    }
+                    if ( ! is_array($values)) { return false; }
+                    foreach ($values as $attribute) {
+                        if ( ! is_string($attribute)) { return false; }
+                    }
+                }
+            }
+        }
+        return true;
     }
 
 	/***** BEGIN EXPORT ******/
@@ -213,7 +278,7 @@ class ImportExport
 	public function jsonSettings()
 	{
 		$wpacuSettings = new Settings();
-		$settingsArray = $wpacuSettings->getAll();
+		$settingsArray = $wpacuSettings->getAllStored();
 
 		// Older installations can store this empty list as a scalar value. Keep new
 		// exports self-compatible and use the runtime type expected by the importer.
@@ -342,7 +407,7 @@ class ImportExport
 
 			$globalDataListArray = apply_filters(
 				'wpacu_internal_import_export_global_data_for_export',
-				wpacuGetGlobalData()
+				StoredProDataTransfer::filterGlobalDataForTransfer(wpacuGetGlobalData())
 			);
 
 			global $wpdb;
@@ -352,7 +417,7 @@ class ImportExport
 			$metaKeyLike       = $wpdb->esc_like('_' . WPACU_PLUGIN_ID . '_') . '%';
 			$criticalCssMetaKey = CriticalCss::getMetaKey();
 
-			$tableList = apply_filters('wpacu_internal_import_export_export_table_list', array($wpdb->postmeta), $wpdb);
+			$tableList = apply_filters('wpacu_internal_import_export_export_table_list', StoredProDataTransfer::filterExportEverythingTableList(array($wpdb->postmeta), $wpdb), $wpdb);
 
 			foreach ($tableList as $tableName) {
 				if ( $tableName === $wpdb->postmeta ) {
@@ -370,6 +435,7 @@ class ImportExport
 				}
 			}
 
+			$allMetaResults = StoredProDataTransfer::filterExportEverythingMetaResults($allMetaResults, $tableList, $metaKeyLike);
 			$allMetaResults = apply_filters('wpacu_internal_import_export_export_meta_results', $allMetaResults, $tableList, $metaKeyLike);
 
 			// Export Field Names should be kept as they are and in case
@@ -393,9 +459,12 @@ class ImportExport
                 'posts_metas' => $allMetaResults['postmeta']
             );
 
+            $valuesArray['alternative_assets'] = AlternativeAssetsTransfer::exportSection();
+
             $valuesArray['critical_css_options'] = self::getCriticalCssOptionsArray();
             $valuesArray['critical_css_metas']   = self::getCriticalCssMetasArray();
 
+            $valuesArray = StoredProDataTransfer::filterExportEverythingValues($valuesArray, $allMetaResults);
             $valuesArray = apply_filters('wpacu_internal_import_export_export_values', $valuesArray, $allMetaResults);
 		}
 
@@ -654,12 +723,13 @@ class ImportExport
 			$importedList[] = 'post_type_load_exceptions';
 		}
 
+        $importedList = StoredProDataTransfer::filterImportAfterPostTypeExceptions($importedList, $valuesArray);
         $importedList = apply_filters('wpacu_internal_import_export_after_post_type_exceptions', $importedList, $valuesArray);
 
 		// Dedicated Plugins Manager export: replace only the selected location.
 		// An explicitly empty rules array is meaningful: it clears that location.
 		if (is_array($pluginsManagerImport)) {
-			$globalDataToImport = wpacuGetGlobalData();
+			$globalDataToImport = StoredProDataTransfer::filterGlobalDataForTransfer(wpacuGetGlobalData());
 			$globalDataToImport = is_array($globalDataToImport) ? $globalDataToImport : array();
 
 			if (empty($pluginsManagerImport['rules'])) {
@@ -678,7 +748,7 @@ class ImportExport
 		if ( ! empty($valuesArray['global_data']) && is_array($valuesArray['global_data']) ) {
 			$globalDataToImport = apply_filters(
 				'wpacu_internal_import_export_global_data_for_import',
-				$valuesArray['global_data'],
+				StoredProDataTransfer::filterGlobalDataForTransfer($valuesArray['global_data']),
 				$valuesArray
 			);
 
@@ -691,6 +761,7 @@ class ImportExport
 				$importedList[] = 'global_data';
 
 				$valuesArray['global_data'] = $globalDataToImport;
+				$importedList = StoredProDataTransfer::filterImportGlobalDataImportedList($importedList, $valuesArray);
 				$importedList = apply_filters('wpacu_internal_import_export_global_data_list', $importedList, $valuesArray);
 			}
 		}
@@ -727,8 +798,9 @@ class ImportExport
 					continue;
 				}
 
-				if (! add_post_meta($postId, $metaKey, $metaValue, true)) {
-					update_post_meta($postId, $metaKey, $metaValue);
+				// Metadata writes remove one slash layer; preserve the exported JSON.
+				if (! add_post_meta($postId, $metaKey, wp_slash($metaValue), true)) {
+					update_post_meta($postId, $metaKey, wp_slash($metaValue));
 				}
 
 				$postsMetaWasImported = true;
@@ -778,11 +850,16 @@ class ImportExport
         }
 
         /*
-         * Pro imports its general term/user metadata through this filter. Run it before
+         * Import stored term/user metadata in either edition. Run it before
          * the dedicated Critical CSS metadata import so values containing backslashes
          * are finally saved through the correctly slashed metadata path below.
          */
+        $importedList = StoredProDataTransfer::filterImportAfterCommonMetas($importedList, $valuesArray);
         $importedList = apply_filters('wpacu_internal_import_export_after_common_metas', $importedList, $valuesArray);
+
+        if (array_key_exists('alternative_assets', $valuesArray)) {
+            $importedList = array_merge($importedList, AlternativeAssetsTransfer::importSection($valuesArray['alternative_assets']));
+        }
 
         if ( ! empty($valuesArray['critical_css_metas']) && is_array($valuesArray['critical_css_metas']) ) {
             $criticalCssMetaKey = CriticalCss::getMetaKey();

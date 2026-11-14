@@ -7,7 +7,7 @@ if (! isset($data)) {
     exit;
 }
 
-$ddOptions = $data['dd_options'];
+$ddOptions                    = $data['dd_options'];
 $googleFontsPreloadScanConfig = isset($data['google_fonts_preload_scan']) && is_array($data['google_fonts_preload_scan'])
     ? $data['google_fonts_preload_scan']
     : array();
@@ -27,7 +27,7 @@ $googleFontsLocalSummary = isset($googleFontsLocalConfig['summary']) && is_array
 $googleFontsLocalEntries = isset($googleFontsLocalConfig['entries']) && is_array($googleFontsLocalConfig['entries'])
     ? $googleFontsLocalConfig['entries']
     : array();
-$googleFontsLocalEdition = isset($googleFontsLocalConfig['edition']) ? (string) $googleFontsLocalConfig['edition'] : 'lite';
+$googleFontsLocalEdition                    = isset($googleFontsLocalConfig['edition']) ? (string) $googleFontsLocalConfig['edition'] : 'lite';
 $googleFontsLocalAutomaticProcessingEnabled = $googleFontsLocalEdition !== 'pro'
     || ! isset($googleFontsLocalConfig['automation']['enabled'])
     || ! empty($googleFontsLocalConfig['automation']['enabled']);
@@ -342,7 +342,7 @@ $googleFontsLocalJsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_
                         </thead>
                         <tbody data-wpacu-google-fonts-local-group-body="<?php echo esc_attr($googleFontsLocalGroupKey); ?>">
                         <?php foreach ($googleFontsLocalGroupEntries as $googleFontsLocalEntry) :
-                            $entryStatus = isset($googleFontsLocalEntry['status']) ? $googleFontsLocalEntry['status'] : 'pending';
+                            $entryStatus      = isset($googleFontsLocalEntry['status']) ? $googleFontsLocalEntry['status'] : 'pending';
                             $entryStatusLabel = isset($googleFontsLocalStatusLabels[$entryStatus]) ? $googleFontsLocalStatusLabels[$entryStatus] : $googleFontsLocalStatusLabels['pending'];
                             ?>
                             <tr class="is-status-<?php echo esc_attr($entryStatus); ?>" data-wpacu-google-fonts-local-entry="<?php echo esc_attr($googleFontsLocalEntry['key']); ?>">
@@ -598,7 +598,7 @@ HTML;
                         </div>
                         <p><strong><?php esc_html_e('Web Font Loader output', 'wp-asset-clean-up'); ?></strong></p>
                         <code><?php
-                            $scriptType = Misc::getScriptTypeAttribute();
+                            $scriptType                = Misc::getScriptTypeAttribute();
                             $asyncWebFontLoaderSnippet = <<<HTML
 &lt;script id='wpacu-google-fonts-async-load' {$scriptType}&gt;
 WebFontConfig = { google: { families: ['Droid+Sans', 'Inconsolata:700'] } };
@@ -682,60 +682,20 @@ HTML;
 </div>
 
 <div id="wpacu-google-fonts-local-reset-info" class="wpacu-modal wpacu-bulk-info-modal wpacu-google-fonts-cache-modal" role="dialog" aria-modal="true" aria-labelledby="wpacu-google-fonts-local-reset-info-title">
+    <span id="wpacu-google-fonts-local-reset-info-title" class="screen-reader-text"><?php esc_html_e('Reset local copies safely', 'wp-asset-clean-up'); ?></span>
     <div class="wpacu-modal-content wpacu-bulk-info-modal__content wpacu-google-fonts-cache-modal__content">
         <button type="button" class="wpacu-close wpacu-bulk-info-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button>
-        <header class="wpacu-bulk-info-modal__header">
-            <span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Safe cache reset', 'wp-asset-clean-up'); ?></span>
-            <h2 id="wpacu-google-fonts-local-reset-info-title"><?php esc_html_e('Reset local copies safely', 'wp-asset-clean-up'); ?></h2>
-            <p><?php esc_html_e('Retire the active Google Fonts inventory without immediately breaking references held by cached pages.', 'wp-asset-clean-up'); ?></p>
-        </header>
-        <div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body">
-            <section class="wpacu-bulk-info-modal__summary"><span class="wpacu-bulk-info-modal__summary-icon"><span class="dashicons dashicons-backup" aria-hidden="true"></span></span><div><strong><?php esc_html_e('Clears the active inventory and stops publishing its current local-copy records', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Keeps the physical CSS and font files temporarily available so previously cached HTML can continue loading them during the retention period.', 'wp-asset-clean-up'); ?></span></div></section>
-            <ul>
-                <li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you want to rebuild the inventory from representative pages or recover from stale local-copy records.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('It does not:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('immediately erase every generated CSS, manifest, or font file.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('Next step:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Scan key pages or visit representative public pages when you are ready to rebuild the inventory.', 'wp-asset-clean-up'); ?></li>
-            </ul>
-        </div>
+        <header class="wpacu-bulk-info-modal__header"><span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Safe cache reset', 'wp-asset-clean-up'); ?></span><h2><?php esc_html_e('Reset local copies safely', 'wp-asset-clean-up'); ?></h2><p><?php esc_html_e('Retire the active Google Fonts inventory without immediately breaking references held by cached pages.', 'wp-asset-clean-up'); ?></p></header>
+        <div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body"><section class="wpacu-bulk-info-modal__summary"><span class="wpacu-bulk-info-modal__summary-icon"><span class="dashicons dashicons-backup" aria-hidden="true"></span></span><div><strong><?php esc_html_e('Clears the active inventory and stops publishing its current local-copy records', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Keeps the physical CSS and font files temporarily available so previously cached HTML can continue loading them during the retention period.', 'wp-asset-clean-up'); ?></span></div></section><ul><li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you want to rebuild the inventory from representative pages or recover from stale local-copy records.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('It does not:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('immediately erase every generated CSS, manifest, or font file.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('Next step:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Scan key pages or visit representative public pages when you are ready to rebuild the inventory.', 'wp-asset-clean-up'); ?></li></ul></div>
     </div>
 </div>
-
 <div id="wpacu-google-fonts-local-cleanup-info" class="wpacu-modal wpacu-bulk-info-modal wpacu-google-fonts-cache-modal" role="dialog" aria-modal="true" aria-labelledby="wpacu-google-fonts-local-cleanup-info-title">
-    <div class="wpacu-modal-content wpacu-bulk-info-modal__content wpacu-google-fonts-cache-modal__content">
-        <button type="button" class="wpacu-close wpacu-bulk-info-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button>
-        <header class="wpacu-bulk-info-modal__header">
-            <span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Routine housekeeping', 'wp-asset-clean-up'); ?></span>
-            <h2 id="wpacu-google-fonts-local-cleanup-info-title"><?php esc_html_e('Delete expired unused files', 'wp-asset-clean-up'); ?></h2>
-            <p><?php esc_html_e('Recover disk space conservatively while preserving every file that is still referenced by an active local copy.', 'wp-asset-clean-up'); ?></p>
-        </header>
-        <div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body">
-            <section class="wpacu-bulk-info-modal__summary"><span class="wpacu-bulk-info-modal__summary-icon"><span class="dashicons dashicons-filter" aria-hidden="true"></span></span><div><strong><?php esc_html_e('Removes only expired orphaned files', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Deletes only unreferenced files that are older than the retention period configured for generated Asset CleanUp files.', 'wp-asset-clean-up'); ?></span></div></section>
-            <ul>
-                <li><strong><?php esc_html_e('Protected:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('CSS, manifests, and font files referenced by Ready configurations remain untouched.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you want normal maintenance without resetting the current inventory.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('Expected result:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('recent retired files may remain until their retention period expires.', 'wp-asset-clean-up'); ?></li>
-            </ul>
-        </div>
-    </div>
+    <span id="wpacu-google-fonts-local-cleanup-info-title" class="screen-reader-text"><?php esc_html_e('Delete expired unused files', 'wp-asset-clean-up'); ?></span>
+    <div class="wpacu-modal-content wpacu-bulk-info-modal__content wpacu-google-fonts-cache-modal__content"><button type="button" class="wpacu-close wpacu-bulk-info-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button><header class="wpacu-bulk-info-modal__header"><span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Routine housekeeping', 'wp-asset-clean-up'); ?></span><h2><?php esc_html_e('Delete expired unused files', 'wp-asset-clean-up'); ?></h2><p><?php esc_html_e('Recover disk space conservatively while preserving every file that is still referenced by an active local copy.', 'wp-asset-clean-up'); ?></p></header><div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body"><section class="wpacu-bulk-info-modal__summary"><span class="wpacu-bulk-info-modal__summary-icon"><span class="dashicons dashicons-filter" aria-hidden="true"></span></span><div><strong><?php esc_html_e('Removes only expired orphaned files', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Deletes only unreferenced files that are older than the retention period configured for generated Asset CleanUp files.', 'wp-asset-clean-up'); ?></span></div></section><ul><li><strong><?php esc_html_e('Protected:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('CSS, manifests, and font files referenced by Ready configurations remain untouched.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you want normal maintenance without resetting the current inventory.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('Expected result:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('recent retired files may remain until their retention period expires.', 'wp-asset-clean-up'); ?></li></ul></div></div>
 </div>
-
 <div id="wpacu-google-fonts-local-clear-info" class="wpacu-modal wpacu-bulk-info-modal wpacu-google-fonts-cache-modal" role="dialog" aria-modal="true" aria-labelledby="wpacu-google-fonts-local-clear-info-title">
-    <div class="wpacu-modal-content wpacu-bulk-info-modal__content wpacu-google-fonts-cache-modal__content">
-        <button type="button" class="wpacu-close wpacu-bulk-info-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button>
-        <header class="wpacu-bulk-info-modal__header">
-            <span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Immediate destructive cleanup', 'wp-asset-clean-up'); ?></span>
-            <h2 id="wpacu-google-fonts-local-clear-info-title"><?php esc_html_e('Delete files immediately', 'wp-asset-clean-up'); ?></h2>
-            <p><?php esc_html_e('Remove every managed local Google Fonts CSS file, manifest, downloaded font file, and active inventory record now.', 'wp-asset-clean-up'); ?></p>
-        </header>
-        <div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body">
-            <div class="wpacu-google-fonts-cache-modal__warning"><span class="dashicons dashicons-warning" aria-hidden="true"></span><div><strong><?php esc_html_e('Purge page and CDN caches at the same time', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Cached HTML or CDN pages may briefly reference files that no longer exist, which can cause fallback fonts or missing icons until those caches are refreshed.', 'wp-asset-clean-up'); ?></span></div></div>
-            <ul>
-                <li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you need an immediate clean slate and can purge every HTML/page/CDN cache that may contain old local URLs.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('After deletion:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Google Fonts requests remain remote until you deliberately discover and rebuild local copies.', 'wp-asset-clean-up'); ?></li>
-                <li><strong><?php esc_html_e('Rebuild:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Scan key pages or visit representative public pages when you are ready to rebuild the inventory.', 'wp-asset-clean-up'); ?></li>
-            </ul>
-        </div>
-    </div>
+    <span id="wpacu-google-fonts-local-clear-info-title" class="screen-reader-text"><?php esc_html_e('Delete files immediately', 'wp-asset-clean-up'); ?></span>
+    <div class="wpacu-modal-content wpacu-bulk-info-modal__content wpacu-google-fonts-cache-modal__content"><button type="button" class="wpacu-close wpacu-bulk-info-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button><header class="wpacu-bulk-info-modal__header"><span class="wpacu-bulk-info-modal__eyebrow"><?php esc_html_e('Immediate destructive cleanup', 'wp-asset-clean-up'); ?></span><h2><?php esc_html_e('Delete files immediately', 'wp-asset-clean-up'); ?></h2><p><?php esc_html_e('Remove every managed local Google Fonts CSS file, manifest, downloaded font file, and active inventory record now.', 'wp-asset-clean-up'); ?></p></header><div class="wpacu-bulk-info-modal__body wpacu-google-fonts-cache-modal__body"><div class="wpacu-google-fonts-cache-modal__warning"><span class="dashicons dashicons-warning" aria-hidden="true"></span><div><strong><?php esc_html_e('Purge page and CDN caches at the same time', 'wp-asset-clean-up'); ?></strong><span><?php esc_html_e('Cached HTML or CDN pages may briefly reference files that no longer exist, which can cause fallback fonts or missing icons until those caches are refreshed.', 'wp-asset-clean-up'); ?></span></div></div><ul><li><strong><?php esc_html_e('Use it when:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('you need an immediate clean slate and can purge every HTML/page/CDN cache that may contain old local URLs.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('After deletion:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Google Fonts requests remain remote until you deliberately discover and rebuild local copies.', 'wp-asset-clean-up'); ?></li><li><strong><?php esc_html_e('Rebuild:', 'wp-asset-clean-up'); ?></strong> <?php esc_html_e('Scan key pages or visit representative public pages when you are ready to rebuild the inventory.', 'wp-asset-clean-up'); ?></li></ul></div></div>
 </div>
 
 <script>

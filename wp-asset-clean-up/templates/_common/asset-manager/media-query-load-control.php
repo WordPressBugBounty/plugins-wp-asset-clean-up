@@ -29,7 +29,7 @@ $wpacuDataForTextAreaId = 'wpacu_handle_media_query_load_textarea_' . $assetType
 ?>
 <div class="wpacu-only-when-kept-loaded">
     <div style="margin: 0 0 15px;">
-        <?php esc_html_e('Make the browser download the file', 'wp-asset-clean-up'); ?>&nbsp;
+        <?php esc_html_e('Make the browser download the file', 'wp-asset-clean-up'); ?>:&nbsp;
         <select id="<?php echo esc_attr($wpacuDataForSelectId); ?>"
                 data-handle="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
                 data-wpacu-input="media-query-select"
@@ -40,7 +40,7 @@ $wpacuDataForTextAreaId = 'wpacu_handle_media_query_load_textarea_' . $assetType
             <?php if ($assetHasDistinctiveMediaAttr) { ?>
                 <option <?php selected($matchMediaLoadStatus, 2); ?> <?php if (! $wpacuMediaLoadIsPro) { ?>disabled="disabled"<?php } ?> value="2"><?php esc_html_e('only if its current media query is matched', 'wp-asset-clean-up'); ?><?php if (! $wpacuMediaLoadIsPro) { ?> (Pro)<?php } ?></option>
             <?php } ?>
-            <option <?php selected($matchMediaLoadStatus, 1); ?> <?php if (! $wpacuMediaLoadIsPro) { ?>disabled="disabled"<?php } ?> value="1"><?php esc_html_e('only if this media query is matched:', 'wp-asset-clean-up'); ?><?php if (! $wpacuMediaLoadIsPro) { ?> (Pro)<?php } ?></option>
+            <option <?php selected($matchMediaLoadStatus, 1); ?> <?php if (! $wpacuMediaLoadIsPro) { ?>disabled="disabled"<?php } ?> value="1"><?php esc_html_e('only if this media query is matched', 'wp-asset-clean-up'); ?>:<?php if (! $wpacuMediaLoadIsPro) { ?> (Pro)<?php } ?></option>
         </select>
 
         <?php if ($wpacuMediaLoadIsPro) { ?>

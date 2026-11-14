@@ -38,6 +38,20 @@ class CombineCss
 
 		$storageJsonContents = array();
 		$skipCache = false; // default
+        $sourceHashes = $inertSources = $sourceFiles = array();
+        $registeredInline = array();
+
+        if (OptimizeCommon::appendInlineCodeToCombineAssetType('css')) {
+            foreach ($wpacuRegisteredStyles as $handle => $style) {
+                if ( ! empty($style->extra['after']) ) {
+                    $registeredInline[$handle] = $style->extra['after'];
+                }
+            }
+        }
+
+        $registeredInlineSignature = sha1(wp_json_encode($registeredInline));
+        // Older indices may have moved attached inline CSS without removing its real tag.
+        $documentSignature = sha1('css-inline-removal-v1' . $registeredInlineSignature . OptimizeCommon::getCombineDocumentSignature($htmlSource));
 
 		if (isset($_GET['wpacu_no_cache']) || wpacuIsDefinedConstant('WPACU_NO_CACHE')) {
 			$skipCache = true;
@@ -46,14 +60,64 @@ class CombineCss
 		// If the cache is not skipped, read the information from the cache as it's much faster
 		if (! $skipCache) {
 			// Speed up processing by getting the already existing final CSS file URI
-			// This will avoid parsing the HTML DOM and determine the combined URI paths for all the CSS files
+			// Reuse bundle metadata only after validating the current document and source contents.
 			$storageJsonContents = OptimizeCommon::getAssetCachedData( self::$jsonStorageFile, OptimizeCss::getRelPathCssCacheDir(), 'css' );
 		}
+
+        if (! OptimizeCommon::combineCacheMatchesDocument($storageJsonContents, $documentSignature, 'css', $sourceHashes)) {
+            $domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'combineCss');
+            // Raw serialization controls whether attached inline CSS can be removed safely.
+            $preserveInlineHandles = array();
+            $inlineTagCounts      = array();
+            $linkTagCounts        = array();
+            $inlineTags           = (new \DOMXPath($domTag))->query('//style[not(ancestor::template)]');
+
+            foreach ($domTag->getElementsByTagName('link') as $linkTag) {
+                foreach (array('href', 'data-wpacu-style-handle') as $attribute) {
+                    $key = $attribute . ':' . $linkTag->getAttribute($attribute);
+                    $linkTagCounts[$key] = isset($linkTagCounts[$key]) ? $linkTagCounts[$key] + 1 : 1;
+                }
+            }
+
+            foreach ($inlineTags as $inlineTag) {
+                $id = $inlineTag->getAttribute('id');
+                $inlineTagCounts[$id] = isset($inlineTagCounts[$id]) ? $inlineTagCounts[$id] + 1 : 1;
+            }
+
+            foreach ($inlineTags as $inlineTag) {
+                $id = $inlineTag->getAttribute('id');
+
+                if (substr($id, -11) !== '-inline-css') {
+                    continue;
+                }
+
+                $handle = substr($id, 0, -11);
+
+                // WordPress and HTML filters can change quotes, whitespace or sourceURL
+                // comments. Preserve the original position unless removal is exact.
+                if ( ! self::canRemoveAttachedInlineStyle($inlineTag, $htmlSource, $wpacuRegisteredStyles, $inlineTagCounts, $linkTagCounts) ) {
+                    $preserveInlineHandles[$handle] = true;
+                }
+
+                foreach (array('nonce', 'media', 'type', 'data-wpacu-skip') as $attribute) {
+                    if ($inlineTag->hasAttribute($attribute)
+                        && ! ($attribute === 'type' && $inlineTag->getAttribute('type') === 'text/css')) {
+                        $preserveInlineHandles[$handle] = true;
+                        break;
+                    }
+                }
+            }
+            $sourceSignature = sha1('css-inline-removal-v1' . $registeredInlineSignature . wp_json_encode(array_keys($preserveInlineHandles)) . OptimizeCommon::getCombineSourceSignature($domTag, 'css', $sourceHashes, $inertSources, $sourceFiles));
+            if (! OptimizeCommon::combineCacheMatchesSource($storageJsonContents, $sourceSignature)) {
+                $storageJsonContents = array();
+            }
+        }
 
 		// $uriToFinalCssFile will always be relative ONLY within WP_CONTENT_DIR . self::getRelPathCssCacheDir()
 		// which is usually "wp-content/cache/asset-cleanup/css/"
 
 		if ( $skipCache || empty($storageJsonContents) ) {
+
 			$storageJsonContentsToSave = array();
 
 			/*
@@ -64,21 +128,37 @@ class CombineCss
 
 			$storageJsonContents = array();
 
-			$domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'combineCss');
-
 			foreach (array('head', 'body') as $docLocationTag) {
 				$combinedUriPathsGroup = $localAssetsPathsGroup = $linkHrefsGroup = array();
 				$localAssetsExtraGroup = array();
+				$groupMedia = array();
+				$groupIndex = 0;
+				$previousMedia = null;
+				$lastStyleHandle = '';
 
 				$docLocationElements = $domTag->getElementsByTagName($docLocationTag)->item(0);
 
 				if ($docLocationElements === null) { continue; }
 
 				$xpath = new \DOMXpath($domTag);
-				$linkTags = $xpath->query('/html/'.$docLocationTag.'/link[@rel="stylesheet"] | /html/'.$docLocationTag.'/link[@rel="preload"]');
+				$linkTags = $xpath->query('.//link[(@rel="stylesheet" or @rel="preload") and not(ancestor::template)] | .//style[not(ancestor::template)]', $docLocationElements);
 				if ($linkTags === null) { continue; }
 
 				foreach ($linkTags as $tagObject) {
+					// Hints may be hoisted to the start of HEAD. Only stylesheet positions define order.
+					if ($tagObject->nodeName === 'link' && $tagObject->getAttribute('rel') === 'preload') { continue; }
+					if ($tagObject->nodeName === 'style') {
+						// Only attached inline CSS which is moved with its handle can share the group.
+						if ($lastStyleHandle && OptimizeCommon::appendInlineCodeToCombineAssetType('css')
+						    && $tagObject->getAttribute('id') === $lastStyleHandle.'-inline-css'
+						    && ! $tagObject->hasAttribute('nonce')) { continue; }
+						$previousMedia = null;
+						$lastStyleHandle = '';
+						continue;
+					}
+					$precedingMedia = $previousMedia;
+					$previousMedia = null; // Any skipped stylesheet is a boundary, including remote sources.
+					$lastStyleHandle = '';
 					$linkAttributes = array();
 					foreach ($tagObject->attributes as $attrObj) { $linkAttributes[$attrObj->nodeName] = trim($attrObj->nodeValue); }
 
@@ -86,6 +166,7 @@ class CombineCss
 					// rel="preload" is there for a reason to make sure the CSS code is made available earlier prior to the one from rel="stylesheet" which is render-blocking
 					if (isset($linkAttributes['rel'], $linkAttributes['href']) && $linkAttributes['href']) {
 						$href = (string) $linkAttributes['href'];
+                        if (isset($inertSources[OptimizeCommon::getCombineSourceKey($href)])) { continue; }
 
 						if (self::skipCombine($linkAttributes['href'])) {
 							continue;
@@ -104,6 +185,12 @@ class CombineCss
 							$skipLinkTag,
 							$linkAttributes
 						);
+						foreach (array('nonce', 'integrity', 'crossorigin', 'referrerpolicy', 'disabled', 'title', 'onload') as $attribute) {
+							if (array_key_exists($attribute, $linkAttributes)) { $skipLinkTag = true; break; }
+						}
+						if (isset($linkAttributes['data-wpacu-style-handle'], $preserveInlineHandles[$linkAttributes['data-wpacu-style-handle']])) {
+							$skipLinkTag = true;
+						}
 
 						if ($skipLinkTag) {
 							continue;
@@ -160,6 +247,11 @@ class CombineCss
 
 						// It will skip external stylesheets (from a different domain)
 						if ( $localAssetPath ) {
+							if ($precedingMedia !== $mediaValue) { $groupIndex++; }
+							$groupKey = (string)$groupIndex;
+							$groupMedia[$groupKey] = $mediaValue;
+							$previousMedia = $mediaValue;
+							$lastStyleHandle = isset($linkAttributes['data-wpacu-style-handle']) ? $linkAttributes['data-wpacu-style-handle'] : '';
 							$styleExtra = array();
 
 							if (isset($linkAttributes['data-wpacu-style-handle'], $wpacuRegisteredStyles[$linkAttributes['data-wpacu-style-handle']]->extra) && OptimizeCommon::appendInlineCodeToCombineAssetType('css')) {
@@ -168,19 +260,19 @@ class CombineCss
 
 							$sourceRelPath = OptimizeCommon::getSourceRelPath($href);
 
-							$alreadyAddedSourceRelPath = isset($combinedUriPathsGroup[$mediaValue]) && in_array($sourceRelPath, $combinedUriPathsGroup[$mediaValue]);
+							$alreadyAddedSourceRelPath = isset($combinedUriPathsGroup[$groupKey]) && in_array($sourceRelPath, $combinedUriPathsGroup[$groupKey]);
 							if (! $alreadyAddedSourceRelPath) {
-								$combinedUriPathsGroup[$mediaValue][] = $sourceRelPath;
+								$combinedUriPathsGroup[$groupKey][] = $sourceRelPath;
 							}
 
-							$localAssetsPathsGroup[$mediaValue][$href] = $localAssetPath;
+							$localAssetsPathsGroup[$groupKey][$href] = $localAssetPath;
 
-							$alreadyAddedHref = isset($linkHrefsGroup[$mediaValue]) && in_array($href, $linkHrefsGroup[$mediaValue]);
+							$alreadyAddedHref = isset($linkHrefsGroup[$groupKey]) && in_array($href, $linkHrefsGroup[$groupKey]);
 							if (! $alreadyAddedHref) {
-								$linkHrefsGroup[$mediaValue][] = $href;
+								$linkHrefsGroup[$groupKey][] = $href;
 							}
 
-							$localAssetsExtraGroup[$mediaValue][$href] = $styleExtra;
+							$localAssetsExtraGroup[$groupKey][$href] = $styleExtra;
 						}
 					}
 				}
@@ -190,15 +282,16 @@ class CombineCss
 					continue;
 				}
 
-				foreach ($combinedUriPathsGroup as $mediaValue => $combinedUriPaths) {
+				foreach ($combinedUriPathsGroup as $groupKey => $combinedUriPaths) {
+					$mediaValue = $groupMedia[$groupKey];
 					// There have to be at least two CSS files to create a combined CSS file
 					if (count($combinedUriPaths) < 2) {
 						continue;
 					}
 
-					$localAssetsPaths = $localAssetsPathsGroup[$mediaValue];
-					$linkHrefs = $linkHrefsGroup[$mediaValue];
-					$localAssetsExtra = array_filter($localAssetsExtraGroup[$mediaValue]);
+					$localAssetsPaths = $localAssetsPathsGroup[$groupKey];
+					$linkHrefs = $linkHrefsGroup[$groupKey];
+					$localAssetsExtra = array_filter($localAssetsExtraGroup[$groupKey]);
 
 					$maybeDoCssCombine = self::maybeDoCssCombine(
 						$localAssetsPaths,
@@ -224,7 +317,7 @@ class CombineCss
                                 $localFilePath = OptimizeCommon::getLocalAssetPath($href, 'css');
 
                                 // Unique Mark: SHA1 of the file contents + a unique ID (in rare cases when a different file has the same content)
-                                $indexKey      = sha1_file($localFilePath) . '_'. uniqid('', true);
+                                $indexKey      = OptimizeCommon::getCombineFileHash($localFilePath, $sourceHashes) . '_'. uniqid('', true);
                             }
 
                             $href = str_replace('{site_url}', '', OptimizeCommon::getSourceRelPath($href, true));
@@ -233,12 +326,16 @@ class CombineCss
                             $linkHrefs[$indexKey] = $href;
                         }
 
-                        $storageJsonContents[$docLocationTag][$mediaValue] = array(
+                        $storageJsonContents[$docLocationTag][$groupKey] = array(
+							'media' => $mediaValue,
+							'source_signature' => $sourceSignature,
 							'uri_to_final_css_file' => $uriToFinalCssFile,
 							'link_hrefs'            => $linkHrefs
 						);
 
-						$storageJsonContentsToSave[$docLocationTag][$mediaValue] = array(
+						$storageJsonContentsToSave[$docLocationTag][$groupKey] = array(
+							'media' => $mediaValue,
+							'source_signature' => $sourceSignature,
 							'uri_to_final_css_file' => $uriToFinalCssFile,
 							'link_hrefs'            => $linkHrefs
 						);
@@ -248,6 +345,8 @@ class CombineCss
 
 			libxml_clear_errors();
 
+
+            OptimizeCommon::attachCombineValidation($storageJsonContentsToSave, $documentSignature, $sourceFiles);
 			OptimizeCommon::setAssetCachedData(
 				self::$jsonStorageFile,
 				OptimizeCss::getRelPathCssCacheDir(),
@@ -263,6 +362,7 @@ class CombineCss
 				$groupLocation = 1;
 
 				foreach ($mediaValues as $mediaValue => $storageJsonContentLocation) {
+					$mediaValue = $storageJsonContentLocation['media'];
 					if (empty($storageJsonContentLocation['link_hrefs'])) {
                         continue;
 					}
@@ -364,7 +464,9 @@ HTML;
 						$htmlSource = self::stripJustCombinedLinkTags(
 							$storageJsonContentLocation['link_hrefs'],
 							$wpacuRegisteredStyles,
-							$htmlSource
+							$htmlSource,
+                            array(reset($storageJsonContentLocation['link_hrefs'])),
+                            $sourceHashes
 						); // Strip the combined files to avoid duplicate code
 
 						// There should be at least two replacements made, AND all the tags should have been replaced
@@ -388,14 +490,15 @@ HTML;
 	 * @param $filesSources
 	 * @param $wpacuRegisteredStyles
 	 * @param $htmlSource
+     * @param array $alreadyReplacedSources Sources replaced by the combined tag before this pass.
 	 *
 	 * @return mixed
 	 */
-	public static function stripJustCombinedLinkTags($filesSources, $wpacuRegisteredStyles, $htmlSource)
+	public static function stripJustCombinedLinkTags($filesSources, $wpacuRegisteredStyles, $htmlSource, $alreadyReplacedSources = array(), &$sourceHashes = array())
 	{
 		preg_match_all('#<link[^>]*(stylesheet|preload)[^>]*(>)#Umi', $htmlSource, $matchesSourcesFromTags, PREG_SET_ORDER);
 
-		$linkTagsStrippedNo = 0;
+		$strippedSources = array_fill_keys($alreadyReplacedSources, true);
         $clearCombinedCssCache = false;
 
 		foreach ($matchesSourcesFromTags as $matchSourceFromTag) {
@@ -423,7 +526,7 @@ HTML;
                             if (strpos($indexKey, '_') !== false && strpos($relNodeValue, OptimizeCommon::getRelPathPluginCacheDir()) === false) {
                                 list($sha1File) = explode('_', $indexKey);
 
-                                if ($sha1File !== sha1_file(OptimizeCommon::getLocalAssetPath($relNodeValue, 'css'))) {
+                                if ($sha1File !== OptimizeCommon::getCombineFileHash(OptimizeCommon::getLocalAssetPath($relNodeValue, 'css'), $sourceHashes)) {
                                     // The contents of one of the files from the combined CSS were changed
                                     $clearCombinedCssCache = true;
                                     break 3;
@@ -437,7 +540,7 @@ HTML;
 							$htmlSource = self::stripTagAndAnyInlineAssocCode( $matchedSourceFromTag, $wpacuRegisteredStyles, '', $htmlSource );
 
 							if ($htmlSource !== $htmlSourceBeforeLinkTagReplacement) {
-								$linkTagsStrippedNo++;
+								$strippedSources[$relNodeValue] = true;
 							}
 							}
 					}
@@ -447,9 +550,9 @@ HTML;
 			libxml_clear_errors();
 		}
 
-		// Aren't all the LINK tags stripped? They should be, otherwise, do not proceed with the HTML alteration (no combining will take place)
-		// Minus the already combined tag
-		if ($clearCombinedCssCache || (($linkTagsStrippedNo < 2) && (count($filesSources) !== $linkTagsStrippedNo))) {
+		// Count source URLs, including the first tag already replaced by the caller.
+        // A preload and stylesheet for the same source must not mask a missing file.
+		if ($clearCombinedCssCache || array_diff($filesSources, array_keys($strippedSources))) {
             // It looks like one or more files are not loading on this page
             // It means the combined CSS is irrelevant as it should contain fewer files
             // Clear it, so it will be re-created!
@@ -588,6 +691,72 @@ HTML;
 
 		return $finalAssetsContents;
 	}
+
+    /**
+     * Only move attached CSS when the existing tag-removal path can remove its exact bytes.
+     *
+     * @param \DOMElement $inlineTag
+     * @param string $htmlSource
+     * @param array $registeredStyles
+     * @param array $inlineTagCounts
+     * @param array $linkTagCounts
+     *
+     * @return bool
+     */
+    private static function canRemoveAttachedInlineStyle($inlineTag, $htmlSource, $registeredStyles, $inlineTagCounts = array(), $linkTagCounts = array())
+    {
+        $handle  = substr($inlineTag->getAttribute('id'), 0, -11);
+        $linkTag = $inlineTag->previousSibling;
+
+        if ( ! $inlineTagCounts ) {
+            foreach ($inlineTag->ownerDocument->getElementsByTagName('style') as $styleTag) {
+                $id = $styleTag->getAttribute('id');
+                $inlineTagCounts[$id] = isset($inlineTagCounts[$id]) ? $inlineTagCounts[$id] + 1 : 1;
+            }
+        }
+
+        if ($inlineTagCounts[$inlineTag->getAttribute('id')] !== 1) {
+            return false;
+        }
+
+        while ($linkTag && $linkTag->nodeType === XML_TEXT_NODE && trim($linkTag->nodeValue) === '') {
+            $linkTag = $linkTag->previousSibling;
+        }
+
+        if ( ! $linkTag || $linkTag->nodeName !== 'link'
+             || $linkTag->getAttribute('data-wpacu-style-handle') !== $handle ) {
+            return false;
+        }
+
+        if ( ! $linkTagCounts ) {
+            foreach ($inlineTag->ownerDocument->getElementsByTagName('link') as $sourceTag) {
+                foreach (array('href', 'data-wpacu-style-handle') as $attribute) {
+                    $key = $attribute . ':' . $sourceTag->getAttribute($attribute);
+                    $linkTagCounts[$key] = isset($linkTagCounts[$key]) ? $linkTagCounts[$key] + 1 : 1;
+                }
+            }
+        }
+
+        if ($linkTagCounts['href:' . $linkTag->getAttribute('href')] !== 1
+            || $linkTagCounts['data-wpacu-style-handle:' . $handle] !== 1) {
+            return false;
+        }
+
+        $linkHtml = OptimizeCss::getFirstLinkTag($linkTag->getAttribute('href'), $htmlSource);
+
+        if ( ! $linkHtml ) {
+            return false;
+        }
+
+        $inline = OptimizeCss::getInlineAssociatedWithLinkHandle($linkHtml, $registeredStyles, 'tag', 'html');
+
+        if ( empty($inline['after']) || $inline['after'] !== OptimizeCss::generateInlineAssocHtmlForHandle($handle) ) {
+            return false;
+        }
+
+        return strpos($htmlSource, $linkHtml . "\n" . $inline['after']) !== false
+               || strpos($htmlSource, $linkHtml . trim($inline['after'])) !== false;
+    }
 
 	/**
 	 * The targeted LINK tag (which was enqueued and has a handle) is replaced with $replaceWith

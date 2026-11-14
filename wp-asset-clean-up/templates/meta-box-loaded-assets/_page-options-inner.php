@@ -49,7 +49,7 @@ if (! isset($data)) {
 	<span class="dashicons dashicons-lightbulb"></span>
 	<?php echo sprintf(esc_html__('If you are not sure how these options work, you can %sread more about them%s in the documentation.', 'wp-asset-clean-up'), '<a target="_blank" href="https://www.assetcleanup.com/docs/?p=1318">', '</a>'); ?>
 </p>
-<script>
+<?php ob_start(); ?>
 (function($) {
 	'use strict';
 	var disabledByPlugin = <?php echo wp_json_encode(sprintf(__('"%s" is enabled and takes precedence over all other page options. These selections are kept, but have no effect while the plugin is disabled on this page.', 'wp-asset-clean-up'), sprintf(__('Do not load %s on this page', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE))); ?>;
@@ -115,5 +115,5 @@ if (! isset($data)) {
         }
     });
 })(jQuery);
-</script>
+<?php echo \WpAssetCleanUp\OwnAssets::getInlineScriptTag(ob_get_clean()); ?>
 <input type="hidden" name="wpacu_page_options_area_loaded" value="1" />

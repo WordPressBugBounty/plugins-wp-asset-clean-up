@@ -8,7 +8,7 @@ $wpacuAssetPreloadIsReadOnly = ! defined('WPACU_PRO_PLUGIN_VERSION')
 ?>
 <div class="wpacu_hide_if_handle_row_contracted">
     &nbsp;&#10230;&nbsp;
-    Preload?
+    <?php esc_html_e('Preload', 'wp-asset-clean-up'); ?>:
     &nbsp;<select style="display: inline-block; width: auto; <?php if ($isAssetPreload) {
         echo 'background: #f2faf2 url(\'data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%206l5%205%205-5%202%201-7%207-7-7%202-1z%22%20fill%3D%22%23555%22%2F%3E%3C%2Fsvg%3E\') no-repeat right 5px top 55%; padding-right: 30px; color: black;';
     } ?>"

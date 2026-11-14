@@ -611,7 +611,7 @@ class MainAdmin
 
         global $wp_scripts, $wp_styles;
 
-        $list = array();
+        $list = array('styles' => array(), 'scripts' => array());
 
         // e.g. for "Loaded" and "Unloaded" statuses
         $currentUnloadedAll = isset(Main::instance()->allUnloadedAssets)
@@ -700,7 +700,7 @@ class MainAdmin
                     if (! in_array($sbuHandle, $manageStyles)) {
                         // Could be an old style that is not loaded anymore
                         // We have to check that
-                        if (! isset($stylesBeforeUnload['registered'][$sbuHandle])) {
+                        if (! isset($stylesBeforeUnload['registered'][$sbuHandle]) || in_array($sbuHandle, MainFront::instance()->getSkipAssets('styles'))) {
                             continue;
                         }
 
@@ -739,7 +739,7 @@ class MainAdmin
                     if (! in_array($sbuHandle, $manageScripts)) {
                         // Could be an old script that is not loaded anymore
                         // We have to check that
-                        if (! isset($scriptsBeforeUnload['registered'][$sbuHandle])) {
+                        if (! isset($scriptsBeforeUnload['registered'][$sbuHandle]) || in_array($sbuHandle, MainFront::instance()->getSkipAssets('scripts'))) {
                             continue;
                         }
 
@@ -754,7 +754,7 @@ class MainAdmin
 
             }
 
-        if (! empty($list)) {
+        if (! empty($list['styles']) || ! empty($list['scripts'])) {
             Update::updateHandlesInfo( $list );
         }
 
@@ -968,8 +968,9 @@ class MainAdmin
                 header('X-WPACU-Fetched-Url: '.rawurlencode($list['wpacu_fetched_url']));
             }
 
-            if ( isset($_GET['wpacu_print']) ) {
-                echo '<!-- Enqueued List: '."\n".print_r($list, true)."\n".' -->';
+            if (isset($_GET['wpacu_print']) && Menu::userCanAccessPlugin()) {
+                // Asset metadata can contain HTML; keep it inside the diagnostic comment.
+                echo '<!-- Enqueued List: '."\n".esc_html(print_r($list, true))."\n".' -->';
                 echo '<!-- Hardcoded List: '."\n".'{wpacu_hardcoded_assets_printed}'."\n".' -->';
             }
 
@@ -982,7 +983,7 @@ class MainAdmin
                 exit();
             });
         } elseif ($isDashboardEditView && isset($_GET['wpacu_just_hardcoded'])) {
-            if ( isset($_GET['wpacu_print']) ) {
+            if (isset($_GET['wpacu_print']) && Menu::userCanAccessPlugin()) {
                 echo '<!-- Hardcoded list: '."\n".'{wpacu_hardcoded_assets_printed}'."\n".' -->';
             }
 
@@ -1397,7 +1398,7 @@ class MainAdmin
      *
      * @return bool
      */
-    private static function fetchedUrlRedirectedToDifferentLocation($requestedUrl, $finalUrl)
+    public static function fetchedUrlRedirectedToDifferentLocation($requestedUrl, $finalUrl)
     {
         if ($requestedUrl === '' || $finalUrl === '') {
             return false;
@@ -1913,10 +1914,10 @@ class MainAdmin
 			}
 
 			if (Main::instance()->settings['test_mode']) {
-				$consoleMessage = sprintf(esc_html__('%s: "TEST MODE" ENABLED (any settings or unloads will be visible ONLY to you, the logged-in administrator)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
+				$consoleMessage = sprintf(__('%s: "TEST MODE" ENABLED (any settings or unloads will be visible ONLY to you, the logged-in administrator)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
 				$testModeNotice = __('"Test Mode" is ENABLED. Any settings or unloads will be visible ONLY to you, the logged-in administrator.', 'wp-asset-clean-up');
 			} else {
-				$consoleMessage = sprintf(esc_html__('%s: "LIVE MODE" (test mode is not enabled, thus, all the plugin changes are visible for everyone: you, the logged-in administrator and the regular visitors)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
+				$consoleMessage = sprintf(__('%s: "LIVE MODE" (test mode is not enabled, thus, all the plugin changes are visible for everyone: you, the logged-in administrator and the regular visitors)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
 				$testModeNotice = __('The website is in LIVE MODE as "Test Mode" is not enabled. All the plugin changes are visible for everyone: logged-in administrators and regular visitors.', 'wp-asset-clean-up');
 			}
 			?>
@@ -1926,7 +1927,7 @@ class MainAdmin
             <?php echo esc_html($testModeNotice); ?>
             -->
             <script <?php echo Misc::getScriptTypeAttribute(); ?> data-wpacu-own-inline-script="true">
-                console.log('<?php echo esc_js($consoleMessage); ?>');
+                console.log(<?php echo wp_json_encode($consoleMessage, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
             </script>
 			<?php
 		});
@@ -1961,9 +1962,19 @@ class MainAdmin
             );
         }
 
+        $useFrontendFrame = ($name === 'settings-frontend')
+            && \WpAssetCleanUp\FrontendManagerFrame::isEnabled();
+        if ($useFrontendFrame) {
+            $data['frontend_manager_frame'] = true;
+        }
+
         ob_start();
         include $templateFile;
         $result = ob_get_clean();
+
+        if ($useFrontendFrame) {
+            $result = \WpAssetCleanUp\FrontendManagerFrame::render($result);
+        }
 
         // $echo is set to true ($returnData is not relevant), thus print the output
         if ($echo) {

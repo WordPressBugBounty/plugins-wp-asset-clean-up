@@ -27,7 +27,7 @@ if ($isLoadRegExEnabledWithValue) {
                name="wpacu_handle_load_regex[<?php echo esc_attr($assetType); ?>][<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>][enable]"
             <?php if (! $wpacuLoadRegexIsPro) { ?> disabled="disabled"<?php } ?>
             <?php checked($isLoadRegExEnabledWithValue); ?>
-               value="1" />&nbsp;<span><?php esc_html_e('If the request URI matches any of these rules:', 'wp-asset-clean-up'); ?></span>
+               value="1" />&nbsp;<span><?php esc_html_e('If the request URI matches any of these rules', 'wp-asset-clean-up'); ?>:</span>
     </label>
     <?php if (! $wpacuLoadRegexIsPro) { ?>
         <a class="go-pro-link-no-style wpacu-locked-checkbox-overlay" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=manage_asset&utm_medium=load_via_regex_make_exception')); ?>">

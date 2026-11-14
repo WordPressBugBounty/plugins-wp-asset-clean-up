@@ -14,14 +14,14 @@ switch ($wpacuAssetManagerFormContext) {
 
     case 'author':
         $wpacuAssetManagerContextNote = $wpacuAssetManagerIsPro
-            ? __('Once the author is selected, the CSS & JS manager will load to manage the assets for the chosen author archive.', 'wp-asset-clean-up')
-            : __('Once the author is selected, the CSS & JS manager will load the real assets for a read-only preview of that author archive.', 'wp-asset-clean-up');
+            ? __('Select an author to manage CSS/JS on their archive page.', 'wp-asset-clean-up')
+            : __('Select an author for a read-only preview of CSS/JS on their archive page.', 'wp-asset-clean-up');
         break;
 
     case 'taxonomy':
         $wpacuAssetManagerContextNote = $wpacuAssetManagerIsPro
-            ? __('Once the term is selected, the CSS & JS manager will load to manage the assets for the chosen taxonomy archive.', 'wp-asset-clean-up')
-            : __('Once the term is selected, the CSS & JS manager will load the real assets for a read-only preview of that taxonomy archive.', 'wp-asset-clean-up');
+            ? __('Select a term to manage CSS/JS on its archive page.', 'wp-asset-clean-up')
+            : __('Select a term for a read-only preview of CSS/JS on its archive page.', 'wp-asset-clean-up');
         break;
 
     default:
