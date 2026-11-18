@@ -276,6 +276,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 },
 
                 addExtraRequiredParamsToGetLoadedAssets: function(dataGetLoadedAssets) {
+                    // Built-in archive rules need the same validated term context as Pro.
+                    if (['category', 'post_tag'].indexOf(wpacu_object.wpacu_taxonomy) !== -1 && wpacu_object.tag_id) {
+                        dataGetLoadedAssets['page_type'] = 'taxonomy';
+                        dataGetLoadedAssets['tag_id'] = wpacu_object.tag_id;
+                        dataGetLoadedAssets['wpacu_taxonomy'] = wpacu_object.wpacu_taxonomy;
+                    }
+
                     // Does it have a post ID? Singular page
                     if (typeof wpacu_object.post_id !== 'undefined') {
                         dataGetLoadedAssets['post_id'] = wpacu_object.post_id;
@@ -427,6 +434,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             if ($(this).hasClass('wpacu_global_unload') ||
                                 $(this).hasClass('wpacu_post_type_unload')
+                                || $(this).hasClass('wpacu_taxonomy_unload')
                             ) {
                                 /*
                                  * Clicked: "Unload site-wide" (.wpacu_global_unload) or "Unload on all posts of the same [post_type]" (.wpacu_post_type_unload)
@@ -447,8 +455,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                 $('.input-unload-on-this-page[data-handle-for="' + handleFor + '"][data-handle="' + handle + '"]')
                                     .prop('checked', false);
 
-                            } else if ($(this).hasClass('wpacu_post_type_unload')) {
-                                // Unload on All Pages of "[post_type_here]" post type
+                            } else if ($(this).hasClass('wpacu_post_type_unload') || $(this).hasClass('wpacu_taxonomy_unload')) {
+                                // An unconditional post-type or taxonomy unload covers the current page.
                                 $.fn.wpAssetCleanUp().uncheckAllOtherBulkUnloadRules($(this), false);
 
                                 // Obviously, "Unload on this page" should be unchecked as the rule overwrites it
@@ -561,6 +569,40 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     );
 
+                    // Taxonomy exceptions are available in both editions; scope updates to this asset row.
+                    $(document).on('change', cbSelectorMakeExceptionOnPage + ', .wpacu_load_it_option_tax_type', function () {
+                        const $input = $(this), $row = $input.closest('tr.wpacu_asset_row');
+                        if (!$row.find('.wpacu_load_it_option_tax_type').length || $input.prop('disabled')) {
+                            return;
+                        }
+
+                        $input.parent('label').toggleClass('wpacu_global_unload_exception', $input.prop('checked'));
+                        if (!$input.prop('checked')) {
+                            return;
+                        }
+
+                        if ($input.hasClass('wpacu_load_it_option_on_this_page')) {
+                            $row.find('.wpacu_load_it_option_tax_type:enabled:checked').prop('checked', false).trigger('change');
+                        } else {
+                            $row.find('.input-unload-on-this-page:enabled:checked, .wpacu_load_it_option_on_this_page:enabled:checked')
+                                .prop('checked', false).trigger('change');
+
+                            // A new unload and load exception for the same scope cancel each other.
+                            const $bulk = $row.find('.wpacu_taxonomy_unload:enabled:checked');
+                            if ($bulk.length) {
+                                $bulk.prop('checked', false).trigger('change');
+                                $input.prop('checked', false).trigger('change');
+                            }
+                            if ($input.prop('checked')) {
+                                // Clearing a narrower unload may hide/disable its exceptions.
+                                // The selected taxonomy exception remains meaningful and must be submitted.
+                                $input.prop('disabled', false);
+                                $input.closest('.wpacu_exception_options_area_wrap').parent('div').removeClass('wpacu_hide');
+                            }
+                        }
+                        $row.removeClass('wpacu_not_load');
+                    });
+
                     // Put back the red background in case all load exceptions were unchecked
                     // and there's an unloading option there such as "site-wide" or "on all pages of [post] type"
                     $(document).on('click change', '.wpacu_load_exception', function() {
@@ -580,6 +622,82 @@ document.addEventListener("DOMContentLoaded", function () {
                                 $(targetedTr).addClass('wpacu_not_load');
                             }
                         }
+                    });
+
+                    // Reconcile saved bulk choices after the individual control handlers.
+                    // The initial wpacu_is_bulk_unloaded class does not reflect Keep/Remove edits.
+                    $(document).on('click change', '.wpacu_keep_bulk_rule, .wpacu_remove_bulk_rule, .wpacu_keep_site_wide_rule, .wpacu_remove_site_wide_rule, .wpacu_bulk_unload, .wpacu_load_exception, .input-unload-on-this-page', function () {
+                        const $row = $(this).closest('tr.wpacu_asset_row');
+
+                        if (!$row.find('.wpacu_keep_bulk_rule, .wpacu_taxonomy_unload, .wpacu_load_it_option_tax_type').length) {
+                            return;
+                        }
+
+                        // Conditional URI/taxonomy rules retain their existing preview handling;
+                        // a checked conditional rule alone does not prove a match on this page.
+                        const conditionalRules = '.wpacu_unload_it_regex_checkbox, .wpacu_unload_it_post_type_via_tax_checkbox, .wpacu_load_it_option_regex, .wpacu_load_it_post_type_via_tax_checkbox';
+                        if ($row.find(conditionalRules).filter(':enabled:checked').length) {
+                            return;
+                        }
+
+                        const hasUnload = $row.find('.wpacu_keep_bulk_rule, .wpacu_keep_site_wide_rule, .wpacu_bulk_unload, .input-unload-on-this-page').filter(':enabled:checked').length > 0;
+                        const hasException = $row.find('.wpacu_load_exception').filter(':enabled:checked').length > 0;
+
+                        $row.toggleClass('wpacu_not_load', hasUnload && !hasException);
+                    });
+
+                    // Ordinary bulk scopes are already included in a site-wide unload.
+                    const syncSiteWideBulkCoverage = function ($row) {
+                        const covered = $row.find('.wpacu_global_unload, .wpacu_keep_site_wide_rule').filter(':enabled:checked').length > 0;
+                        const bulkInputs = '.wpacu_post_type_unload, .wpacu_taxonomy_unload, .wpacu_author_unload';
+                        const addCoverageNote = function ($wrap, message) {
+                            if (!$wrap.children('.wpacu-sitewide-bulk-note').length) {
+                                $('<p>', {class: 'wpacu-sitewide-bulk-note'})
+                                    .text(message || 'Included in the site-wide unload rule.')
+                                    .css({margin: '6px 0 0', fontSize: '12px', lineHeight: '1.5'})
+                                    .appendTo($wrap);
+                            }
+                        };
+
+                        $row.find('.wpacu-sitewide-bulk-note').remove();
+                        $row.find(bulkInputs).each(function () {
+                            const $input = $(this), $label = $input.closest('label');
+                            const disabledHere = $input.data('wpacuDisabledBySiteWide') === true;
+
+                            // Do not unlock controls disabled by permissions or read-only previews.
+                            if ($input.prop('disabled') && !disabledHere) {
+                                return;
+                            }
+
+                            if (covered) {
+                                if (!disabledHere) {
+                                    $input.data('wpacuSiteWideLabelOpacity', $label[0].style.opacity);
+                                }
+                                $input.prop({checked: false, disabled: true}).data('wpacuDisabledBySiteWide', true);
+                                $label.removeClass('wpacu_input_load_checked wpacu_unload_checked').css('opacity', 0.55);
+                                addCoverageNote($input.closest('.wpacu_asset_options_wrap'), wpacu_object.bulk_included_in_site_wide);
+                            } else if (disabledHere) {
+                                $input.prop('disabled', false).removeData('wpacuDisabledBySiteWide');
+                                $label.css('opacity', $input.data('wpacuSiteWideLabelOpacity'));
+                                $input.removeData('wpacuSiteWideLabelOpacity');
+                            }
+                        });
+
+                        // Saved rules remain editable and submitted; do not discard them.
+                        if (covered) {
+                            $row.find('.wpacu_keep_bulk_rule:enabled:checked').each(function () {
+                                addCoverageNote($(this).closest('.wpacu_asset_options_wrap'), wpacu_object.bulk_saved_covered_by_site_wide);
+                            });
+                        }
+                    };
+
+                    const coverageControls = '.wpacu_bulk_unload, .wpacu_keep_site_wide_rule, .wpacu_remove_site_wide_rule, .wpacu_keep_bulk_rule, .wpacu_remove_bulk_rule, .input-unload-on-this-page';
+                    $(document).off('click.wpacuSiteWideCoverage change.wpacuSiteWideCoverage', coverageControls)
+                        .on('click.wpacuSiteWideCoverage change.wpacuSiteWideCoverage', coverageControls, function () {
+                            syncSiteWideBulkCoverage($(this).closest('tr.wpacu_asset_row'));
+                        });
+                    $('tr.wpacu_asset_row').each(function () {
+                        syncSiteWideBulkCoverage($(this));
                     });
 
                     // Handle Notes
@@ -839,6 +957,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (wpacuListToCheck.length > 0) {
                         $(wpacuListToCheck.join()).each(function () {
                             let $thisEl = $(this);
+
+                            // Empty preload values explicitly clear saved rules; disabled previews must stay disabled.
+                            if ($thisEl.is(preloadTargetInput)) {
+                                return;
+                            }
+
                             if ( ! $thisEl.val() ) {
                                 $thisEl.prop('disabled', 'disabled');
 
@@ -3029,3 +3153,4 @@ document.addEventListener("DOMContentLoaded", () => {
 //
 // [END] Core file
 //
+

@@ -13,23 +13,9 @@ class FrontendPluginsPreviewData
      */
     public static function context()
     {
-        $url       = explode('#', Misc::getCurrentPageUrl(false), 2);
-        $parts     = explode('?', $url[0], 2);
-        $arguments = array();
-        $internal  = array(
-            'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
-            'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
-            'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
-        );
-        if (isset($parts[1])) {
-            foreach (explode('&', $parts[1]) as $argument) {
-                $pair = explode('=', $argument, 2);
-                if (!in_array(urldecode($pair[0]), $internal, true)) { $arguments[] = $argument; }
-            }
-        }
-        // Keep visitor arguments verbatim: dotted names, duplicates and encoding can be significant.
+        $url = Misc::removeManagerQueryArgs(Misc::getCurrentPageUrl(false));
         $context = array(
-            'valid'=>false, 'label'=>'', 'url'=>$parts[0] . ($arguments ? '?' . implode('&', $arguments) : ''),
+            'valid'=>false, 'label'=>'', 'url'=>$url,
             'post_id'=>0, 'post_type'=>'', 'taxonomy'=>'', 'term_name'=>'', 'term_taxonomy_ids'=>array(),
             'archive_type'=>'', 'author_id'=>0, 'is_homepage'=>false, 'unload_key'=>'', 'load_key'=>'',
             'values'=>null, 'selection'=>array('wpacu_scope'=>'specific')

@@ -3,6 +3,7 @@
 
 namespace WpAssetCleanUp\OptimiseAssets;
 
+use WpAssetCleanUp\Main;
 use WpAssetCleanUp\Misc;
 
 /**
@@ -186,29 +187,73 @@ class FontsGoogleRemove
     }
 
     /**
-     * Extract one HTML attribute without considering text in other attributes.
+     * Replace the first exact attribute using its original source range.
      *
      * @param string $tag
+     * @param array $ranges
      * @param string $attributeName
+     * @param string $value
      *
-     * @return string|null
+     * @return string
      */
-    private static function extractHtmlAttribute($tag, $attributeName)
+    private static function rewriteHtmlAttribute($tag, $ranges, $attributeName, $value)
     {
-        $attributeName = preg_quote($attributeName, '#');
-        $pattern = '#\b' . $attributeName . '\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'=<>`]+))#i';
-
-        if ( ! preg_match($pattern, $tag, $matches) ) {
-            return null;
-        }
-
-        foreach (array(1, 2, 3) as $matchIndex) {
-            if (isset($matches[$matchIndex]) && $matches[$matchIndex] !== '') {
-                return html_entity_decode($matches[$matchIndex], ENT_QUOTES, 'UTF-8');
+        foreach ($ranges as $range) {
+            if ($range['name'] !== $attributeName) {
+                continue;
             }
+            $original = substr($tag, $range['offset'], $range['length']);
+            $equal    = strpos($original, '=');
+            if ($equal === false) {
+                return $tag;
+            }
+            $rawValue = substr($original, $equal + 1);
+            $trimmed  = ltrim($rawValue, "\x09\x0a\x0c\x0d\x20");
+            $start    = $equal + 1 + strlen($rawValue) - strlen($trimmed);
+            $quote    = isset($trimmed[0]) && $trimmed[0] === "'" ? "'" : '"';
+            $encoded  = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+
+            return substr_replace($tag, $quote . $encoded . $quote,
+                $range['offset'] + $start, strlen($trimmed));
         }
 
-        return '';
+        return $tag;
+    }
+
+    /**
+     * Collect actual HTML stylesheet elements while honoring opt-outs and the manager.
+     *
+     * @param string $htmlSource
+     *
+     * @return array
+     */
+    private static function getEditableStyleTokens($htmlSource)
+    {
+        $tokens = HtmlCleanup::getStyleTokens($htmlSource);
+        $result = array();
+
+        foreach (is_array($tokens) ? $tokens : array() as $token) {
+            if ($token['manager'] || isset($token['attributes']['data-wpacu-skip'])) {
+                continue;
+            }
+            if ($token['tag_name'] === 'LINK' && isset($token['attributes']['href'])) {
+                $href = $token['attributes']['href'];
+                // The scanner has already decoded HTML once. Legacy URL helpers
+                // also decode entities: do not let a second pass reinterpret
+                // literal entity text or a legacy-looking fragment as a query.
+                if (html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8') !== $href
+                    || strpos($href, '#038;') !== false) {
+                    continue;
+                }
+            }
+            if ($token['tag_name'] === 'STYLE' && isset($token['attributes']['type'])
+                && ! in_array(strtolower(trim($token['attributes']['type'])), array('', 'text/css'), true)) {
+                continue;
+            }
+            $result[] = $token;
+        }
+
+        return $result;
     }
 
     /**
@@ -234,32 +279,14 @@ class FontsGoogleRemove
             return $htmlSource;
         }
 
-        $cleanedHtmlSource = preg_replace_callback(
-            '#<link\b[^>]*>#i',
-            static function($matches) {
-                $linkTag = $matches[0];
+        foreach (array_reverse(self::getEditableStyleTokens($htmlSource)) as $token) {
+            if ($token['tag_name'] === 'LINK' && isset($token['attributes']['href'])
+                && self::shouldRemoveStylesheetUrl($token['attributes']['href'])) {
+                $htmlSource = substr_replace($htmlSource, '', $token['offset'], $token['length']);
+            }
+        }
 
-                // Extra validation: a LINK element should not leave any text
-                // once tags are stripped.
-                if (trim(strip_tags($linkTag)) !== '') {
-                    return $linkTag;
-                }
-
-                // Explicit opt-out for integrations that must remain untouched.
-                if (Misc::hasExactDataAttr($linkTag, 'data-wpacu-skip')) {
-                    return $linkTag;
-                }
-
-                $href = self::extractHtmlAttribute($linkTag, 'href');
-
-                return $href !== null && self::shouldRemoveStylesheetUrl($href)
-                    ? ''
-                    : $linkTag;
-            },
-            $htmlSource
-        );
-
-        return is_string($cleanedHtmlSource) ? $cleanedHtmlSource : $htmlSource;
+        return $htmlSource;
     }
 
     /**
@@ -290,40 +317,25 @@ class FontsGoogleRemove
             return $htmlSource;
         }
 
-        $cleanedHtmlSource = preg_replace_callback(
-            '#(<\s*style\b[^>]*>)(.*?)(</\s*style\s*>)#is',
-            static function($matches) {
-                $openingTag  = $matches[1];
-                $cssContent  = $matches[2];
-                $closingTag  = $matches[3];
-                $fullStyleTag = $matches[0];
+        foreach (array_reverse(self::getEditableStyleTokens($htmlSource)) as $token) {
+            if ( $token['tag_name'] !== 'STYLE' || ! self::containsAnyGoogleFontsReference($token['content']) ) {
+                continue;
+            }
+            $css = self::stripGoogleFontImportsFromCss($token['content']);
+            $css = self::cleanFontFaceReferences($css);
 
-                // Explicit opt-out for integrations that must remain untouched.
-                if (Misc::hasExactDataAttr($openingTag, 'data-wpacu-skip')) {
-                    return $fullStyleTag;
-                }
+            if ($css === $token['content']) {
+                continue;
+            }
+            if (trim($css) === '') {
+                $htmlSource = substr_replace($htmlSource, '', $token['offset'], $token['length']);
+            } else {
+                $htmlSource = substr_replace($htmlSource, $css,
+                    $token['offset'] + strlen($token['opening']), strlen($token['content']));
+            }
+        }
 
-                if (! self::containsAnyGoogleFontsReference($cssContent)) {
-                    return $fullStyleTag;
-                }
-
-                // Remove only Google Fonts imports. Unrelated local or third-party
-                // @import statements must remain available.
-                $cleanedCssContent = self::stripGoogleFontImportsFromCss($cssContent);
-                $cleanedCssContent = self::cleanFontFaceReferences($cleanedCssContent);
-
-                // An empty STYLE element has no value after the matching rules are
-                // removed, so avoid leaving it in the final HTML source.
-                if (trim($cleanedCssContent) === '') {
-                    return '';
-                }
-
-                return $openingTag . $cleanedCssContent . $closingTag;
-            },
-            $htmlSource
-        );
-
-        return is_string($cleanedHtmlSource) ? $cleanedHtmlSource : $htmlSource;
+        return $htmlSource;
     }
 
     /**
@@ -492,8 +504,7 @@ class FontsGoogleRemove
 
 
     /**
-     * Return the Pro-only selective-removal rules through a common extension point.
-     * Lite intentionally receives an empty list.
+     * Return the validated selective-removal rules shared by Lite and Pro.
      *
      * @return array
      */
@@ -595,9 +606,13 @@ class FontsGoogleRemove
     }
 
     /**
-     * Build the Remove Specific inventory grouped by completed registry status.
+     * Build the Remove Specific inventory from known variants.
      * A tuple with at least one ready source is shown only in Ready; otherwise an
-     * error source shows it in Failed. Pending and processing tuples are omitted.
+     * error source shows it in Failed. When local hosting is off, validated remote
+     * variants are selectable even if their local cache has not been processed.
+     * Saved selections remain represented while their sources are pending or
+     * processing, so saving other settings cannot silently remove those rules.
+     * This does not change cache status or trigger any font downloads.
      *
      * @return array
      */
@@ -616,10 +631,12 @@ class FontsGoogleRemove
             return $inventory;
         }
 
-        $variantStates = array();
-        $activeTupleKeys = array();
+        $variantStates           = array();
+        $representedTupleKeys    = array();
         $failedConfigurationKeys = array();
-        $failedUrlsByFamily = array();
+        $failedUrlsByFamily      = array();
+        $settings                = Main::instance()->settings;
+        $includeRemotePending    = empty($settings['google_fonts_local']);
 
         foreach (FontsGoogleLocalRegistry::getEntries() as $entryKey => $entry) {
             if (! is_array($entry)) {
@@ -654,13 +671,16 @@ class FontsGoogleRemove
                 }
             }
 
+            $remoteVariantAvailable = $includeRemotePending
+                && in_array($status, array('pending', 'processing'), true)
+                && in_array('remote', $sources, true);
+
             foreach ($validatedVariants as $variant) {
                 $tupleKey = self::getSpecificVariantStateKey($variant);
                 if ($tupleKey === '') {
                     continue;
                 }
 
-                $activeTupleKeys[$tupleKey] = true;
                 if ($status === 'error' && ! empty($failedUrls)) {
                     $failedUrlFamily = isset($variant['family']) ? trim((string) $variant['family']) : '';
                     if ($failedUrlFamily !== '') {
@@ -696,7 +716,7 @@ class FontsGoogleRemove
                     );
                 }
 
-                if ($status === 'ready') {
+                if ($status === 'ready' || $remoteVariantAvailable) {
                     $variantStates[$tupleKey]['ready'] = true;
                 } elseif ($status === 'error') {
                     $variantStates[$tupleKey]['error'] = true;
@@ -706,11 +726,12 @@ class FontsGoogleRemove
 
         $readyEntries = array();
         $failedEntries = array();
-        foreach ($variantStates as $variantState) {
-            if (! $variantState['ready'] && ! $variantState['error']) {
+        foreach ($variantStates as $tupleKey => $variantState) {
+            if ( ! $variantState['ready'] && ! $variantState['error'] ) {
                 continue;
             }
 
+            $representedTupleKeys[$tupleKey] = true;
             $inventoryEntry = array(
                 'validated_variants' => array($variantState['variant']),
                 'variant_sources'    => $variantState['sources'],
@@ -738,7 +759,7 @@ class FontsGoogleRemove
         foreach (self::getSpecificRules() as $savedRule) {
             $decodedRule = FontsGoogleVariantInventory::decodeTuple($savedRule);
             $tupleKey = self::getSpecificVariantStateKey($decodedRule);
-            if ($tupleKey === '' || isset($activeTupleKeys[$tupleKey])) {
+            if ($tupleKey === '' || isset($representedTupleKeys[$tupleKey])) {
                 continue;
             }
             $savedOnlyRules[] = FontsGoogleVariantInventory::encodeTuple(
@@ -942,6 +963,11 @@ class FontsGoogleRemove
     /**
      * Rewrite only the selected variants out of a Google Fonts stylesheet URL.
      * An empty string means that every variant in the URL was selected.
+     *
+     * @param string $url
+     * @param array|null $rules
+     *
+     * @return string
      */
     public static function rewriteStylesheetUrlForSpecificRemoval($url, $rules = null)
     {
@@ -962,8 +988,9 @@ class FontsGoogleRemove
         if (! is_array($parts) || empty($parts['query']) || empty($parts['host'])) {
             return $url;
         }
-        $isCss2 = isset($parts['path']) && preg_match('#/css2$#', $parts['path']);
+        $isCss2   = isset($parts['path']) && preg_match('#/css2$#', $parts['path']);
         $newPairs = array();
+        $changed  = false;
         foreach (explode('&', $parts['query']) as $pair) {
             $pairParts = explode('=', $pair, 2);
             if (rawurldecode($pairParts[0]) !== 'family' || ! isset($pairParts[1])) {
@@ -973,25 +1000,41 @@ class FontsGoogleRemove
             $value = rawurldecode(str_replace('+', '%20', $pairParts[1]));
             if ($isCss2) {
                 $rewritten = self::rewriteCss2FamilySpec($value, $ruleMap, $validatedMap);
-                if ($rewritten !== '') {
+                if ($rewritten === $value) {
+                    $newPairs[] = $pair;
+                } elseif ($rewritten !== '') {
                     $newPairs[] = 'family=' . rawurlencode($rewritten);
                 }
+                $changed = $changed || $rewritten !== $value;
             } else {
-                $keptSpecs = array();
+                $keptSpecs   = array();
+                $pairChanged = false;
                 foreach (explode('|', $value) as $spec) {
-                    $rewritten = self::rewriteCss1FamilySpec($spec, $ruleMap, $validatedMap);
+                    if (trim($spec) === '') {
+                        return $url;
+                    }
+                    $rewritten   = self::rewriteCss1FamilySpec($spec, $ruleMap, $validatedMap);
+                    $pairChanged = $pairChanged || $rewritten !== $spec;
                     if ($rewritten !== '') {
                         $keptSpecs[] = $rewritten;
                     }
                 }
-                if (! empty($keptSpecs)) {
+                if ( ! $pairChanged ) {
+                    $newPairs[] = $pair;
+                } elseif ( ! empty($keptSpecs) ) {
                     $newPairs[] = 'family=' . rawurlencode(implode('|', $keptSpecs));
                 }
+                $changed = $changed || $pairChanged;
             }
         }
+        if ( ! $changed ) {
+            return $url;
+        }
+
         $hasFamily = false;
         foreach ($newPairs as $pair) {
-            if (strpos($pair, 'family=') === 0) {
+            $pairParts = explode('=', $pair, 2);
+            if (rawurldecode($pairParts[0]) === 'family' && isset($pairParts[1])) {
                 $hasFamily = true;
                 break;
             }
@@ -1033,27 +1076,24 @@ class FontsGoogleRemove
 
     /**
      * Rewrite Google Fonts stylesheet URLs found in arbitrary HTML/CSS/JS text.
+     *
+     * @param string $content
+     * @param array|null $rules A snapshot for the current processing pass.
+     *
+     * @return string
      */
-    public static function rewriteSpecificStylesheetReferences($content)
+    public static function rewriteSpecificStylesheetReferences($content, $rules = null)
     {
-        if (! is_string($content) || $content === '' || ! self::hasSpecificRules()
+        if ( ! is_string($content) || $content === ''
             || stripos($content, 'fonts.googleapis.com') === false) {
             return $content;
         }
-        $rules = self::getSpecificRules();
-        $loadCssPattern = '#\bloadCSS\s*\(\s*(?P<quote>["\'`])(?P<url>(?:https?:)?//fonts\.googleapis\.com/(?:css2?|icon)\?[^"\'`]+)(?P=quote)\s*\)\s*;?#i';
-        $loadCssRewritten = preg_replace_callback($loadCssPattern, static function($matches) use ($rules) {
-            $original = $matches['url'];
-            $newUrl = self::rewriteSpecificMatchedUrl($original, $rules);
-            if ($newUrl === '') {
-                return '';
-            }
-            return str_replace($original, $newUrl, $matches[0]);
-        }, $content);
-        if (is_string($loadCssRewritten)) {
-            $content = $loadCssRewritten;
+        if ($rules === null) {
+            $rules = self::getSpecificRules();
         }
-
+        if (empty($rules)) {
+            return $content;
+        }
         $pattern = '#(?P<quote>["\'`])(?P<url>(?:https?:)?//fonts\.googleapis\.com/(?:css2?|icon)\?[^"\'`]+)(?P=quote)#i';
         $rewritten = preg_replace_callback($pattern, static function($matches) use ($rules) {
             $original = $matches['url'];
@@ -1076,57 +1116,222 @@ class FontsGoogleRemove
 
 
     /**
-     * Selectively rewrite/remove Google Fonts LINK and inline STYLE references.
+     * Filter literal Web Font Loader lists as well as direct stylesheet URLs.
+     *
+     * @param string $content
+     * @param array|null $rules A snapshot for the current processing pass.
+     * @param array|null $ruleMap The corresponding family/weight/style lookup.
+     *
+     * @return string
+     */
+    public static function rewriteSpecificJavaScriptReferences($content, $rules = null, $ruleMap = null)
+    {
+        if ( ! is_string($content)
+            || (strpos($content, 'WebFont') === false && stripos($content, 'fonts.googleapis.com') === false) ) {
+            return $content;
+        }
+
+        if ($rules === null) {
+            $rules = self::getSpecificRules();
+        }
+        if (empty($rules)) {
+            return $content;
+        }
+        if ($ruleMap === null) {
+            $ruleMap = self::specificRuleMap($rules);
+        }
+
+        $content = FontsGoogleWebFontConfig::rewrite($content, static function ($families) use ($rules, $ruleMap) {
+            return self::rewriteWebFontFamilies($families, $rules, $ruleMap);
+        });
+
+        return FontsGoogleWebFontConfig::rewriteStylesheetUrls($content, static function ($url) use ($rules) {
+            return self::rewriteSpecificMatchedUrl($url, $rules);
+        });
+    }
+
+    /**
+     * Keep non-targeted families intact and use validated Google variants when known.
+     * The legacy display suffix belongs to the request, not to the removed family.
+     * Subsets are request-wide, even when attached to a family being removed.
+     *
+     * @param array $families
+     * @param array|null $rules A snapshot for the current processing pass.
+     * @param array|null $ruleMap The corresponding family/weight/style lookup.
+     *
+     * @return array
+     */
+    public static function rewriteWebFontFamilies($families, $rules = null, $ruleMap = null)
+    {
+        $specs          = array();
+        $subsets        = array();
+        $suffix         = '';
+        $suffixOnSubset = false;
+        foreach ($families as $i => $family) {
+            if ( ! preg_match('/^([a-zA-Z0-9 +_-]+)(?::((?:[1-9]00(?:italic|i)?|regular|bold|italic)(?:,(?:[1-9]00(?:italic|i)?|regular|bold|italic))*)?(?::([a-zA-Z][a-zA-Z0-9-]*(?:,[a-zA-Z][a-zA-Z0-9-]*)*))?)?(&display=(?:auto|block|swap|fallback|optional))?$/D', $family, $match) ) {
+                return $families;
+            }
+            if (strpos($family, ':') !== false && empty($match[2]) && empty($match[3])) {
+                return $families;
+            }
+            $specs[]     = $match[1] . ( ! empty($match[2]) ? ':' . $match[2] : '');
+            $subsets[$i] = ! empty($match[3]) ? $match[3] : '';
+            if ( ! empty($match[4]) ) {
+                if ($i !== count($families) - 1) {
+                    return $families;
+                }
+                $suffix         = $match[4];
+                $suffixOnSubset = $subsets[$i] !== '';
+            }
+        }
+
+        // Match the loader's original URL exactly for the validated registry lookup.
+        // It extracts third colon sections into a single subset query parameter.
+        $url = 'https://fonts.googleapis.com/css?family=' . str_replace(' ', '+', implode('%7C', $specs));
+        if ( ! $suffixOnSubset ) {
+            $url .= $suffix;
+        }
+        $requestedSubsets = array_filter($subsets, 'strlen');
+        if ( ! empty($requestedSubsets) ) {
+            $url .= '&subset=' . implode(',', $requestedSubsets);
+        }
+        if ($suffixOnSubset) {
+            $url .= $suffix;
+        }
+
+        $validatedMap = self::getValidatedVariantMapForStylesheetUrl($url);
+        if ($rules === null) {
+            $rules = self::getSpecificRules();
+        }
+        if ($ruleMap === null) {
+            $ruleMap = self::specificRuleMap($rules);
+        }
+        $targeted     = array();
+        foreach ($rules as $rule) {
+            $decoded = self::decodeSpecificRule($rule);
+            $targeted[strtolower($decoded['family'])] = true;
+        }
+
+        $kept           = array();
+        $removedSubsets = array();
+        foreach ($specs as $i => $spec) {
+            $parts = explode(':', $spec, 2);
+            $key   = strtolower(trim(str_replace('+', ' ', $parts[0])));
+            $new   = isset($targeted[$key]) ? self::rewriteCss1FamilySpec($spec, $ruleMap, $validatedMap) : $spec;
+            if ($new !== '') {
+                if ($subsets[$i] !== '') {
+                    $new .= (strpos($new, ':') === false ? ':' : '') . ':' . $subsets[$i];
+                }
+                $kept[] = $new;
+            } elseif ($subsets[$i] !== '') {
+                $removedSubsets[] = $subsets[$i];
+            }
+        }
+        if ( ! empty($kept) ) {
+            $last = count($kept) - 1;
+            if ( ! empty($removedSubsets) ) {
+                // Retain each survivor's own first subset (the loader's test string)
+                // and carry over subsets from removed families to the last survivor.
+                $colonCount = substr_count($kept[$last], ':');
+                $kept[$last] .= ($colonCount === 2 ? ',' : str_repeat(':', 2 - $colonCount))
+                    . implode(',', $removedSubsets);
+            }
+            $kept[$last] .= $suffix;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Selectively rewrite/remove Google Fonts LINK, STYLE and inline JS references.
+     *
+     * @param string $htmlSource
+     *
+     * @return string
      */
     public static function cleanHtmlSourceSpecific($htmlSource)
     {
-        if (! self::hasSpecificRules() || ! is_string($htmlSource) || $htmlSource === '') {
+        if ( ! is_string($htmlSource) || $htmlSource === '' ) {
             return $htmlSource;
         }
         $rules = self::getSpecificRules();
-        if (stripos($htmlSource, '<link') !== false) {
-            $changed = preg_replace_callback('#<link\b[^>]*>#i', static function($matches) use ($rules) {
-                $tag = $matches[0];
-                if (Misc::hasExactDataAttr($tag, 'data-wpacu-skip')) {
-                    return $tag;
+        if (empty($rules)) {
+            return $htmlSource;
+        }
+        foreach (array_reverse(self::getEditableStyleTokens($htmlSource)) as $token) {
+            if ($token['tag_name'] === 'LINK') {
+                if ( ! isset($token['attributes']['href']) ) {
+                    continue;
                 }
-                $href = self::extractHtmlAttribute($tag, 'href');
-                if ($href === null) {
-                    return $tag;
-                }
+                $href = $token['attributes']['href'];
                 $newHref = self::urlHasAllowedHost($href, self::$stylesheetHosts)
                     ? self::rewriteStylesheetUrlForSpecificRemoval($href, $rules)
                     : self::rewriteLocalStylesheetUrlForSpecificRemoval($href, $rules);
+                if ($newHref === $href) {
+                    continue;
+                }
                 if ($newHref === '') {
-                    return '';
+                    $replacement = '';
+                } else {
+                    $replacement = self::rewriteHtmlAttribute($token['opening'],
+                        $token['attribute_ranges'], 'href', $newHref);
                 }
-                return str_replace($href, $newHref, $tag);
-            }, $htmlSource);
-            if (is_string($changed)) {
-                $htmlSource = $changed;
+                $htmlSource = substr_replace($htmlSource, $replacement, $token['offset'], $token['length']);
+            } else {
+                $css = self::applySpecificRemovalToCss($token['content']);
+                // Empty runtime placeholders and unrelated CSS must survive.
+                // Only a style actually emptied by font removal can disappear.
+                if ($css === $token['content']) {
+                    continue;
+                }
+                if (trim($css) === '') {
+                    $htmlSource = substr_replace($htmlSource, '', $token['offset'], $token['length']);
+                } else {
+                    $htmlSource = substr_replace($htmlSource, $css,
+                        $token['offset'] + strlen($token['opening']), strlen($token['content']));
+                }
             }
         }
-        if (stripos($htmlSource, '<style') !== false) {
-            $changed = preg_replace_callback('#(<\s*style\b[^>]*>)(.*?)(</\s*style\s*>)#is', static function($matches) {
-                if (Misc::hasExactDataAttr($matches[1], 'data-wpacu-skip')) {
-                    return $matches[0];
-                }
-                $css = self::applySpecificRemovalToCss($matches[2]);
-                return trim($css) === '' ? '' : $matches[1] . $css . $matches[3];
-            }, $htmlSource);
-            if (is_string($changed)) {
-                $htmlSource = $changed;
+        if (stripos($htmlSource, '<script') !== false
+            && (stripos($htmlSource, 'fonts.googleapis.com') !== false || strpos($htmlSource, 'WebFont') !== false)) {
+            $scripts = HtmlCleanup::getScriptTokens($htmlSource);
+            if ($scripts === false) {
+                return $htmlSource;
             }
-        }
-        if (stripos($htmlSource, '<script') !== false && stripos($htmlSource, 'fonts.googleapis.com') !== false) {
-            $changed = preg_replace_callback('#(<\s*script\b[^>]*>)(.*?)(</\s*script\s*>)#is', static function($matches) {
-                if (Misc::hasExactDataAttr($matches[1], 'data-wpacu-skip')) {
-                    return $matches[0];
+
+            $ruleMap = null;
+            foreach (array_reverse($scripts) as $script) {
+                $attributes = $script['attributes'];
+                $content    = $script['content'];
+                if (isset($attributes['data-wpacu-skip']) || isset($attributes['src']) || $script['manager']
+                    || (strpos($content, 'WebFont') === false && stripos($content, 'fonts.googleapis.com') === false)) {
+                    continue;
                 }
-                return $matches[1] . self::rewriteSpecificStylesheetReferences($matches[2]) . $matches[3];
-            }, $htmlSource);
-            if (is_string($changed)) {
-                $htmlSource = $changed;
+
+                // Honor the original type of known delayed JavaScript without
+                // treating arbitrary data-script types as executable content.
+                $type = isset($attributes['type']) ? strtolower(trim($attributes['type'])) : '';
+                if ($type === 'rocketlazyloadscript') {
+                    if (isset($attributes['data-rocket-src'])) {
+                        continue;
+                    }
+                    $type = isset($attributes['data-rocket-type'])
+                        ? strtolower(trim($attributes['data-rocket-type'])) : '';
+                }
+                if (($type !== 'module' && (strpos($type, ';') !== false || ! Misc::isClassicScriptType($type)))
+                    || ($type === '' && isset($attributes['language'])
+                        && ! in_array(strtolower(trim($attributes['language'])), array('', 'javascript', 'ecmascript'), true)) ) {
+                    continue;
+                }
+
+                if ($ruleMap === null) {
+                    $ruleMap = self::specificRuleMap($rules);
+                }
+                $rewritten = self::rewriteSpecificJavaScriptReferences($content, $rules, $ruleMap);
+                if ($rewritten !== $content) {
+                    $htmlSource = substr_replace($htmlSource, $rewritten,
+                        $script['offset'] + strlen($script['opening']), strlen($content));
+                }
             }
         }
         return $htmlSource;
@@ -1266,15 +1471,28 @@ class FontsGoogleRemove
         return $variants;
     }
 
-    /** @return string */
+    /**
+     * @param string $spec
+     * @param array $ruleMap
+     * @param array $validatedMap
+     *
+     * @return string
+     */
     private static function rewriteCss1FamilySpec($spec, $ruleMap, $validatedMap = array())
     {
-        $parts = explode(':', trim($spec), 2);
+        $parts     = explode(':', trim($spec), 2);
         $familyRaw = trim($parts[0]);
-        $family = str_replace('+', ' ', $familyRaw);
+        $family    = str_replace('+', ' ', $familyRaw);
+        if ($family === '' || (isset($parts[1]) && trim($parts[1]) === '')) {
+            return $spec;
+        }
+
         $tokens = isset($parts[1]) && trim($parts[1]) !== '' ? explode(',', $parts[1]) : array('400');
-        $kept = array();
+        $kept   = array();
         foreach ($tokens as $tokenRaw) {
+            if (trim($tokenRaw) === '') {
+                return $spec;
+            }
             $token = strtolower(trim($tokenRaw));
             $hasShortItalicSuffix = preg_match('/^[1-9]00i$/', $token) === 1;
             $style = strpos($token, 'italic') !== false || $hasShortItalicSuffix ? 'italic' : 'normal';
@@ -1289,23 +1507,43 @@ class FontsGoogleRemove
         if (empty($kept)) {
             return '';
         }
+        if (count($kept) === count($tokens)) {
+            return $spec;
+        }
+
         return $familyRaw . ':' . implode(',', $kept);
     }
 
-    /** @return string */
+    /**
+     * @param string $spec
+     * @param array $ruleMap
+     * @param array $validatedMap
+     *
+     * @return string
+     */
     private static function rewriteCss2FamilySpec($spec, $ruleMap, $validatedMap = array())
     {
-        $parts = explode(':', trim($spec), 2);
+        $parts     = explode(':', trim($spec), 2);
         $familyRaw = trim($parts[0]);
-        $family = str_replace('+', ' ', $familyRaw);
-        if (! isset($parts[1]) || strpos($parts[1], '@') === false) {
+        $family    = str_replace('+', ' ', $familyRaw);
+        if ($family === '' || (isset($parts[1]) && strpos($parts[1], '@') === false)) {
+            return $spec;
+        }
+        if ( ! isset($parts[1]) ) {
             return (! self::variantWasValidated($family, '400', 'normal', $validatedMap) || self::variantIsSelected($family, '400', 'normal', $ruleMap)) ? '' : $spec;
         }
         list($axesRaw, $valuesRaw) = explode('@', $parts[1], 2);
         $axes = array_map('trim', explode(',', $axesRaw));
         $kept = array();
+        if (in_array('', $axes, true)) {
+            return $spec;
+        }
+
         foreach (explode(';', $valuesRaw) as $tupleRaw) {
             $values = array_map('trim', explode(',', $tupleRaw));
+            if (count($values) !== count($axes) || in_array('', $values, true)) {
+                return $spec;
+            }
             $axisValues = array();
             foreach ($axes as $i => $axis) {
                 if (isset($values[$i])) {
@@ -1323,6 +1561,10 @@ class FontsGoogleRemove
         if (empty($kept)) {
             return '';
         }
+        if (count($kept) === count(explode(';', $valuesRaw))) {
+            return $spec;
+        }
+
         return $familyRaw . ':' . $axesRaw . '@' . implode(';', $kept);
     }
 

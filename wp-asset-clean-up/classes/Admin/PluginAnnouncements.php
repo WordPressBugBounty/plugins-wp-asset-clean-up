@@ -7,6 +7,7 @@ use WpAssetCleanUp\Settings;
 
 /**
  * Main class for handling announcements.
+ * Keep notices inline so WordPress leaves them inside their styled announcement container.
  */
 class PluginAnnouncements
 {
@@ -1206,7 +1207,7 @@ class PluginAnnouncements
                     <?php if ($isCallType === 'regular') { ?>
                         <div id="pluginann-announcements-container">
                     <?php } ?>
-                            <div class="notice notice-info is-dismissible pluginann-announcement<?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?> pluginann-campaign pluginann-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>"
+                            <div class="notice notice-info inline is-dismissible pluginann-announcement<?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?> pluginann-campaign pluginann-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>"
                                  data-pluginann-annoucement-priority="<?php echo esc_attr($priority); ?>"
                                  data-pluginann-announcement-id="<?php echo esc_attr( $annId ); ?>">
 

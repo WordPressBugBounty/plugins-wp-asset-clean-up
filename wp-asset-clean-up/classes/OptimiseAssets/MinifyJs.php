@@ -23,6 +23,14 @@ class MinifyJs
 	 */
 	public static function applyMinification($jsContent)
 	{
+        // Legacy HTML line comments and script escape states depend on line
+        // breaks. The minifier can join a comment to executable code or expose
+        // a closing script token. Preserve such sources, including literal
+        // examples, rather than guessing whether removing whitespace is safe.
+        if (strpos($jsContent, '<!--') !== false || strpos($jsContent, '-->') !== false) {
+            return $jsContent;
+        }
+
 		if ( ! class_exists('\MatthiasMullieWpacu\Minify\JS') ) {
                 require_once WPACU_PLUGIN_DIR . '/vendor/autoload.php';
             }
@@ -138,110 +146,76 @@ class MinifyJs
         return Regex::matchesAnyRule($rules, $src);
     }
 
-	/**
-     * This is for minifying the inline tag and/or alter it in case the following options were enabled:
-     * 1) "font-display" to be set in case Google Fonts are loading in JS content
-     * 2) Strip any references to Google Fonts in case the option remove the Google Fonts was enabled
+    /**
+     * Alter executable inline scripts without changing identical text in HTML
+     * literals, templates, attributes or data scripts. Keep source byte offsets
+     * so only each eligible script body is replaced.
      *
-	 * @param $htmlSource
-	 *
-	 * @return mixed|string
-	 */
-	public static function minifyOrAlterInlineScriptTags($htmlSource)
-	{
-		if (stripos($htmlSource, '<script') === false) {
-			return $htmlSource; // no SCRIPT tags, hmm
-		}
+     * @param string $htmlSource
+     *
+     * @return string
+     */
+    public static function minifyOrAlterInlineScriptTags($htmlSource)
+    {
+        if (stripos($htmlSource, '<script') === false) {
+            return $htmlSource;
+        }
 
-        $doMinifyInlineTag = in_array(Main::instance()->settings['minify_loaded_js_for'], array('inline', 'all')) && self::isMinifyJsEnabled();
+        $scripts = HtmlCleanup::getScriptTokens($htmlSource);
+        if ($scripts === false || empty($scripts)) {
+            return $htmlSource;
+        }
 
-		$skipTagsContaining = apply_filters('wpacu_internal_minify_js_inline_script_skip_tags_containing', array(
-			'data-wpacu-skip',
-			'/* <![CDATA[ */', // added via wp_localize_script()
-			'wpacu-google-fonts-async-load',
-			'wpacu-preload-async-css-fallback',
-			'document.body.prepend(wpacuLinkTag',
-			'var wc_product_block_data = JSON.parse( decodeURIComponent(',
-			'/(^|\s)(no-)?customize-support(?=\s|$)/', // WP Core
-			'b[c] += ( window.postMessage && request ? \' \' : \' no-\' ) + cs;', // WP Core
-			'data-wpacu-own-inline-script' // Only shown to the admin, irrelevant for any optimization (save resources)
-		));
+        $doMinifyInlineTag  = in_array(Main::instance()->settings['minify_loaded_js_for'], array('inline', 'all')) && self::isMinifyJsEnabled();
+        $skipTagsContaining = apply_filters('wpacu_internal_minify_js_inline_script_skip_tags_containing', array(
+            'data-wpacu-skip',
+            '/* <![CDATA[ */', // added via wp_localize_script()
+            'wpacu-google-fonts-async-load',
+            'wpacu-preload-async-css-fallback',
+            'document.body.prepend(wpacuLinkTag',
+            'var wc_product_block_data = JSON.parse( decodeURIComponent(',
+            '/(^|\s)(no-)?customize-support(?=\s|$)/', // WP Core
+            'b[c] += ( window.postMessage && request ? \' \' : \' no-\' ) + cs;', // WP Core
+            'data-wpacu-own-inline-script' // Only shown to the admin, irrelevant for any optimization (save resources)
+        ));
+        $skipTagsContaining = array_map(static function ($toMatch) {
+            return preg_quote($toMatch, '/');
+        }, $skipTagsContaining);
 
-		$skipTagsContaining = array_map( static function ( $toMatch ) {
-			return preg_quote($toMatch, '/');
-		}, $skipTagsContaining);
+        // Work backwards so replacing a body cannot invalidate earlier offsets.
+        foreach (array_reverse($scripts) as $script) {
+            $attributes = $script['attributes'];
+            if (isset($attributes['src']) || isset($attributes['data-wpacu-skip']) || $script['manager']) {
+                continue;
+            }
 
-		// Do not perform another \DOMDocument call if it was done already somewhere else (e.g. CombineJs)
-		$fetchType = 'regex'; // 'regex' or 'dom'
+            // Preserve this pass's classic text/javascript eligibility. Other
+            // executable types may have their fonts rewritten by the earlier
+            // selective font pass, without opting them into this minifier.
+            $scriptType    = isset($attributes['type']) ? strtolower(trim($attributes['type'])) : '';
+            $scriptAltType = isset($attributes['data-alt-type']) ? strtolower(trim($attributes['data-alt-type'])) : '';
+            if (($scriptType !== '' && $scriptType !== 'text/javascript')
+                || ($scriptAltType !== '' && $scriptAltType !== 'text/javascript')
+                || ($scriptType === '' && isset($attributes['language'])
+                    && ! in_array(strtolower(trim($attributes['language'])), array('', 'javascript', 'ecmascript'), true)) ) {
+                continue;
+            }
 
-		if ($fetchType === 'regex') {
-			preg_match_all( '@(<script[^>]*?>).*?</script>@si', $htmlSource, $matchesScriptTags, PREG_SET_ORDER );
+            $originalTag = substr($htmlSource, $script['offset'], $script['length']);
+            if (preg_match('/(' . implode('|', $skipTagsContaining) . ')/', $originalTag) !== 0) {
+                continue;
+            }
 
-			if ( $matchesScriptTags === null ) {
-				return $htmlSource;
-			}
+            $originalTagContents = $script['content'];
+            $newTagContents      = OptimizeJs::maybeAlterContentForInlineScriptTag($originalTagContents, $doMinifyInlineTag);
+            if (is_string($newTagContents) && $newTagContents !== $originalTagContents) {
+                $htmlSource = substr_replace($htmlSource, $newTagContents,
+                    $script['offset'] + strlen($script['opening']), strlen($originalTagContents));
+            }
+        }
 
-			foreach ($matchesScriptTags as $matchedScript) {
-				if (isset($matchedScript[0]) && $matchedScript[0]) {
-					$originalTag = $matchedScript[0];
-
-                    if (strncasecmp($originalTag, '<script src=', 12) === 0 || strncasecmp($originalTag, '<script type="application', 25) === 0) {
-                        continue;
-                    }
-
-					// Only 'text/javascript' type is allowed for minification
-                    // If the tag starts with <script> there's no point to do further checks
-                    if (strncasecmp($originalTag, '<script>', 8) !== 0) {
-                        $scriptType = 'text/javascript'; // default
-
-                        if (strpos($originalTag, ' type') !== false) {
-                            $scriptType = Misc::getValueFromTag($originalTag, 'type', 'dom_with_fallback') ?: 'text/javascript';
-                        }
-
-                        if ($scriptType !== 'text/javascript') {
-                            continue;
-                        }
-
-                        $scriptAltType = '';
-
-                        if (strpos($originalTag, 'data-alt-type') !== false) {
-                            $scriptAltType = Misc::getValueFromTag($originalTag, 'data-alt-type', 'dom_with_fallback');
-                        }
-
-                        if ($scriptAltType && $scriptAltType !== 'text/javascript') {
-                            continue;
-                        }
-                    }
-
-                    if (strpos($originalTag, 'src=') !== false && Misc::endsWith($originalTag, '-js\'></script>')) {
-                        continue;
-                    }
-
-                    // No need to use extra resources as the tag is already minified
-                    if ( preg_match( '/(' . implode( '|', $skipTagsContaining ) . ')/', $originalTag ) ) {
-                        continue;
-                    }
-
-                    if (Misc::getValueFromTag($originalTag, 'src', 'dom_with_fallback') && strtolower(substr($originalTag, -strlen('></script>'))) === strtolower('></script>')) {
-                        // Only inline SCRIPT tags allowed
-                        continue;
-                    }
-
-					$tagOpen = $matchedScript[1];
-					$withTagOpenStripped = substr($originalTag, strlen($tagOpen));
-					$originalTagContents = substr($withTagOpenStripped, 0, -strlen('</script>'));
-
-					$newTagContents = OptimizeJs::maybeAlterContentForInlineScriptTag( $originalTagContents, $doMinifyInlineTag );
-
-					if ( $newTagContents !== $originalTagContents ) {
-						$htmlSource = str_ireplace( '>' . $originalTagContents . '</script', '>' . $newTagContents . '</script', $htmlSource );
-					}
-				}
-			}
-		}
-
-		return $htmlSource;
-	}
+        return $htmlSource;
+    }
 
 	/**
 	 * @return bool

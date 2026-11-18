@@ -19,7 +19,7 @@ switch ($wpacuAssetManagerFormContext) {
         break;
 
     case 'taxonomy':
-        $wpacuAssetManagerContextNote = $wpacuAssetManagerIsPro
+        $wpacuAssetManagerContextNote = ($wpacuAssetManagerIsPro || (isset($taxonomy) && in_array($taxonomy, array('category', 'post_tag'), true)))
             ? __('Select a term to manage CSS/JS on its archive page.', 'wp-asset-clean-up')
             : __('Select a term for a read-only preview of CSS/JS on its archive page.', 'wp-asset-clean-up');
         break;

@@ -76,6 +76,16 @@ class PluginsManagerAdmin
     }
 
     /**
+     * Return the enabled unload-rule count supplied by the active edition.
+     *
+     * @return int
+     */
+    public static function getEnabledUnloadRuleCount()
+    {
+        return (int)apply_filters('wpacu_internal_plugins_manager_enabled_unload_rule_count', 0);
+    }
+
+    /**
      * Return stored statuses plus rules that still have a meaningful payload.
      *
      * @param array $pluginData
@@ -190,10 +200,9 @@ class PluginsManagerAdmin
             return $cachedLists[$cacheKey];
         }
 
-        $wordpressDefaultArchivePages = array(
-            'search' => 'Search',
-            'author' => 'Author',
-            'date'   => 'Date'
+        $wordpressDefaultArchivePages = apply_filters(
+            'wpacu_internal_plugins_manager_archive_page_types',
+            array('search' => 'Search', 'author' => 'Author', 'date' => 'Date')
         );
 
         $customPostTypeArchivePages = array();

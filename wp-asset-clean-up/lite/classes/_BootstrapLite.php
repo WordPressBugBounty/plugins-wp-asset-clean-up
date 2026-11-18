@@ -1,6 +1,7 @@
 <?php
 namespace WpAssetCleanUpLite;
 
+use WpAssetCleanUp\OptimiseAssets\FontsGoogleRemoveSpecific;
 use WpAssetCleanUpLite\Admin\CourseOptIn;
 use WpAssetCleanUpLite\Admin\MainAdminLite;
 use WpAssetCleanUpLite\Admin\PluginLite;
@@ -33,7 +34,12 @@ class _BootstrapLite
         self::registerInternalLiteHooksFor('MainFrontLite');
         self::registerInternalLiteHooksFor('OwnAssetsLite');
 
+        FontsGoogleRemoveSpecific::registerHooks();
+        ArchiveRules::registerHooks();
+        Admin\ArchiveEditor::registerHooks();
+
         add_filter('wpacu_internal_frontend_workspaces', array(FrontendPluginsPreview::class, 'workspaces'));
+        add_filter('wpacu_internal_frontend_workspace_icon', array(FrontendPluginsPreview::class, 'workspaceIcon'), 10, 2);
         add_action('wp_footer', array(FrontendPluginsPreview::class, 'render'), PHP_INT_MAX);
         add_action('template_redirect', array(FrontendPluginsPreview::class, 'preventCaching'));
 

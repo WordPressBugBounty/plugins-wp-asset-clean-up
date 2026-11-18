@@ -1665,6 +1665,10 @@ HTML;
             'plugin_prefix'    => WPACU_PLUGIN_ID, // the same for both Lite & Pro
             'plugin_slug'      => WPACU_PLUGIN_SLUG,
             'plugin_title'     => WPACU_PLUGIN_TITLE,
+
+            'bulk_included_in_site_wide'     => __('Included in the site-wide unload rule.', 'wp-asset-clean-up'),
+            'bulk_saved_covered_by_site_wide' => __('This saved bulk rule is covered by the site-wide unload rule.', 'wp-asset-clean-up'),
+
             'input_style'      => Settings::getInputStyle(Main::instance()->settings),
 
             'reload_icon'      => $svgReloadIcon,

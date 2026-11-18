@@ -327,7 +327,7 @@ class OptimizeJs
 		$transientName = 'wpacu_js_optimize_'.$uniqueAssetStr;
 		// Page options and exclusions can change minification for the same source file.
 		$transientName .= $doFileMinify ? '_minify_1' : '_minify_0';
-		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
+        $transientName .= self::getFontOptimizationCacheSuffix();
 
 		$skipCache = false;
 
@@ -544,13 +544,14 @@ class OptimizeJs
 	 *
 	 * @param $jsContent
 	 * @param bool $doJsMinify (false by default as it could be already minified or non-minify type)
+	 * @param object|null $debugAsset
 	 *
 	 * @return array
 	 */
 	public static function maybeAlterContentForJsFile($jsContent, $doJsMinify = false, $debugAsset = null)
 	{
 		if (! trim($jsContent)) { // No Content! Return it as it, no point in doing extra checks
-			return array('content' => $jsContent);
+			return array('content' => $jsContent, 'content_after_alter_to_compare' => $jsContent);
 		}
 
 		$jsContentBefore = $jsContent;
@@ -579,7 +580,7 @@ class OptimizeJs
 
 		if (empty($instance->settings['google_fonts_remove']) && FontsGoogleRemove::hasSpecificRules()) {
 			$jsContentBeforeAlteration = $jsContent;
-			$jsContent = FontsGoogleRemove::rewriteSpecificStylesheetReferences($jsContent);
+			$jsContent = FontsGoogleRemove::rewriteSpecificJavaScriptReferences($jsContent);
 			if (isset($_GET['wpacu_debug'])) {
 				$jsContent = \WpAssetCleanUp\DebugOptimizationDetails::observe('js', $debugAsset, 'Google Fonts removal', __('Specific Google Fonts removal rules changed the JavaScript.', 'wp-asset-clean-up'), $jsContentBeforeAlteration, $jsContent);
 			}
@@ -600,8 +601,9 @@ class OptimizeJs
 			$jsContent = OptimizeCommon::stripSourceMap($jsContent, 'js');
 		}
 
-		$jsContentAfterAlterToCompare = $jsContent; // new possible values
-		return array('content' => $jsContent , 'content_after_alter_to_compare' => $jsContentAfterAlterToCompare);
+        // Compare against the input, otherwise font rewrites can be discarded
+        // as "no_alter" when minification is disabled or changes nothing.
+        return array('content' => $jsContent, 'content_after_alter_to_compare' => $jsContentBefore);
 	}
 
 	/**
@@ -639,6 +641,9 @@ class OptimizeJs
 			$jsContentBeforeHash = sha1( $jsContent );
 			// Keep minified and unminified inline output separate across page rules.
 			$jsContentBeforeHash .= $doJsMinify ? '_minify_1' : '_minify_0';
+            // A content hash alone can reuse output produced by older font
+            // rewriting or by different effective font settings and page rules.
+            $jsContentBeforeHash .= self::getFontOptimizationCacheSuffix();
 
 			$pathToInlineJsOptimizedItem = WP_CONTENT_DIR . self::getRelPathJsCacheDir() . '/item/inline/' . $jsContentBeforeHash . '.js';
 
@@ -675,7 +680,7 @@ class OptimizeJs
 		}
 
 		if (empty($instance->settings['google_fonts_remove']) && FontsGoogleRemove::hasSpecificRules()) {
-			$jsContent = FontsGoogleRemove::rewriteSpecificStylesheetReferences($jsContent);
+			$jsContent = FontsGoogleRemove::rewriteSpecificJavaScriptReferences($jsContent);
 		}
 
 		if (empty($instance->settings['google_fonts_remove']) && ! empty($instance->settings['google_fonts_local'])) {
@@ -690,6 +695,31 @@ class OptimizeJs
 
 		return $jsContent;
 	}
+
+
+    /**
+     * Discriminate inline and external JS output by the effective font state.
+     * The rewrite revision also invalidates older cached no-alter decisions.
+     *
+     * @return string
+     */
+    private static function getFontOptimizationCacheSuffix()
+    {
+        $settings = Main::instance()->settings;
+        $rules    = FontsGoogleRemove::getSpecificRules();
+        sort($rules, SORT_STRING);
+
+        $state = array(
+            'remove'            => ! empty($settings['google_fonts_remove']),
+            'display'           => isset($settings['google_fonts_display']) ? $settings['google_fonts_display'] : '',
+            'display_overwrite' => ! empty($settings['google_fonts_display_overwrite']),
+            'local'             => ! empty($settings['google_fonts_local']),
+            'rules'             => $rules
+        );
+
+        return FontsGoogleLocal::getAssetOptimizationCacheSuffix()
+            . '_font_rewrite_8_' . md5(serialize($state));
+    }
 
 	/**
 	 * @param $htmlSource

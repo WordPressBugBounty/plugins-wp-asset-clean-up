@@ -27,6 +27,19 @@ class FrontendPluginsPreview
     }
 
     /**
+     * Mark the Lite Plugins Manager preview without changing other workspace icons.
+     *
+     * @param string $icon
+     * @param string $workspace
+     *
+     * @return string
+     */
+    public static function workspaceIcon($icon, $workspace)
+    {
+        return $workspace === 'plugins' ? 'lock' : $icon;
+    }
+
+    /**
      * @return void
      */
     public static function preventCaching()

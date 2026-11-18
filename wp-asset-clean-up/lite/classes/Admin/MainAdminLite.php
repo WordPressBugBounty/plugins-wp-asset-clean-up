@@ -198,6 +198,10 @@ class MainAdminLite
      */
     public static function filterGetAssetsType($type, $postId)
     {
+        if ( ! $type && ! $postId && \WpAssetCleanUpLite\ArchiveRules::context() ) {
+            return 'for_pro';
+        }
+
         if ($type || (int)$postId > 0 || empty($_REQUEST[WPACU_LOAD_ASSETS_REQ_KEY])) {
             return $type;
         }

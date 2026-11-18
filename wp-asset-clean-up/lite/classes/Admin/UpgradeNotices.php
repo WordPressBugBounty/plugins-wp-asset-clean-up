@@ -30,6 +30,15 @@ class UpgradeNotices
 				<tr class="form-field">
 					<th scope="row" valign="top"><label for="wpassetcleanup_list"><?php echo WPACU_PLUGIN_TITLE; ?>: <?php _e('CSS &amp; JavaScript Load Manager', 'wp-asset-clean-up'); ?></label></th>
 					<td data-wpacu-taxonomy="<?php echo esc_attr($tag->taxonomy); ?>">
+
+                        <?php if (\WpAssetCleanUpLite\ArchiveRules::supports($tag->taxonomy)) { ?>
+                            <a href="<?php echo esc_url(add_query_arg(array(
+                                'page' => WPACU_PLUGIN_ID . '_assets_manager',
+                                'wpacu_for' => $tag->taxonomy === 'category' ? 'category' : 'tag',
+                                'wpacu_taxonomy' => $tag->taxonomy,
+                                'wpacu_term_id' => (int)$tag->term_id
+                            ), admin_url('admin.php'))); ?>"><?php esc_html_e('Manage CSS/JS for this archive', 'wp-asset-clean-up'); ?></a>
+                        <?php } else { ?>
 						<img width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-lock.svg" valign="top" alt="" /> &nbsp;
 						<?php
 						echo sprintf(
@@ -39,6 +48,7 @@ class UpgradeNotices
 							'</a>'
 						);
 						?>
+                        <?php } ?>
 					</td>
 				</tr>
 				<?php

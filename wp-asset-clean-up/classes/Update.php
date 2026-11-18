@@ -365,6 +365,85 @@ SQL;
     }
 
     /**
+     * Resolve WPML taxonomy translations to WordPress term IDs for metadata updates.
+     * WPML stores term_taxonomy_id values, which need not match term_id values.
+     *
+     * @param int $termId
+     * @param string $taxonomy Optional exact taxonomy of the original term.
+     *
+     * @return array Original term ID followed by valid translated term IDs.
+     */
+    public static function getAllAssocTermIdsForWpml($termId, $taxonomy = '')
+    {
+        global $wpdb;
+
+        $termIds = array($termId);
+        // WPML can redirect get_term() to the current language on front-end
+        // and AJAX requests. Resolve ownership without those language filters.
+        $sql = $wpdb->prepare("SELECT term_taxonomy_id, taxonomy FROM `{$wpdb->term_taxonomy}` WHERE term_id = %d", $termId);
+        if ($taxonomy !== '') {
+            $sql .= $wpdb->prepare(' AND taxonomy = %s', $taxonomy);
+        }
+        $rows = $wpdb->get_results($sql, ARRAY_A);
+
+        // A legacy shared term without an exact taxonomy is ambiguous.
+        if ( $wpdb->last_error || ! is_array($rows) || count($rows) !== 1
+             || (int)$rows[0]['term_taxonomy_id'] < 1 || $rows[0]['taxonomy'] === '' ) {
+            return $termIds;
+        }
+
+        $termTaxonomy = $rows[0]['taxonomy'];
+        $elementType  = 'tax_' . $termTaxonomy;
+        $trId         = apply_filters('wpml_element_trid', null, (int)$rows[0]['term_taxonomy_id'], $elementType);
+
+        if ( ! is_numeric($trId) || (int)$trId < 1 ) {
+            return $termIds;
+        }
+
+        $translations = apply_filters('wpml_get_element_translations', array(), $trId, $elementType);
+
+        if ( ! is_array($translations) ) {
+            return $termIds;
+        }
+
+        $translatedTtIds = array();
+        foreach ($translations as $translation) {
+            if ( ! is_object($translation) || ! isset($translation->element_id)
+                 || ! is_scalar($translation->element_id)
+                 || ! preg_match('/^[1-9][0-9]*$/D', (string)$translation->element_id)
+                 || (isset($translation->element_type) && $translation->element_type !== $elementType) ) {
+                continue;
+            }
+
+            $translatedTtIds[] = (int)$translation->element_id;
+        }
+
+        $translatedTtIds = array_values(array_unique($translatedTtIds));
+        if ( ! $translatedTtIds ) {
+            return $termIds;
+        }
+
+        // Convert WPML taxonomy IDs to term IDs in one unfiltered, taxonomy-bound query.
+        $placeholders = implode(',', array_fill(0, count($translatedTtIds), '%d'));
+        $translated   = $wpdb->get_col($wpdb->prepare(
+            "SELECT term_id FROM `{$wpdb->term_taxonomy}` WHERE taxonomy = %s AND term_taxonomy_id IN ({$placeholders})",
+            array_merge(array($termTaxonomy), $translatedTtIds)
+        ));
+
+        if ( $wpdb->last_error || ! is_array($translated) ) {
+            return $termIds;
+        }
+
+        foreach ($translated as $translatedTermId) {
+            if ((int)$translatedTermId > 0) {
+                $termIds[] = (int)$translatedTermId;
+            }
+        }
+
+        return array_values(array_unique($termIds));
+    }
+
+    /**
      * Save post metadata when a post is saved (not for the "Latest Blog Posts" home page type)
      * Only for post type
      *
@@ -1256,29 +1335,34 @@ SQL;
 		Misc::addUpdateOption($optionToUpdate, wp_json_encode(MiscArray::filterList($existingList)));
 	}
 
-	/**
-	 * @param $mainFormArray
-	 *
-	 * @return array
-	 */
-	public static function updatePreloadsAdapt($mainFormArray)
-	{
-		$wpacuPreloadsList = array();
+    /**
+     * Preserve saved preloads when their selectors are absent or disabled.
+     * An explicitly submitted empty selector still removes its preload.
+     *
+     * @param array $mainFormArray
+     *
+     * @return array
+     */
+    public static function updatePreloadsAdapt($mainFormArray)
+    {
+        $wpacuPreloadsList = array();
 
-		foreach (array('styles', 'scripts') as $assetKey) {
-			if ( ! empty($mainFormArray[$assetKey]) ) {
-				foreach ($mainFormArray[$assetKey] as $assetHandle => $assetData) {
-					$wpacuPreloadsList['wpacu_preloads'][$assetKey][$assetHandle] = ''; // default
+        foreach (array('styles', 'scripts') as $assetKey) {
+            if ( empty($mainFormArray[$assetKey]) || ! is_array($mainFormArray[$assetKey]) ) {
+                continue;
+            }
 
-					if (isset($assetData['preload']) && $assetData['preload']) {
-						$wpacuPreloadsList['wpacu_preloads'][ $assetKey ][ $assetHandle ] = $assetData['preload']; // 'basic' or 'async'
-					}
-				}
-			}
-		}
+            foreach ($mainFormArray[$assetKey] as $assetHandle => $assetData) {
+                if ( ! isset($assetData['preload']) || ! is_string($assetData['preload']) ) {
+                    continue;
+                }
 
-		return $wpacuPreloadsList;
-	}
+                $wpacuPreloadsList['wpacu_preloads'][$assetKey][$assetHandle] = $assetData['preload'];
+            }
+        }
+
+        return $wpacuPreloadsList;
+    }
 
 	/**
 	 *

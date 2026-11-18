@@ -877,6 +877,8 @@ class MainFront
 
 		$ignoreChildParentList = apply_filters('wpacu_ignore_child_parent_list', Main::instance()->getIgnoreChildren());
 
+		AdminBarSavings::captureQueuedAssets('styles', $wp_styles);
+
 		foreach ($list as $handle) {
 			if (isset($ignoreChildParentList['styles'], Main::instance()->wpAllStyles['registered'][$handle]->src)
 			    && is_array($ignoreChildParentList['styles']) && array_key_exists($handle, $ignoreChildParentList['styles'])) {
@@ -1092,6 +1094,8 @@ class MainFront
 		}
 
 		$ignoreChildParentList = apply_filters('wpacu_ignore_child_parent_list', Main::instance()->getIgnoreChildren());
+
+		AdminBarSavings::captureQueuedAssets('scripts', $wp_scripts);
 
 		foreach ($list as $handle) {
 			$handle = trim($handle);

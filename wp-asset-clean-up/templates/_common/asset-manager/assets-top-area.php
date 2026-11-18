@@ -37,7 +37,7 @@ if ($data['plugin_settings']['hide_core_files']) {
 
 if ( ( (isset($data['core_styles_loaded']) && $data['core_styles_loaded']) || (isset($data['core_scripts_loaded']) && $data['core_scripts_loaded']) ) && ! $data['plugin_settings']['hide_core_files']) {
 	?>
-	<div class="wpacu_note wpacu_warning">
+	<div class="wpacu_note wpacu_warning" style="margin-top: 10px;">
 		<em><?php echo sprintf(
 				esc_html__('Assets that are marked with %s are part of WordPress core files. Be careful if you decide to unload them! If you are not sure what to do, just leave them loaded by default and consult with a developer.', 'wp-asset-clean-up'),
 				'<span class="dashicons dashicons-wordpress-alt wordpress-core-file"></span>' );

@@ -145,4 +145,9 @@ if ($loadSearchForm) {
     <?php
 }
 ?>
+<?php if ($data['for'] === 'custom_taxonomies' && empty($data['archive_data']['is_valid'])) { ?>
+    <div class="wpacu-archive-preview-footer">
+        <?php include __DIR__ . '/_archive-pro-preview-dock.php'; ?>
+    </div>
+<?php } ?>
 </div>

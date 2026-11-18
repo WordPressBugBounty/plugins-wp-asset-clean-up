@@ -120,7 +120,7 @@ $wpacu_lvp_feature_groups = array(
         'number'      => '02',
         'kicker'      => esc_html__('Where Pro begins to save time', 'wp-asset-clean-up'),
         'title'       => esc_html__('Rule coverage across the website', 'wp-asset-clean-up'),
-        'intro'       => esc_html__('Lite handles targeted rules plus common site-wide and post type-wide rules. Pro becomes useful when the same decision must apply to taxonomies, archives, URL patterns, devices, or many related contexts.', 'wp-asset-clean-up'),
+        'intro'       => esc_html__('Lite handles targeted rules, site-wide and post type-wide rules, and standard category and tag archives. Pro adds custom taxonomy archives, other archive types, URL patterns, devices, and more advanced conditions.', 'wp-asset-clean-up'),
         'icon'        => 'scope',
         'rows'        => array(
             array(
@@ -132,7 +132,7 @@ $wpacu_lvp_feature_groups = array(
             array(
                 'feature' => esc_html__('Taxonomy archive asset management', 'wp-asset-clean-up'),
                 'detail'  => esc_html__('Manage CSS and JavaScript on category, tag, product category, and other custom taxonomy archive pages.', 'wp-asset-clean-up'),
-                'lite'    => array('state' => 'not-included', 'label' => esc_html__('Not included', 'wp-asset-clean-up'), 'detail' => esc_html__('Lite focuses on homepage and singular content contexts.', 'wp-asset-clean-up')),
+                'lite'    => array('state' => 'included', 'label' => esc_html__('Category and Tag', 'wp-asset-clean-up'), 'detail' => esc_html__('Unload rules and load exceptions for standard category and tag archives, including pagination.', 'wp-asset-clean-up')),
                 'pro'     => array('state' => 'pro', 'label' => esc_html__('Included', 'wp-asset-clean-up'), 'detail' => esc_html__('Built-in and custom taxonomy archives are supported.', 'wp-asset-clean-up')),
             ),
             array(
@@ -211,7 +211,7 @@ $wpacu_lvp_feature_groups = array(
             ),
             array(
                 'feature' => esc_html__('Google Fonts, local fonts, preloads, and Resource Loading rules', 'wp-asset-clean-up'),
-                'detail'  => esc_html__('Control font delivery, preload selected resources, and add image attributes such as fetchpriority, loading, and decoding through matching rules.', 'wp-asset-clean-up'),
+                'detail'  => esc_html__('Control font delivery, remove selected Google Fonts weights and styles, preload resources, and add image attributes such as fetchpriority, loading, and decoding through matching rules.', 'wp-asset-clean-up'),
                 'lite'    => array('state' => 'included', 'label' => esc_html__('Included', 'wp-asset-clean-up'), 'detail' => esc_html__('Available as part of the modern Lite settings.', 'wp-asset-clean-up')),
                 'pro'     => array('state' => 'included', 'label' => esc_html__('Included', 'wp-asset-clean-up'), 'detail' => esc_html__('The same core controls are available in Pro.', 'wp-asset-clean-up')),
             ),
@@ -439,7 +439,7 @@ $wpacu_lvp_status_icon = function ($state) {
                     <h3><?php esc_html_e('Pro is the better fit when the same decisions repeat across a complex site.', 'wp-asset-clean-up'); ?></h3>
 
                     <ul>
-                        <li><?php esc_html_e('You need taxonomy, archive, search, 404, RegEx, or screen-size rules.', 'wp-asset-clean-up'); ?></li>
+                        <li><?php esc_html_e('You need custom taxonomy, author, search, date, 404, RegEx, or screen-size rules.', 'wp-asset-clean-up'); ?></li>
                         <li><?php esc_html_e('You need to prevent an entire plugin—not only its CSS/JS—from loading.', 'wp-asset-clean-up'); ?></li>
                         <li><?php esc_html_e('You manage WooCommerce, membership, multilingual, publishing, or similarly varied contexts.', 'wp-asset-clean-up'); ?></li>
                         <li><?php esc_html_e('Maintaining page-by-page rules is costing more time than the upgrade.', 'wp-asset-clean-up'); ?></li>

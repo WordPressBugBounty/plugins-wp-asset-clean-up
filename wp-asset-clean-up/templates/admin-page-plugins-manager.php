@@ -22,6 +22,7 @@ if ( ! AssetsManager::instance()->currentUserCanViewAssetsList() ) {
 	return;
 }
 ?>
+<div class="wpacu-lite-pm-preview-notice-wrap">
 <?php
 ProPreview::renderNotice(
     __('Plugins Manager is available as a read-only preview in Lite', 'wp-asset-clean-up'),
@@ -29,6 +30,7 @@ ProPreview::renderNotice(
     'plugins_manager_top'
 );
 ?>
+</div>
 <div class="wpacu-sub-page-tabs-wrap"> <!-- Sub-tabs wrap -->
     <!-- Sub-nav menu -->
     <label id="wpacu-sub-page-nav-plugins-manager-front"

@@ -50,7 +50,7 @@ class MainLite
         $this->isUpdateable = true;
         $main->isUpdateable = true;
 
-        if ( ! $currentPostId && ! MainFront::isHomePage() ) {
+        if ( ! $currentPostId && ! MainFront::isHomePage() && ! ArchiveRules::context() ) {
             $this->isUpdateable = false;
             $main->isUpdateable = false;
         }

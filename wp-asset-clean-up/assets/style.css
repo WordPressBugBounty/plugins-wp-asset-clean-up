@@ -790,6 +790,60 @@ body[class*=wpassetcleanup] textarea[placeholder]:not(.ace_text-input):not(:plac
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.wpacu-nav-assets-manager .wpacu-pro-preview-tab {
+  position: relative;
+}
+
+.wpacu-nav-assets-manager .wpacu-pro-preview-tab > .dashicons-lock {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  line-height: 16px;
+  vertical-align: text-bottom;
+  margin-right: 1px;
+}
+
+.wpacu-nav-assets-manager .wpacu-pro-tab-help {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1000;
+  width: 190px;
+  padding: 8px 10px;
+  border-radius: 3px;
+  background: #1d2327;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+}
+
+.wpacu-nav-assets-manager .wpacu-pro-tab-help::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 22px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #1d2327;
+}
+
+.wpacu-nav-assets-manager .wpacu-pro-preview-tab:hover > .wpacu-pro-tab-help,
+.wpacu-nav-assets-manager .wpacu-pro-preview-tab:focus > .wpacu-pro-tab-help {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.35s, 0.35s, 0.35s;
+}
+
 .wpacu_hide {
   display: none !important;
 }
@@ -1228,7 +1282,9 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
 #wpacu_dash_assets_manager_form .wpacu_verified {
   margin: 0 0 15px 0 !important;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock {
+
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock {
   display: grid;
   box-sizing: border-box;
   grid-template-columns: minmax(220px, 1fr) auto minmax(300px, 1.4fr);
@@ -1241,22 +1297,27 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
   background: linear-gradient(135deg, #f8fbfc 0%, #eef7f8 100%);
   box-shadow: 0 2px 8px rgba(0, 69, 103, 0.08);
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock.wpacu-assets-loading {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock.wpacu-assets-loading,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock.wpacu-assets-loading {
   display: none;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock:has(.submit input.hidden) {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock:has(.submit input.hidden),
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock:has(.submit input.hidden) {
   display: none;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-actions {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-actions,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-actions {
   display: flex;
   align-items: center;
   gap: 9px;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .submit {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .submit,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .submit {
   margin: 0;
   padding: 0;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary {
   min-height: 40px;
   height: auto;
   padding: 0 19px;
@@ -1272,37 +1333,45 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
   box-shadow: 0 2px 5px rgba(0, 69, 103, 0.2);
   transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:hover, #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:focus {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:hover, #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:focus,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary:hover,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary:focus {
   border-color: #003d52 !important;
   background-color: #007887 !important;
   background-image: none !important;
   box-shadow: 0 3px 8px rgba(0, 69, 103, 0.25);
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:focus-visible {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:focus-visible,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary:focus-visible {
   outline: 3px solid rgba(34, 113, 177, 0.28);
   outline-offset: 2px;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:active {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:active,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary:active {
   transform: translateY(1px);
   box-shadow: 0 1px 3px rgba(0, 69, 103, 0.2);
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:disabled {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .button.button-primary:disabled,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .button.button-primary:disabled {
   border-color: #8aa6af !important;
   background: #8aa6af !important;
   color: #fff !important;
   box-shadow: none !important;
   transform: none;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-spinner {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-spinner,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-spinner {
   position: static;
   width: 20px;
   height: 20px;
   margin: 0;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-summary {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-summary,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-summary {
   justify-self: center;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary {
   display: inline-flex;
   min-height: 26px;
   align-items: center;
@@ -1317,16 +1386,19 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
   line-height: 1.25;
   white-space: nowrap;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes {
   border-color: #e3cf9d;
   background: #fff9e8;
   color: #755100;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes .wpacu-assets-manager-unsaved-dot {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes .wpacu-assets-manager-unsaved-dot,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-summary.has-unsaved-changes .wpacu-assets-manager-unsaved-dot {
   background: #dba617;
   box-shadow: 0 0 0 3px rgba(219, 166, 23, 0.13);
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-dot {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-dot,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-unsaved-dot {
   width: 7px;
   height: 7px;
   flex: 0 0 7px;
@@ -1334,7 +1406,8 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
   background: #9aa4a9;
   box-shadow: 0 0 0 3px rgba(154, 164, 169, 0.1);
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy {
   display: flex;
   min-width: 0;
   justify-self: end;
@@ -1343,19 +1416,23 @@ body:not(.wp-admin) #wpacu_wrap_assets code {
   color: #314750;
   text-align: right;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy strong {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy strong,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy strong {
   font-size: 13px;
 }
-#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy span {
+#wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy span,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy span {
   color: #646970;
   font-size: 12px;
 }
 
 @media screen and (max-width: 782px) {
-  #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock {
+  #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock {
     grid-template-columns: minmax(0, 1fr);
   }
-  #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy {
+  #wpacu_dash_assets_manager_form #wpacu-update-button-area.wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy,
+.wpacu-archive-preview-footer .wpacu-assets-manager-save-dock .wpacu-assets-manager-save-copy {
     justify-self: start;
     text-align: left;
   }
@@ -2808,7 +2885,7 @@ body:not(.wp-admin) .go-pro-link-no-style .wpacu-tooltip.wpacu-larger {
   position: absolute;
   border-width: 10px;
   border-style: solid;
-  top: 100%;
+  top: calc(100% - 1px);
   left: 50%;
   left: calc(50% - 10px);
   border-color: #00a7a7 transparent transparent transparent;
@@ -22287,7 +22364,7 @@ body:not(.wp-admin) .wpacu-handle-notes p a span.dashicons {
 }
 .wpacu_asset_row .wpacu-asset-position-preview .go-pro-link-no-style .wpacu-tooltip::after {
   top: auto;
-  bottom: 100%;
+  bottom: calc(100% - 1px);
   border-color: transparent transparent #00a7a7 transparent;
 }
 
@@ -22296,15 +22373,18 @@ body:not(.wp-admin) .wpacu-handle-notes p a span.dashicons {
   display: inline-flex;
   align-items: center;
 }
+.wpacu_asset_row .wpacu-script-attribute-pro-lock:hover, .wpacu_asset_row .wpacu-script-attribute-pro-lock:focus {
+  z-index: 50;
+}
 .wpacu_asset_row .wpacu-script-attribute-pro-lock > img[src*="/assets/icons/icon-lock.svg"] {
   width: 19px !important;
   height: 19px !important;
 }
 .wpacu_asset_row .wpacu-script-attribute-pro-lock .wpacu-tooltip.wpacu-larger {
-  top: calc(100% + 10px);
+  top: calc(100% + 12px);
   right: auto;
   bottom: auto;
-  left: 0;
+  left: -8px;
   z-index: 20;
   width: 230px;
   max-width: min(230px, calc(100vw - 70px));
@@ -22318,12 +22398,16 @@ body:not(.wp-admin) .wpacu-handle-notes p a span.dashicons {
   white-space: normal;
 }
 .wpacu_asset_row .wpacu-script-attribute-pro-lock .wpacu-tooltip.wpacu-larger::after {
-  top: auto;
-  bottom: 100%;
-  left: 2px;
+  top: -4px;
+  bottom: auto;
+  left: 12px;
+  width: 10px;
+  height: 10px;
   margin-left: 0;
-  border-width: 7px;
-  border-color: transparent transparent #00a7a7 transparent;
+  border: 0;
+  border-radius: 2px 0 0 0;
+  background: #00a7a7;
+  transform: rotate(45deg);
 }
 
 .wpacu_asset_row .wpacu-script-attributes-settings > li:first-child {
@@ -22399,10 +22483,10 @@ body:not(.wp-admin) .wpacu-handle-notes p a span.dashicons {
   visibility: visible;
 }
 .wpacu_asset_row .wpacu-locked-checkbox-option > .wpacu-locked-checkbox-overlay .wpacu-tooltip.wpacu-larger {
-  top: calc(100% + 10px);
+  top: calc(100% + 12px);
   right: auto;
   bottom: auto;
-  left: 0 !important;
+  left: -6px !important;
   width: 260px;
   max-width: min(260px, calc(100vw - 70px));
   margin-left: 0;
@@ -22415,11 +22499,16 @@ body:not(.wp-admin) .wpacu-handle-notes p a span.dashicons {
   white-space: normal;
 }
 .wpacu_asset_row .wpacu-locked-checkbox-option > .wpacu-locked-checkbox-overlay .wpacu-tooltip.wpacu-larger::after {
-  top: auto;
-  bottom: 100%;
-  left: 5px;
+  top: -4px;
+  bottom: auto;
+  left: 13px;
+  width: 10px;
+  height: 10px;
   margin-left: 0;
-  border-color: transparent transparent #00a7a7 transparent;
+  border: 0;
+  border-radius: 2px 0 0 0;
+  background: #00a7a7;
+  transform: rotate(45deg);
 }
 
 .wpacu-wrap {

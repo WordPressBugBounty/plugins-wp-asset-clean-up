@@ -208,8 +208,8 @@ class ProPreview
      */
     public static function blockProOnlyWrites()
     {
-        // CSS/JS Manager archive contexts are previews in Lite.
-        if (isset($_POST['wpacu_manage_archive_page_assets'])) {
+        // Only validated built-in category/tag archives can be edited in Lite.
+        if (isset($_POST['wpacu_manage_archive_page_assets']) && ! \WpAssetCleanUpLite\ArchiveRules::dashboardTerm()) {
             unset($_POST['wpacu_manage_archive_page_assets'], $_REQUEST['wpacu_manage_archive_page_assets']);
         }
 

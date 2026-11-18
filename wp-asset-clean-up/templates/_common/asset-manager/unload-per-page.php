@@ -53,6 +53,11 @@ if (! $isBulkUnloadedExceptSiteWide) {
      ?> padding: 8px 10px 6px !important;">
 	<ul class="wpacu_asset_options" <?php if ($isGroupUnloaded) { echo 'style="display: none;"'; } ?>>
 		<li class="wpacu_unload_this_page">
+			<?php if ( ! $isGroupUnloaded ) { ?>
+            <input type="hidden"
+                   name="<?php echo esc_attr(WPACU_FORM_ASSETS_POST_KEY); ?>[<?php echo esc_attr($assetType); ?>][<?php echo esc_attr($data['row']['obj']->handle); ?>][unload_editable]"
+                   value="1" />
+            <?php } ?>
 			<label class="wpacu_switch">
 				<input data-handle="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
                        data-handle-for="<?php echo $assetTypeS; ?>"

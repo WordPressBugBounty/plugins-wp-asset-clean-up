@@ -25,7 +25,7 @@ class ProDataCleanup
         // Mirrors Pro-only SettingsPro keys; shared font hosting and Critical CSS stay intact.
         return array('defer_css_loaded_body', 'google_fonts_local_auto_process',
             'google_fonts_local_browser_discovery', 'google_fonts_local_refresh_days',
-            'google_fonts_local_exceptions', 'google_fonts_remove_specific', 'inline_js_files',
+            'google_fonts_local_exceptions', 'inline_js_files',
             'move_scripts_to_body', 'plugins_manager_front_disable', 'plugins_manager_front_layout',
             'plugins_manager_front_homepage_detect_extra_ignore_query_string_list',
             'plugins_manager_dash_disable', 'plugins_manage_dash_restore_left_sidebar',
@@ -34,15 +34,37 @@ class ProDataCleanup
 
     private static function optionKeys()
     {
-        return array('post_type_via_tax_load_exceptions', 'tax_type_load_exceptions',
+        return array('post_type_via_tax_load_exceptions',
             'author_type_load_exceptions', 'extras_load_exceptions', 'pro_license_key',
             'pro_license_status', 'pro_license_response', 'pro_license_renewal_link',
             'plugins_request_context_map_rebuild_required', 'google_fonts_local_pro_lock');
     }
 
-    /** Remove only recognized Pro fields, retaining unknown extension data. */
+    /**
+     * Remove only recognized Pro fields, retaining unknown extension data.
+     *
+     * @param array $data
+     * @param string $kind
+     *
+     * @return array
+     */
     private static function filterData($data, $kind)
     {
+        if ($kind === 'tax_type_load_exceptions') {
+            foreach ($data as $taxonomy => $rules) {
+                if ( ! in_array($taxonomy, array('category', 'post_tag'), true) ) {
+                    unset($data[$taxonomy]);
+                    continue;
+                }
+
+                if (is_array($rules)) {
+                    $data[$taxonomy] = self::filterArchiveRules($rules);
+                }
+            }
+
+            return $data;
+        }
+
         if ($kind === 'settings') {
             foreach (self::settingsKeys() as $key) { unset($data[$key]); }
             if (isset($data['do_not_load_plugin_features']) && is_array($data['do_not_load_plugin_features'])) {
@@ -69,8 +91,24 @@ class ProDataCleanup
             $originalValues = $data[$type];
             if ($kind === 'bulk_unload') {
                 foreach (array_keys($data[$type]) as $key) {
-                    if (in_array((string)$key, array('taxonomy', 'author', 'post_type_via_tax', 'date', 'search', '404'), true)
+                    if (in_array((string)$key, array('author', 'post_type_via_tax', 'date', 'search', '404'), true)
                         || strpos((string)$key, 'custom_post_type_archive_') === 0) { unset($data[$type][$key]); }
+                }
+                if (isset($data[$type]['taxonomy']) && is_array($data[$type]['taxonomy'])) {
+                    foreach ($data[$type]['taxonomy'] as $taxonomy => $handles) {
+                        if ( ! in_array($taxonomy, array('category', 'post_tag'), true) ) {
+                            unset($data[$type]['taxonomy'][$taxonomy]);
+                            continue;
+                        }
+
+                        if (is_array($handles)) {
+                            $data[$type]['taxonomy'][$taxonomy] = self::removeHardcodedHandles($handles);
+                        }
+                    }
+
+                    if ( ! $data[$type]['taxonomy'] ) {
+                        unset($data[$type]['taxonomy']);
+                    }
                 }
             } else {
                 foreach (array('positions', 'media_queries_load', 'load_regex', 'unload_regex') as $key) { unset($data[$type][$key]); }
@@ -93,6 +131,41 @@ class ProDataCleanup
             if ( ! $data[$type] && $data[$type] !== $originalValues) { unset($data[$type]); }
         }
         return $data;
+    }
+
+    /**
+     * Keep the enqueued asset rules now available in Lite on built-in archives.
+     *
+     * @param array $rules
+     *
+     * @return array
+     */
+    private static function filterArchiveRules($rules)
+    {
+        foreach (array('styles', 'scripts') as $type) {
+            if (isset($rules[$type]) && is_array($rules[$type])) {
+                $rules[$type] = self::removeHardcodedHandles($rules[$type]);
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * @param array $handles
+     *
+     * @return array
+     */
+    private static function removeHardcodedHandles($handles)
+    {
+        $filtered = $handles;
+        foreach ($handles as $key => $handle) {
+            if (is_string($handle) && strpos($handle, 'wpacu_hardcoded_') === 0) {
+                unset($filtered[$key]);
+            }
+        }
+
+        return $filtered === $handles ? $handles : array_values($filtered);
     }
 
     private static function removeAttributes($handles)
@@ -121,6 +194,61 @@ class ProDataCleanup
         return wp_hash(get_current_blog_id() . ':' . get_current_user_id() . ':' . wp_json_encode($plan));
     }
 
+    /**
+     * Batch persisted ownership reads, including unregistered custom taxonomies.
+     *
+     * @param array $termIds
+     *
+     * @return array Term IDs mapped to a taxonomy, an empty string for an orphan, or false if unsafe.
+     */
+    private static function getStoredTermTaxonomies($termIds)
+    {
+        global $wpdb;
+
+        $taxonomies = array();
+        $termIds    = array_unique(array_map('intval', $termIds));
+        foreach (array_chunk($termIds, 500) as $batch) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT term_id, taxonomy FROM `{$wpdb->term_taxonomy}` WHERE term_id IN (" . implode(',', array_fill(0, count($batch), '%d')) . ")",
+                    $batch
+                ),
+                ARRAY_A
+            );
+            if ( $wpdb->last_error || ! is_array($rows) ) {
+                $taxonomies += array_fill_keys($batch, false);
+                continue;
+            }
+
+            // Only a successful lookup can prove that a term has no archive owner.
+            $batchTaxonomies = array_fill_keys($batch, '');
+            $seenTermIds     = array();
+            foreach ($rows as $row) {
+                if ( ! isset($row['term_id']) || ! array_key_exists((int)$row['term_id'], $batchTaxonomies) ) {
+                    $batchTaxonomies = array_fill_keys($batch, false);
+                    break;
+                }
+
+                $termId = (int)$row['term_id'];
+                if ( isset($seenTermIds[$termId]) || ! isset($row['taxonomy']) || ! is_string($row['taxonomy']) || $row['taxonomy'] === '' ) {
+                    $batchTaxonomies[$termId] = false;
+                } else {
+                    $batchTaxonomies[$termId] = $row['taxonomy'];
+                }
+                $seenTermIds[$termId] = true;
+            }
+
+            $taxonomies += $batchTaxonomies;
+        }
+
+        return $taxonomies;
+    }
+
+    /**
+     * Build a cleanup preview without deleting data when ownership is uncertain.
+     *
+     * @return array
+     */
     private static function plan()
     {
         global $wpdb;
@@ -131,7 +259,7 @@ class ProDataCleanup
             $old = get_option($key, null);
             if ($old !== null) { $plan['options'][$key] = array('old' => $old, 'new' => null); }
         }
-        foreach (array('settings', 'global_data', 'bulk_unload', 'front_page_data') as $kind) {
+        foreach (array('settings', 'global_data', 'bulk_unload', 'front_page_data', 'tax_type_load_exceptions') as $kind) {
             $key = WPACU_PLUGIN_ID . '_' . $kind;
             $old = get_option($key, null);
             if ($old === null || $old === '') { continue; }
@@ -150,10 +278,44 @@ class ProDataCleanup
             $keys = array('_' . WPACU_PLUGIN_ID . '_data');
             if ($type !== 'post') { $keys[] = '_' . WPACU_PLUGIN_ID . '_no_load'; $keys[] = '_' . WPACU_PLUGIN_ID . '_load_exceptions'; }
             $idColumn = $type === 'user' ? 'umeta_id' : 'meta_id';
-            $rows = $wpdb->get_results($wpdb->prepare("SELECT {$idColumn} AS id, meta_key, meta_value FROM `{$table}` WHERE meta_key IN (" . implode(',', array_fill(0, count($keys), '%s')) . ") ORDER BY {$idColumn}", $keys), ARRAY_A);
+            $objectIdColumn = $type . '_id';
+            $rows = $wpdb->get_results($wpdb->prepare("SELECT {$idColumn} AS id, {$objectIdColumn} AS object_id, meta_key, meta_value FROM `{$table}` WHERE meta_key IN (" . implode(',', array_fill(0, count($keys), '%s')) . ") ORDER BY {$idColumn}", $keys), ARRAY_A);
             if ($wpdb->last_error) { $plan['errors'][] = __('The metadata preview could not be read. No data will be removed.', 'wp-asset-clean-up'); }
+            $termTaxonomies = array();
+            if ($type === 'term') {
+                $termIds = array();
+                foreach ((array)$rows as $row) {
+                    if ($row['meta_key'] !== '_' . WPACU_PLUGIN_ID . '_data') {
+                        $termIds[] = (int)$row['object_id'];
+                    }
+                }
+                $termTaxonomies = self::getStoredTermTaxonomies($termIds);
+            }
+
             foreach ((array)$rows as $row) {
                 $new = null;
+                if ($type === 'term' && $row['meta_key'] !== '_' . WPACU_PLUGIN_ID . '_data') {
+                    $taxonomy = $termTaxonomies[(int)$row['object_id']];
+                    if ($taxonomy === false) {
+                        $plan['errors'][] = __('The taxonomy for some archive rules could not be determined safely. No data will be removed.', 'wp-asset-clean-up');
+                        continue;
+                    }
+
+                    if (in_array($taxonomy, array('category', 'post_tag'), true)) {
+                        $data = json_decode($row['meta_value'], true);
+                        if ( ! is_array($data) ) {
+                            $plan['errors'][] = __('Some archive rules could not be read safely. No data will be removed.', 'wp-asset-clean-up');
+                            continue;
+                        }
+
+                        $filtered = self::filterArchiveRules($data);
+                        if ($filtered === $data) {
+                            continue;
+                        }
+
+                        $new = $filtered ? wp_json_encode($filtered) : null;
+                    }
+                }
                 if ($row['meta_key'] === '_' . WPACU_PLUGIN_ID . '_data') {
                     $data = json_decode($row['meta_value'], true);
                     if ( ! is_array($data)) {

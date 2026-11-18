@@ -15,6 +15,13 @@ class AdminBar
     public static $assetUnloadGlobalKeyInfo = 'wpacu_filtered_assets_reasons';
 
     /**
+     * Initial nodes before later WordPress toolbar callbacks customize the menu.
+     *
+     * @var array
+     */
+    private $deferredMenuNodes = array();
+
+    /**
 	 * This class is called within the WordPress 'init' hook when it's meant to be loaded
 	 */
 	public function __construct()
@@ -30,6 +37,76 @@ class AdminBar
 		// Hide top WordPress admin bar on request for debugging purposes and a cleared view of the tested page
 		// This is done in /early-triggers.php within assetCleanUpNoLoad() function
 	}
+
+    /**
+     * Add deferred statistics after footer assets have been processed.
+     * Preserve the existing toolbar nodes and their customizations/listeners.
+     *
+     * @return void
+     */
+    public function renderFrontendMenu()
+    {
+        if (is_admin() || ! is_admin_bar_showing() || ! Menu::userCanAccessPlugin()) {
+            return;
+        }
+
+        $menu = new \WP_Admin_Bar();
+        $this->topBarInfo($menu);
+        $newMenuIds = array();
+
+        foreach ((array) $menu->get_nodes() as $id => $node) {
+            if ($node->parent === 'assetcleanup-parent' && ! isset($this->deferredMenuNodes[$id])) {
+                $newMenuIds[] = 'wp-admin-bar-' . $id;
+            }
+        }
+
+        $initialTitle = isset($this->deferredMenuNodes['assetcleanup-parent'])
+            ? $this->deferredMenuNodes['assetcleanup-parent']->title : '';
+        ob_start();
+        $menu->render();
+        $html = ob_get_clean();
+        $json = wp_json_encode($html, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+        $idsJson   = wp_json_encode($newMenuIds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $titleJson = wp_json_encode($initialTitle, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $script    = <<<JS
+(function () {
+    var parent = document.getElementById('wp-admin-bar-assetcleanup-parent');
+    if (!parent) { return; }
+    var wrap = document.createElement('div');
+    wrap.innerHTML = $json;
+    var next = wrap.querySelector('#wp-admin-bar-assetcleanup-parent');
+    if (!next) { return; }
+    var title = parent.querySelector('.ab-item');
+    var original = document.createElement('div');
+    original.innerHTML = $titleJson;
+    if (title && title.innerHTML === original.innerHTML) {
+        title.innerHTML = next.querySelector('.ab-item').innerHTML;
+    }
+    $idsJson.forEach(function (id) {
+        if (document.getElementById(id)) { return; }
+        var item = wrap.querySelector('[id="' + id + '"]');
+        if (!item) { return; }
+        var list = document.getElementById(item.parentNode.id);
+        if (!list) {
+            var container = document.createElement('div');
+            container.className = 'ab-sub-wrapper';
+            list = item.parentNode.cloneNode(false);
+            container.appendChild(list);
+            parent.appendChild(container);
+            parent.classList.add('menupop');
+            if (title) { title.setAttribute('aria-expanded', 'false'); }
+        }
+        list.appendChild(item);
+    });
+}());
+JS;
+
+        wp_register_script('wpacu-admin-bar-final-menu', false, array(), null, true);
+        wp_add_inline_script('wpacu-admin-bar-final-menu', $script);
+        wp_print_scripts('wpacu-admin-bar-final-menu');
+        do_action('wpacu_internal_admin_bar_menu_rendered');
+    }
 
 	/**
 	 *
@@ -776,10 +853,18 @@ class AdminBar
 	/**
 	 * @param $wp_admin_bar
      *
+     * @return void
+     *
      * @noinspection NestedAssignmentsUsageInspection
      * */
 	public function topBarInfo($wp_admin_bar)
 	{
+        $deferStatistics = ! is_admin() && doing_action('wp_body_open') && Menu::userCanAccessPlugin();
+
+        if ($deferStatistics) {
+            add_action('wp_footer', array($this, 'renderFrontendMenu'), PHP_INT_MAX);
+        }
+
 		$topTitle = WPACU_PLUGIN_TITLE;
 
         if (! is_admin() && Menu::userCanAccessPlugin() && self::getDisabledPageOptimizations()) {
@@ -790,7 +875,7 @@ class AdminBar
         $markedCssListForUnload = $markedJsListForUnload = array();
         $inactiveAssetUnloads = array('styles' => array(), 'scripts' => array());
 
-        if (! is_admin()) {
+        if ( ! is_admin() && ! $deferStatistics ) {
             $markedCssListForUnload = isset(Main::instance()->allUnloadedAssets['styles'])  ? array_unique(Main::instance()->allUnloadedAssets['styles'])  : array();
             $markedJsListForUnload  = isset(Main::instance()->allUnloadedAssets['scripts']) ? array_unique(Main::instance()->allUnloadedAssets['scripts']) : array();
 
@@ -938,7 +1023,7 @@ class AdminBar
         do_action('wpacu_internal_admin_bar_after_overview', $wp_admin_bar);
 
 		// [START LISTING UNLOADED ASSETS]
-		if ( ! is_admin() ) { // Frontend view (show any unloaded handles)
+		if ( ! is_admin() && ! $deferStatistics ) { // Frontend view (show any unloaded handles)
             $totalUnloadedAssets = count($markedCssListForUnload) + count($markedJsListForUnload);
 
 			if ($totalUnloadedAssets > 0) {
@@ -1023,6 +1108,10 @@ class AdminBar
         $this->addPausedOptimizationsNotice($wp_admin_bar);
         AdminBarSavings::addInactiveMenu($wp_admin_bar, $inactiveAssetUnloads);
         AdminBarSavings::addMenu($wp_admin_bar, array('styles' => $markedCssListForUnload, 'scripts' => $markedJsListForUnload));
+
+        if ($deferStatistics) {
+            $this->deferredMenuNodes = (array) $wp_admin_bar->get_nodes();
+        }
 		// [END LISTING UNLOADED ASSETS]
 
 		}

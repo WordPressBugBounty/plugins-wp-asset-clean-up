@@ -3,7 +3,7 @@ Contributors: gabelivan
 Tags: unused css, critical css, page speed, minify css, minify javascript
 Requires at least: 4.7
 Tested up to: 7.1
-Stable tag: 1.4.0.7
+Stable tag: 1.4.0.8
 Requires PHP: 5.6
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -27,7 +27,7 @@ The Dashboard keeps the technical detail experienced users need while guiding fi
 = CSS and JavaScript management =
 
 * View loaded stylesheets and scripts, organized by their source.
-* Unload unnecessary CSS and JavaScript on the homepage and on individual posts, pages, and custom post types.
+* Unload unnecessary CSS and JavaScript on the homepage, individual posts, pages, custom post types, and standard WordPress category and tag archives (including their pagination pages), with support for load exceptions.
 * Manage assets from the Dashboard, the post/page edit screen, or the front-end view.
 * Review unload rules, exceptions, asset attributes, page options, and leftover entries from the Overview page.
 * Minify and combine supported CSS and JavaScript, including supported inline code.
@@ -188,6 +188,22 @@ Yes. Each site can be configured independently.
 CSP integration note: The isolated front-end manager uses `wp_script_attributes` for external script nonces and `wp_inline_script_attributes` for inline script nonces. If an external script still has no nonce, it can call `script_loader_tag` as a fallback with the actual handle and URL. Only the nonce is retained; defer, async, delay, preload and other tag transformations are discarded to preserve the manager's dependency order. Inline scripts still need nonces supplied through `wp_inline_script_attributes`.
 
 == Changelog ==
+= 1.4.0.8 =
+* **New:** CSS/JS rule management for standard WordPress category and tag archives is now included in Lite. Unload assets or add load exceptions for individual archives or all archives of either taxonomy, directly from the Dashboard or front-end. Rules also apply to archive pagination pages.
+* **New:** Selective Google Fonts removal is now available in Lite. Remove individual font weights and styles from supported stylesheets and JavaScript font loaders while keeping the variants you need, including fonts requested through WP Rocket delayed scripts.
+* **Improvement:** Reduce database queries when previewing leftover Pro data, including checks on the Overview page.
+* **Compatibility:** Selective removal keeps the entire original Google Fonts list when emptying a global WebFontConfig, or a WebFont.load() call without another supported font provider, could disrupt page loading. Those fonts may still load. Unsupported HTML or JavaScript remains unchanged; these limits are explained beside the setting.
+* **Fix:** Continue inline JavaScript optimization after common SVG, MathML and recoverable HTML attribute errors, while preserving template, text and comment content.
+* **Fix:** Preserve JavaScript execution order and legacy comment boundaries during optimization.
+* **Fix:** Preserve theme styles, empty runtime style elements and inert HTML when removing Google Fonts. Keep URL encoding, unrelated font requests and dynamically constructed JavaScript URLs intact.
+* **Fix:** Apply Google Fonts removal, font-display and local-hosting changes to external JavaScript even when minification is disabled, and refresh outdated font-processing caches.
+* **Fix:** Preserve saved Google Fonts removal selections while local font processing is pending or settings are changed.
+* **Fix:** Preserve saved preload settings when their controls are unavailable, while allowing editable assets to return to "No (default)" in both managers.
+* **Fix:** Correct Admin Bar unload statistics for late footer assets and scripts with missing dependencies, preserving toolbar customizations.
+* **Fix:** Save CSS/JS rules to the correct WPML taxonomy translations in both the Dashboard and front-end manager.
+* **Fix:** Preserve visitor query parameters in displayed manager URLs.
+* **Fix:** Preserve descendant selectors when minifying the plugin's interface styles.
+
 = 1.4.0.7 =
 * **New:** Added Alternative Assets for CSS. Create and edit alternative versions of enqueued stylesheets and choose where they apply without modifying the original files. JavaScript alternatives require Pro.
 * **New:** Pause and resume CSS/JS rules and Alternative Assets independently without deleting their saved configuration.

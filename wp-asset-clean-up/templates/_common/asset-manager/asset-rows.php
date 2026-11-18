@@ -88,6 +88,8 @@ foreach ($assetTypes as $assetType) {
            || $isLoadExceptionAuthorType
            /* [/wpacu_pro] */;
 
+        $isLoadException = apply_filters('wpacu_internal_asset_row_load_exception', $isLoadException, $row['obj']->handle, $assetType);
+
         // No load exception to any kind and a bulk unload rule is applied? Append the CSS class for unloading
         if ( ! $isLoadException && ( $row['is_group_unloaded']
             /* [wpacu_pro] */

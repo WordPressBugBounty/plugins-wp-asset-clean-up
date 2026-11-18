@@ -71,11 +71,7 @@ $calledFromOwnPluginAssetsManagerPage = isset($_POST['called_from_plugin_own_ass
 $wpacuSummaryUrl                     = !empty($data['fetch_url']) ? $data['fetch_url'] : '';
 if (!is_admin() && is_search() && !$calledFromOwnPluginAssetsManagerPage) {
     // Display the actual search request without changing the asset-fetch/save URL.
-    $wpacuSummaryUrl = remove_query_arg(array(
-        'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
-        'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
-        'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
-    ), \WpAssetCleanUp\Misc::getCurrentPageUrl(false));
+    $wpacuSummaryUrl = \WpAssetCleanUp\Misc::removeManagerQueryArgs(\WpAssetCleanUp\Misc::getCurrentPageUrl(false));
 }
 $wpacuShowSummaryUrl = !$calledFromOwnPluginAssetsManagerPage && $wpacuSummaryUrl !== '' && !is_404();
 // The dedicated singular-page header already includes the type before fetching assets.
@@ -91,12 +87,13 @@ if ($wpacuInlinePageSummary) {
 
 if (is_admin()) {
     // Dashboard edit view
-    if (get_option('show_on_front') === 'page') {
-        if (get_option('page_on_front') == $data['post_id']) {
+    // Archives have no post ID; zero must never match an unassigned Reading page.
+    if (get_option('show_on_front') === 'page' && ! empty($data['post_id']) && (int)$data['post_id'] > 0) {
+        if ((int)get_option('page_on_front') === (int)$data['post_id']) {
         ?>
             <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-home"></span> <?php echo sprintf(__('This page was set as the home page in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
 	    <?php
-        } elseif (get_option('page_for_posts') == $data['post_id']) {
+        } elseif ((int)get_option('page_for_posts') === (int)$data['post_id']) {
         ?>
             <p<?php echo $wpacuContextParagraphStyle; ?>><span style="color: #0f6cab;" class="dashicons dashicons-admin-post"></span> <?php echo sprintf(__('This page was set to show the latest posts in %s"Settings" &#10141; "Reading"%s.', 'wp-asset-clean-up'), '<a target="_blank" href="'.esc_url(admin_url('options-reading.php')).'">', '</a>'); ?></p>
         <?php

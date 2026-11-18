@@ -17,6 +17,7 @@ foreach ($plugins as $plugin) {
         <?php
         include WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/plugins-author-context.php';
         include WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/plugins-search-context.php';
+        include WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/plugins-taxonomy-context.php';
         $wpacuPageSummary = array(
             'frontend' => true,
             'is_homepage' => !empty($context['is_homepage']),

@@ -4,7 +4,7 @@ if (! isset($data)) {
 }
 
 $settingsName = WPACU_PLUGIN_ID . '_settings';
-$isPro = (bool) apply_filters('wpacu_google_fonts_remove_specific_is_pro', false);
+$canRemoveSpecific = (bool) apply_filters('wpacu_google_fonts_remove_specific_is_pro', false);
 $removeAllEnabled = ! empty($data['google_fonts_remove']);
 $specificInventory = isset($data['google_fonts_local_config']['specificInventory'])
     && is_array($data['google_fonts_local_config']['specificInventory'])
@@ -48,7 +48,7 @@ $specificLabel = function($key, $fallback) use ($specificLabels) {
         ? (string) $specificLabels[$key]
         : $fallback;
 };
-$renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $specificLabel) {
+$renderSpecificFamilyCards = function($families) use ($canRemoveSpecific, $settingsName, $specificLabel) {
     foreach ($families as $familyData) :
         if (! is_array($familyData) || empty($familyData['family']) || empty($familyData['variants']) || ! is_array($familyData['variants'])) {
             continue;
@@ -105,7 +105,7 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
                         </small>
                     <?php endif; ?>
                 </div>
-                <?php if ($isPro) : ?>
+                <?php if ($canRemoveSpecific) : ?>
                     <div class="wpacu-google-fonts-specific__family-actions">
                         <button type="button" class="button-link wpacu-google-fonts-specific__family-select-all"><?php echo esc_html($specificLabel('selectAll', __('Select all', 'wp-asset-clean-up'))); ?></button>
                         <span aria-hidden="true">|</span>
@@ -125,20 +125,20 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
                         ? $specificLabel('italic', __('Italic', 'wp-asset-clean-up'))
                         : $specificLabel('regular', __('Regular', 'wp-asset-clean-up'));
                     ?>
-                    <label class="wpacu-google-fonts-specific__variant<?php echo ! $isPro ? ' is-locked' : ''; ?>">
+                    <label class="wpacu-google-fonts-specific__variant<?php echo ! $canRemoveSpecific ? ' is-locked' : ''; ?>">
                         <input type="checkbox"
                                value="<?php echo esc_attr($token); ?>"
-                            <?php if ($isPro) : ?>
+                            <?php if ($canRemoveSpecific) : ?>
                                name="<?php echo esc_attr($settingsName); ?>[google_fonts_remove_specific][]"
                             <?php endif; ?>
                             <?php checked($isSelected); ?>
-                            <?php disabled(! $isPro); ?>>
+                            <?php disabled(! $canRemoveSpecific); ?>>
                         <span class="wpacu-google-fonts-specific__check" aria-hidden="true"></span>
                         <span class="wpacu-google-fonts-specific__variant-name">
                             <strong><?php echo esc_html($family . ' — ' . $variant['weight']); ?></strong>
                         </span>
                         <span class="wpacu-google-fonts-specific__style-badge is-<?php echo esc_attr($variant['style']); ?>"><?php echo esc_html($styleLabel); ?></span>
-                        <?php if (! $isPro) : ?>
+                        <?php if (! $canRemoveSpecific) : ?>
                             <span class="wpacu-google-fonts-specific__action"><span class="dashicons dashicons-lock" aria-hidden="true"></span></span>
                         <?php endif; ?>
                     </label>
@@ -148,17 +148,7 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
     <?php endforeach;
 };
 ?>
-<?php if (! $isPro) : ?>
-    <div class="wpacu-google-fonts-specific__upgrade">
-        <span class="dashicons dashicons-lock" aria-hidden="true"></span>
-        <div>
-            <strong><?php esc_html_e('Selective Google Fonts removal is available in Pro', 'wp-asset-clean-up'); ?></strong>
-            <p><?php esc_html_e('Lite can optimize Google Fonts or remove all of them. Pro lets you keep the variants you need and remove only selected weights or styles.', 'wp-asset-clean-up'); ?></p>
-        </div>
-    </div>
-<?php endif; ?>
-
-<?php if ($isPro && $removeAllEnabled) : ?>
+<?php if ($canRemoveSpecific && $removeAllEnabled) : ?>
     <div class="wpacu-google-fonts-disabled-notice" role="note">
         <span class="dashicons dashicons-warning" aria-hidden="true"></span>
         <div>
@@ -168,17 +158,20 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
     </div>
 <?php endif; ?>
 
-<div class="wpacu-google-fonts-specific<?php echo $isPro ? ' is-pro' : ' is-lite'; echo $removeAllEnabled ? ' is-disabled-by-remove-all' : ''; ?>">
+<div class="wpacu-google-fonts-specific<?php echo $canRemoveSpecific ? ' is-pro' : ' is-lite'; echo $removeAllEnabled ? ' is-disabled-by-remove-all' : ''; ?>">
     <section class="wpacu-google-fonts-specific__intro">
         <div>
             <span class="wpacu-google-fonts-specific__eyebrow"><?php esc_html_e('Granular removal', 'wp-asset-clean-up'); ?></span>
             <h3><?php esc_html_e('Remove only the Google Fonts variants you do not need', 'wp-asset-clean-up'); ?></h3>
             <p><?php esc_html_e('Select individual font weights and styles. Other variants from the same family remain available.', 'wp-asset-clean-up'); ?></p>
         </div>
-        <span class="wpacu-google-fonts-specific__pro-badge">PRO</span>
     </section>
 
-    <?php if ($isPro) : ?>
+    <div class="wpacu-google-fonts-specific__notice" role="note">
+        <p><?php esc_html_e('Some JavaScript font loaders need to keep their original Google Fonts list to avoid interrupting page loading. If removing your selections would empty such a list, the entire list is kept and those fonts may still load. Unsupported HTML or JavaScript may also remain unchanged. Check your browser’s network requests after saving.', 'wp-asset-clean-up'); ?></p>
+    </div>
+
+    <?php if ($canRemoveSpecific) : ?>
         <input type="hidden" name="<?php echo esc_attr($settingsName); ?>[google_fonts_remove_specific][]" value="">
         <input type="hidden"
                class="wpacu-google-fonts-specific__serialized"
@@ -198,7 +191,7 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
         <div class="wpacu-google-fonts-specific__toolbar">
             <label>
                 <span class="screen-reader-text"><?php esc_html_e('Search detected Google Fonts', 'wp-asset-clean-up'); ?></span>
-                <input type="search" class="wpacu-google-fonts-specific__search" placeholder="<?php esc_attr_e('Search font families…', 'wp-asset-clean-up'); ?>" <?php disabled(! $isPro); ?>>
+                <input type="search" class="wpacu-google-fonts-specific__search" placeholder="<?php esc_attr_e('Search font families…', 'wp-asset-clean-up'); ?>" <?php disabled(! $canRemoveSpecific); ?>>
             </label>
             <span><?php echo esc_html(sprintf($hasSpecificFamilies && $specificFamilyCount === 1 ? $specificLabel('familyOne', __('%d family detected', 'wp-asset-clean-up')) : $specificLabel('familyMany', __('%d families detected', 'wp-asset-clean-up')), $specificFamilyCount)); ?></span>
         </div>
@@ -213,7 +206,7 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
             <section class="wpacu-google-fonts-specific__group is-failed" data-wpacu-google-fonts-specific-group="failed"<?php echo ! $showFailedGroup ? ' hidden' : ''; ?>>
                 <header class="wpacu-google-fonts-specific__group-header">
                     <h4><?php echo esc_html($specificLabel('failedVariants', __('Failed variants', 'wp-asset-clean-up'))); ?> <span class="wpacu-google-fonts-specific__group-count"><?php echo (int) $failedVariantCount; ?></span></h4>
-                    <button type="button" class="button" data-wpacu-google-fonts-specific-retry-failed <?php disabled(! $isPro); ?>><?php echo esc_html($specificLabel('retryFailed', __('Retry failed', 'wp-asset-clean-up'))); ?></button>
+                    <button type="button" class="button" data-wpacu-google-fonts-specific-retry-failed <?php disabled(! $canRemoveSpecific); ?>><?php echo esc_html($specificLabel('retryFailed', __('Retry failed', 'wp-asset-clean-up'))); ?></button>
                 </header>
                 <div class="wpacu-google-fonts-specific__failed-intro" data-wpacu-google-fonts-specific-failed-intro>
                     <span class="dashicons dashicons-info-outline" aria-hidden="true"></span>
@@ -227,7 +220,7 @@ $renderSpecificFamilyCards = function($families) use ($isPro, $settingsName, $sp
             </section>
         </div>
 
-        <?php if ($isPro) : ?>
+        <?php if ($canRemoveSpecific) : ?>
             <div class="wpacu-google-fonts-specific__footer">
                 <div>
                     <strong class="wpacu-google-fonts-specific__selected-count">0</strong>

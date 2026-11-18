@@ -4,7 +4,6 @@
  */
 
 use WpAssetCleanUp\Admin\AssetsManagerAdmin;
-use WpAssetCleanUpLite\Admin\ProPreview;
 
 if (! isset($data)) {
     exit;
@@ -23,6 +22,8 @@ $fetchUrl   = isset($archiveData['fetch_url']) && $archiveData['fetch_url']
 
 $data['fetch_url'] = $fetchUrl;
 $wpacuNoLoadInTargetPage = false;
+$wpacuArchiveEditable = $archiveData['type'] === 'taxonomy'
+    && \WpAssetCleanUpLite\ArchiveRules::supports($archiveData['taxonomy']);
 
 $wpacuArchiveHeaderSection = 'notice';
 require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/archive-context-header.php';
@@ -30,8 +31,13 @@ require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/archive-context-hea
 <form id="wpacu_dash_assets_manager_form"
       method="post"
       action=""
-      data-wpacu-lite-archive-preview="1"
-      data-wpacu-lite-pro-preview-form="1">
+      <?php if ( ! $wpacuArchiveEditable ) { ?>data-wpacu-lite-archive-preview="1" data-wpacu-lite-pro-preview-form="1"<?php } ?>>
+    <?php if ($wpacuArchiveEditable) { ?>
+        <input type="hidden" name="wpacu_manage_archive_page_assets" value="1" />
+        <input type="hidden" name="wpacu_archive_page_type" value="taxonomy" />
+        <input type="hidden" name="wpacu_archive_term_id" value="<?php echo (int)$archiveData['term_id']; ?>" />
+        <input type="hidden" name="wpacu_archive_taxonomy" value="<?php echo esc_attr($archiveData['taxonomy']); ?>" />
+    <?php } ?>
     <input type="hidden" id="wpacu_archive_page_type" value="<?php echo esc_attr($archiveData['type']); ?>" />
     <input type="hidden" id="wpacu_ajax_fetch_assets_list_dashboard_view" value="1" />
 
@@ -59,21 +65,10 @@ require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/archive-context-hea
         <?php
     }
     ?>
-    <div id="wpacu-update-button-area" class="no-left-margin wpacu-assets-manager-save-dock">
-        <div class="wpacu-assets-manager-save-actions">
-        <p class="submit">
-            <a class="button button-primary"
-               target="_blank"
-               rel="noopener noreferrer"
-               href="<?php echo esc_url(ProPreview::getUpgradeUrl('css_js_manager_' . $archiveData['type'] . '_update')); ?>">
-                <img width="18" height="18" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" style="margin: -2px 5px 0 0; vertical-align: middle;" alt="" />
-                <?php esc_html_e('Unlock rule management with Pro', 'wp-asset-clean-up'); ?>
-            </a>
-        </p>
-        </div>
-        <div class="wpacu-assets-manager-save-copy">
-            <strong><?php esc_html_e('Rule management is available in Pro', 'wp-asset-clean-up'); ?></strong>
-            <span><?php esc_html_e('CSS/JS unload and load rules take effect only after they are saved.', 'wp-asset-clean-up'); ?></span>
-        </div>
-    </div>
+    <?php if ($wpacuArchiveEditable) {
+        wp_nonce_field($data['nonce_action'], $data['nonce_name']);
+        include __DIR__ . '/_save-dock.php';
+    } else {
+        include __DIR__ . '/_archive-pro-preview-dock.php';
+    } ?>
 </form>

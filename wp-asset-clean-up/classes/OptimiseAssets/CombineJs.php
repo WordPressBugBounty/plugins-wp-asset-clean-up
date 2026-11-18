@@ -506,7 +506,7 @@ class CombineJs
             }
             $attributes = $script['attributes'];
             $src        = isset($attributes['src']) ? trim($attributes['src']) : '';
-            $type       = isset($attributes['type']) ? trim($attributes['type']) : '';
+            $type       = isset($attributes['type']) ? trim($attributes['type'], "\x09\x0a\x0c\x0d\x20") : '';
 
             if ($src !== '') {
                 // An explicitly synchronous skipped script must not overtake a dependency.
@@ -531,7 +531,7 @@ class CombineJs
             }
             $attributes = $script['attributes'];
             $src        = isset($attributes['src']) ? trim($attributes['src']) : '';
-            $type       = isset($attributes['type']) ? trim($attributes['type']) : '';
+            $type       = isset($attributes['type']) ? trim($attributes['type'], "\x09\x0a\x0c\x0d\x20") : '';
             $addDefer   = $script['offset'] >= $lastBarrierEnd && $src !== '' && Misc::isClassicScriptType($type);
             foreach (array('defer', 'async', 'nomodule', 'data-wpacu-skip', 'data-wpacu-plugin-script', 'data-wpacu-skip-positional-body-defer') as $name) {
                 if (isset($attributes[$name])) {

@@ -6,25 +6,134 @@ class AdminBarSavings
 {
     private static $removed = array();
 
-    /** Separate requested resources from rules targeting assets absent on this page. */
+    /**
+     * Assets requested before any unload pass, including late footer dependencies.
+     *
+     * @var array
+     */
+    private static $requested = array();
+
+    /**
+     * Record the live dependency graph before dequeue/deregister mutates it.
+     * Cached unload lists can skip the earlier Main asset collection.
+     *
+     * @param string $type
+     * @param object $dependencies
+     *
+     * @return void
+     */
+    public static function captureQueuedAssets($type, $dependencies)
+    {
+        if ( ! is_admin_bar_showing() || ! Menu::userCanAccessPlugin()
+            || ! ($dependencies instanceof \WP_Dependencies) ) {
+            return;
+        }
+
+        // A plugin can enqueue only the handle after an earlier unload pass
+        // deregistered it (e.g. LayerSlider in wp_footer). WordPress keeps that
+        // request pending until registration. Restore our removed registrations
+        // on a private copy so the public add() API exposes those pending requests.
+        // Never restore registrations or change queues on the live object.
+        if ( ! empty(self::$removed[$type]) ) {
+            $dependencies = clone $dependencies;
+
+            foreach (self::$removed[$type] as $handle => $asset) {
+                if ( ! isset($dependencies->registered[$handle]) ) {
+                    $dependencies->add($handle, $asset->src, $asset->deps, $asset->ver, $asset->args);
+                }
+            }
+        }
+
+        foreach (self::requestedHandles($dependencies->queue, $dependencies->registered) as $handle => $requested) {
+            self::$requested[$type][$handle] = true;
+        }
+    }
+
+    /**
+     * Resolve each current graph without changing the live WordPress registry.
+     *
+     * @param array $queue
+     * @param array $registered
+     *
+     * @return array
+     */
+    private static function requestedHandles($queue, $registered)
+    {
+        $requested = $resolving = array();
+
+        foreach ($queue as $handle) {
+            self::resolveRequestedHandle($handle, $registered, $requested, $resolving);
+        }
+
+        return $requested;
+    }
+
+    /**
+     * Match WP_Dependencies::all_deps() missing-dependency handling, while also
+     * guarding against cycles. WordPress checks all direct dependencies before
+     * visiting any of them; a missing sibling therefore prevents their output.
+     *
+     * @param string $handle
+     * @param array $registered
+     * @param array $requested
+     * @param array $resolving
+     *
+     * @return bool
+     */
+    private static function resolveRequestedHandle($handle, $registered, &$requested, &$resolving)
+    {
+        $parts  = explode('?', $handle);
+        $handle = $parts[0];
+
+        if (isset($requested[$handle])) {
+            return true;
+        }
+
+        if ( ! isset($registered[$handle]) || isset($resolving[$handle]) ) {
+            return false;
+        }
+
+        foreach ($registered[$handle]->deps as $dependency) {
+            if ( ! isset($registered[$dependency]) ) {
+                return false;
+            }
+        }
+
+        $resolving[$handle] = true;
+
+        foreach ($registered[$handle]->deps as $dependency) {
+            if ( ! self::resolveRequestedHandle($dependency, $registered, $requested, $resolving) ) {
+                unset($resolving[$handle]);
+                return false;
+            }
+        }
+
+        unset($resolving[$handle]);
+        $requested[$handle] = true;
+
+        return true;
+    }
+
+    /**
+     * Separate requested resources from rules targeting assets absent on this page.
+     *
+     * @param array $lists
+     *
+     * @return array
+     */
     public static function partitionUnloads($lists)
     {
         $groups = array('active' => array('styles' => array(), 'scripts' => array()), 'inactive' => array('styles' => array(), 'scripts' => array()));
         foreach (array('styles' => 'wpAllStyles', 'scripts' => 'wpAllScripts') as $type => $property) {
-            $assets = Main::instance()->$property;
-            $pending = isset($assets['queue']) ? $assets['queue'] : array();
-            $queued = array();
-            while ($pending) {
-                $handle = array_pop($pending);
-                if (isset($queued[$handle])) { continue; }
-                $queued[$handle] = true;
-                if (!empty($assets['registered'][$handle]->deps)) {
-                    $pending = array_merge($pending, $assets['registered'][$handle]->deps);
-                }
-            }
+            $assets     = Main::instance()->$property;
+            $queue      = isset($assets['queue']) ? $assets['queue'] : array();
+            $registered = isset($assets['registered']) ? $assets['registered'] : array();
+            $queued     = self::requestedHandles($queue, $registered);
+
             foreach (array_unique($lists[$type]) as $handle) {
                 // Hardcoded tags use the HTML removal pipeline, not the WP queue.
-                $active = isset($queued[$handle]) || strpos($handle, 'wpacu_hardcoded_') === 0;
+                $active = isset(self::$requested[$type][$handle]) || isset($queued[$handle])
+                    || strpos($handle, 'wpacu_hardcoded_') === 0;
                 $groups[$active ? 'active' : 'inactive'][$type][] = $handle;
             }
         }
@@ -52,7 +161,7 @@ class AdminBarSavings
                     'href' => esc_url(admin_url('admin.php?page=wpassetcleanup_overview#wpacu-overview-' . ($type === 'styles' ? 'css-' : 'js-') . rawurlencode($handle)))));
             }
         }
-        add_action('wp_after_admin_bar_render', static function () {
+        add_action(did_action('wp_after_admin_bar_render') ? 'wpacu_internal_admin_bar_menu_rendered' : 'wp_after_admin_bar_render', static function () {
             wp_register_script('wpacu-admin-bar-inactive-help', plugins_url('assets/wpacu-admin-bar-inactive-help.min.js', WPACU_PLUGIN_FILE), array(), WPACU_PLUGIN_VERSION . '.' . filemtime(__DIR__ . '/../assets/wpacu-admin-bar-inactive-help.min.js'), true);
             wp_print_scripts('wpacu-admin-bar-inactive-help');
         });
@@ -296,7 +405,7 @@ class AdminBarSavings
                 'unknown' => __('unavailable', 'wp-asset-clean-up'), 'assets' => __('assets measured', 'wp-asset-clean-up'),
                 'asset' => __('asset measured', 'wp-asset-clean-up'),
                 'failed' => __('Estimate unavailable', 'wp-asset-clean-up')));
-        add_action('wp_after_admin_bar_render', static function () use ($config) {
+        add_action(did_action('wp_after_admin_bar_render') ? 'wpacu_internal_admin_bar_menu_rendered' : 'wp_after_admin_bar_render', static function () use ($config) {
             $version = WPACU_PLUGIN_VERSION . '.' . filemtime(__DIR__ . '/../assets/wpacu-admin-bar-savings.min.js');
             wp_register_script('wpacu-admin-bar-savings', plugins_url('assets/wpacu-admin-bar-savings.min.js', WPACU_PLUGIN_FILE), array(), $version, true);
             wp_add_inline_script('wpacu-admin-bar-savings', 'window.wpacuAdminBarSavings = ' . wp_json_encode($config) . ';', 'before');

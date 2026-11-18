@@ -1035,7 +1035,7 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			$excludePostIds = array();
 
 			if ($isSinglePageSetAsHomePage) {
-				$excludePostIds[] = get_option('page_on_front');
+				$excludePostIds[] = (int)get_option('page_on_front');
 			}
 
 			// Visiting a post, page or custom post type but not the homepage
@@ -1043,7 +1043,7 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 
 			$anyPagesWithSpecialOptionsQuery = 'SELECT meta_value FROM `' . $wpdb->prefix . 'postmeta` WHERE ';
 
-			if (! empty($excludePostIds)) {
+			if ( ! empty($excludePostIds) ) {
 				$anyPagesWithSpecialOptionsQuery .= ' post_id NOT IN ('.implode(',', $excludePostIds).') AND ';
 			}
 

@@ -101,9 +101,7 @@ class FrontendManagerFrame
             foreach ($managers as $key => $label) {
                 $url   = self::managerUrl($pageUrl, $key);
                 $icon  = $key === 'assets' ? 'editor-code' : ($key === 'plugins' ? 'admin-plugins' : 'screenoptions');
-                if ($key === 'plugins' && !defined('WPACU_PRO_PLUGIN_VERSION')) {
-                    $icon = 'lock';
-                }
+                $icon  = apply_filters('wpacu_internal_frontend_workspace_icon', $icon, $key);
                 $color = isset($colors[$key]) ? $colors[$key] : '#52616b';
                 $tabs .= '<a data-wpacu-manager-tab="'.esc_attr($key).'" style="--wpacu-workspace-accent:'.esc_attr($color).'" href="'.esc_url($url).'"'
                     .($key === $workspace ? ' class="is-current" aria-current="page"' : '').'>'

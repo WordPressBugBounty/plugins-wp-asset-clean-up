@@ -30,12 +30,25 @@ $cssJsRulesEnabled = \WpAssetCleanUp\Main::instance()->areAssetRulesEnabled();
 <nav class="wpacu-nav-tab-wrapper wpacu-nav-assets-manager">
     <?php
     foreach ($assetsManagerTabs as $assetsManagerTabKey => $assetsManagerTabTitle) {
+        // [Gabe Livan]
+        // Custom added or modified code.
+        $isProPreviewTab = ! defined('WPACU_PRO_PLUGIN_VERSION') && in_array(
+            $assetsManagerTabKey,
+            array('custom_taxonomies', 'search', 'author', 'date', '404_not_found'),
+            true
+        );
         ?>
         <a href="<?php echo esc_url(admin_url('admin.php?page=wpassetcleanup_assets_manager&wpacu_for='.$assetsManagerTabKey)); ?>"
-           class="wpacu-nav-tab <?php if ($data['for'] === $assetsManagerTabKey) { ?>wpacu-nav-tab-active<?php } ?>">
+           <?php if ($isProPreviewTab) { ?>aria-describedby="wpacu-pro-tab-help-<?php echo esc_attr($assetsManagerTabKey); ?>"<?php } ?>
+           class="wpacu-nav-tab <?php if ($isProPreviewTab) { ?>wpacu-pro-preview-tab <?php } ?><?php if ($data['for'] === $assetsManagerTabKey) { ?>wpacu-nav-tab-active<?php } ?>">
+            <?php if ($isProPreviewTab) { ?><span class="dashicons dashicons-lock" aria-hidden="true"></span><?php } ?>
             <?php echo esc_html($assetsManagerTabTitle); ?>
+            <?php if ($isProPreviewTab) { ?>
+                <span class="wpacu-pro-tab-help" id="wpacu-pro-tab-help-<?php echo esc_attr($assetsManagerTabKey); ?>" role="tooltip"><?php echo esc_html__('Click to preview this Pro feature.', 'wp-asset-clean-up'); ?></span>
+            <?php } ?>
         </a>
         <?php
+        // [/Gabe Livan]
     }
     ?>
 </nav>

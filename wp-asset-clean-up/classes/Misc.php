@@ -373,6 +373,54 @@ class Misc
 	    return $currentPageUrl;
     }
 
+    /**
+     * Remove manager-only query arguments without re-encoding visitor arguments.
+     * Repeated names, dots, brackets and their original encoding can be meaningful.
+     *
+     * @param string $url
+     *
+     * @return string
+     */
+    public static function removeManagerQueryArgs($url)
+    {
+        $fragmentParts = explode('#', $url, 2);
+        $urlParts      = explode('?', $fragmentParts[0], 2);
+
+        if ( ! isset($urlParts[1]) ) {
+            return $url;
+        }
+
+        $internal = array(
+            'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
+            'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
+            'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
+        );
+        $arguments = array();
+        $removed   = false;
+
+        foreach (explode('&', $urlParts[1]) as $argument) {
+            $pair = explode('=', $argument, 2);
+            // Match PHP's request-key normalization, but never parse or rebuild
+            // the visitor's query values or the remaining query string.
+            $normalizedKey = array();
+            parse_str($pair[0] . '=1', $normalizedKey);
+
+            if (array_intersect(array_keys($normalizedKey), $internal)) {
+                $removed = true;
+                continue;
+            }
+
+            $arguments[] = $argument;
+        }
+
+        if ( ! $removed ) {
+            return $url;
+        }
+
+        return $urlParts[0] . ($arguments ? '?' . implode('&', $arguments) : '')
+            . (isset($fragmentParts[1]) ? '#' . $fragmentParts[1] : '');
+    }
+
 	/**
 	 * @param $src
 	 * @param $assetKey

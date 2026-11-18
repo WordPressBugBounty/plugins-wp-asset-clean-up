@@ -1,4 +1,10 @@
 @charset "UTF-8";
+.wpacu-lite-pm-preview-notice-wrap {
+  box-sizing: border-box;
+  width: 98%;
+  max-width: 1840px;
+}
+
 .wpacu-lite-pro-preview-notice {
   box-sizing: border-box;
   display: flex;

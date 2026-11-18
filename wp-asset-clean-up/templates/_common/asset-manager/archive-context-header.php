@@ -4,8 +4,13 @@ if (! defined('ABSPATH')) {
 }
 
 $wpacuArchiveIsPro = defined('WPACU_PRO_PLUGIN_VERSION');
+$wpacuArchiveIsEditable = $wpacuArchiveIsPro || ($archiveData['type'] === 'taxonomy'
+    && isset($archiveData['taxonomy']) && in_array($archiveData['taxonomy'], array('category', 'post_tag'), true));
 
-if ($wpacuArchiveHeaderSection === 'notice' && $wpacuArchiveIsPro) {
+if ($wpacuArchiveHeaderSection === 'notice' && $wpacuArchiveIsEditable) {
+    if ( ! $wpacuArchiveIsPro ) { ?>
+        <p style="margin: 15px 0;"><?php esc_html_e('Rules apply to this category or tag archive and its pagination pages, not to the individual posts assigned to it.', 'wp-asset-clean-up'); ?></p>
+    <?php }
     if (! empty($archiveData['notice'])) { ?>
         <p style="margin: 15px 0 15px;"><?php echo esc_html($archiveData['notice']); ?></p>
     <?php }
@@ -37,4 +42,4 @@ if ($wpacuArchiveHeaderSection === 'notice' && $wpacuArchiveIsPro) {
     <div class="wpacu-redirected-fetch-url-reminder-slot"></div>
 <?php }
 
-unset($wpacuArchiveScopeMessages, $wpacuArchiveIsPro, $wpacuArchiveHeaderSection);
+unset($wpacuArchiveScopeMessages, $wpacuArchiveIsPro, $wpacuArchiveIsEditable, $wpacuArchiveHeaderSection);

@@ -286,7 +286,7 @@ class SettingsAdmin
         $managedSettingKeys = array_fill_keys(array_merge($settingsClass->settingsKeys, array_keys($settingsClass->defaultSettings)), true);
         $submittedFieldKeys = $managedSettingKeys;
 
-        // Pro's font-removal form sends a compact transport field that its
+        // The font-removal form sends a compact transport field that its
         // submit filter converts into the registered setting and then removes.
         if (isset($managedSettingKeys['google_fonts_remove_specific'])) {
             $submittedFieldKeys['google_fonts_remove_specific_serialized'] = true;
