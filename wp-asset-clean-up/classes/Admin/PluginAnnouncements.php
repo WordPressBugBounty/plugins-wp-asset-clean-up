@@ -11,6 +11,8 @@ use WpAssetCleanUp\Settings;
  */
 class PluginAnnouncements
 {
+    const UPGRADE_LINK_MIN_TIME_REMAINING = 2 * HOUR_IN_SECONDS;
+
     /**
      * Key used for transient storage.
      * @var string
@@ -123,6 +125,12 @@ class PluginAnnouncements
     private $closeAnnouncementWay = 'ajax';
 
     /**
+     * Edition-provided campaign for this admin screen, rendered locally.
+     * @var array
+     */
+    private $bundledAnnouncement = array();
+
+    /**
      * @param bool $justBase | if true, it will return "plugin" instead of "plugin_lite" or "plugin_pro"
      *
      * @return string
@@ -186,6 +194,18 @@ class PluginAnnouncements
     }
 
     /**
+     * @return string
+     */
+    private function getAnnouncementsSettingsUrl()
+    {
+        return add_query_arg(array(
+            'page'                        => Plugin::getConfig('id') . '_settings',
+            'wpacu_selected_tab_area'     => 'wpacu-setting-plugin-usage-settings',
+            'wpacu_selected_sub_tab_area' => 'wpacu-plugin-usage-settings-announcements',
+        ), admin_url('admin.php'));
+    }
+
+    /**
      * @return array|string|string[]
      */
     private function getTransientKey()
@@ -221,14 +241,15 @@ class PluginAnnouncements
     private function renderCampaignContent($ann, $previewLabel = '')
     {
         $themes = $this->campaignThemes();
+        $prefix = esc_attr($this->getAnnPrefix());
         ?>
-        <?php foreach (array('left', 'right') as $side) { ?>
-            <span class="pluginann-campaign-decoration pluginann-campaign-decoration-<?php echo esc_attr($side); ?>" aria-hidden="true">
-                <span class="pluginann-campaign-decoration-art">
-                    <span class="pluginann-campaign-percent"><?php echo $ann['theme'] === 'christmas' ? '✦' : '%'; ?></span>
-                    <span class="pluginann-campaign-tag">
+        <?php foreach ($ann['type'] === 'important' ? array() : array('left', 'right') as $side) { ?>
+            <span class="<?php echo $prefix; ?>-campaign-decoration <?php echo $prefix; ?>-campaign-decoration-<?php echo esc_attr($side); ?>" aria-hidden="true">
+                <span class="<?php echo $prefix; ?>-campaign-decoration-art">
+                    <span class="<?php echo $prefix; ?>-campaign-percent"><?php echo $ann['theme'] === 'christmas' ? '✦' : '%'; ?></span>
+                    <span class="<?php echo $prefix; ?>-campaign-tag">
                         <?php if ($ann['theme'] === 'halloween') { ?>
-                            <svg class="pluginann-pumpkin" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                            <svg class="<?php echo $prefix; ?>-pumpkin" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
                                 <path d="M29 20 C30 12 34 7 40 8 L41 14 C36 13 35 16 35 21 Z" fill="#65723e"/>
                                 <path d="M32 20 C19 10 5 23 7 39 C8 52 18 58 32 55 C46 58 56 52 57 39 C59 23 45 10 32 20 Z" fill="#ed8e32" stroke="#ba632b" stroke-width="2"/>
                                 <ellipse cx="32" cy="37" rx="12" ry="19" fill="#f2a247" stroke="#ce762e" stroke-width="2"/>
@@ -239,18 +260,18 @@ class PluginAnnouncements
                 </span>
             </span>
         <?php } ?>
-        <div class="pluginann-campaign-layout">
-            <div class="pluginann-campaign-content">
-                <span class="pluginann-campaign-label"><?php echo esc_html(strtoupper($themes[$ann['theme']])); ?><?php if ($ann['theme'] === 'anniversary') { ?> · AUGUST 4<?php } ?><?php if ($previewLabel !== '') { ?> <span>· <?php echo esc_html($previewLabel); ?></span><?php } ?></span>
+        <div class="<?php echo $prefix; ?>-campaign-layout">
+            <div class="<?php echo $prefix; ?>-campaign-content">
+                <span class="<?php echo $prefix; ?>-campaign-label"><?php echo esc_html(strtoupper($themes[$ann['theme']])); ?><?php if ($ann['theme'] === 'anniversary') { ?> · AUGUST 4<?php } ?><?php if ($previewLabel !== '') { ?> <span>· <?php echo esc_html($previewLabel); ?></span><?php } ?></span>
                 <?php if ($ann['title'] !== '') { ?>
-                    <p class="pluginann-ann-title"><strong><?php echo wp_kses($ann['title'], $this->allowedTitleHtmlTags); ?></strong></p>
+                    <p class="<?php echo $prefix; ?>-ann-title"><strong><?php echo wp_kses($ann['title'], $this->allowedTitleHtmlTags); ?></strong></p>
                 <?php } ?>
                 <?php if ($ann['message'] !== '') { ?>
-                    <p class="pluginann-ann-message"><?php echo wp_kses($ann['message'], $this->allowedMessageHtmlTags); ?></p>
+                    <p class="<?php echo $prefix; ?>-ann-message"><?php echo wp_kses($ann['message'], $this->allowedMessageHtmlTags); ?></p>
                 <?php } ?>
             </div>
             <?php if ( ! empty($ann['link']) && ! empty($ann['link_label']) ) { ?>
-                <div class="pluginann-campaign-action">
+                <div class="<?php echo $prefix; ?>-campaign-action">
                     <a class="button button-primary" href="<?php echo esc_url($ann['link']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($ann['link_label']); ?><span aria-hidden="true"> →</span></a>
                 </div>
             <?php } ?>
@@ -266,14 +287,21 @@ class PluginAnnouncements
     public function init()
     {
         add_action('init', function () {
-            if ( ! Menu::userCanAccessPlugin() ) {
+            if ( ! Menu::userCanAccessPlugin() || apply_filters('wpacu_internal_hide_communication_notices', false) ) {
                 return;
             }
+
+            add_action('current_screen', function ($screen) {
+                $records  = apply_filters('wpacu_internal_bundled_announcements', array(), $screen);
+                $showable = $this->getShowableAnnouncements($this->sanitizeAnnouncements($records), $includingSnoozed);
+
+                $this->bundledAnnouncement = $showable ? reset($showable) : array();
+            });
 
             // Print the CSS code for the announcements
             add_action('admin_head', array($this, 'adminHead'));
 
-            // Print the jQuery code (e.g. AJAX) that handles the functionality for "Remind me later", "Mark as seen" and "Never show any"
+            // Print the scripts for individual announcement actions.
             add_action('admin_footer', array($this, 'displayJsFooter'));
 
             // Show the container within "admin_notices" either with the whole content or the DIV to be filled via AJAX
@@ -288,7 +316,7 @@ class PluginAnnouncements
             }
 
             if ($this->closeAnnouncementWay === 'ajax') {
-                // Close announcements (via AJAX), after using any of the actions: snooze, seen, never show any
+                // Handle individual announcement actions via AJAX.
                 add_action('wp_ajax_' . Plugin::getConfig('id') . '_announcements_action', array($this, 'handleAjaxActionRequest'));
             }
 
@@ -299,24 +327,59 @@ class PluginAnnouncements
     }
 
     /**
-     * @return false|void
+     * @param string|null $location Optional display location for a Dashboard notice.
+     *
+     * @return bool
      */
-    public static function isShowAnnouncementsEnabled()
+    public static function isShowAnnouncementsEnabled($location = null)
     {
-        $settingsAdmin         = new SettingsAdmin();
-        $announcementsSettings = $settingsAdmin->getOption('announcements');
-
-        // Missing settings are intentionally treated as no consent. The legacy
-        // "never_show_any" flag remains authoritative for existing opt-outs.
-        if ( ! isset($announcementsSettings['global']['enabled']) || (int)$announcementsSettings['global']['enabled'] !== 1 ) {
+        $preference = SettingsAdmin::getStoredAnnouncementPreference();
+        if ($preference === 'off') {
             return false;
         }
 
-        if ( ! empty($announcementsSettings['global']['never_show_any']) ) {
+        if ($preference === 'undecided' && ! apply_filters('wpacu_internal_announcements_enabled_by_default', false)) {
             return false;
         }
 
-        return true;
+        if ($location === null) {
+            return true;
+        }
+
+        $settingsAdmin = new SettingsAdmin();
+        return in_array($location, SettingsAdmin::getAnnouncementLocations($settingsAdmin->getOption('announcements')), true);
+    }
+
+    /**
+     * Identify one of the three site admin areas that can display a notice.
+     *
+     * @param \WP_Screen|null $screen
+     *
+     * @return string An empty string for unrelated screens.
+     */
+    public static function getScreenLocation($screen)
+    {
+        if ( ! isset($screen->base) ) {
+            return '';
+        }
+
+        if (in_array($screen->base, array('dashboard', 'plugins'), true)) {
+            return $screen->base;
+        }
+
+        $page = Menu::isPluginPage();
+        if ( ! $page ) {
+            return '';
+        }
+
+        if ($page === 'settings' && isset($_GET['wpacu_selected_sub_tab_area'])
+            && $_GET['wpacu_selected_sub_tab_area'] === 'wpacu-plugin-usage-settings-announcements') {
+            return '';
+        }
+
+        $suffix = '_page_' . WPACU_PLUGIN_ID . '_' . $page;
+
+        return substr($screen->base, -strlen($suffix)) === $suffix ? 'plugin_pages' : '';
     }
 
     /**
@@ -324,47 +387,8 @@ class PluginAnnouncements
      */
     public function _showOnCurrentAdminPage()
     {
-        if ( ! self::isShowAnnouncementsEnabled() ) {
-            return false;
-        }
-
-        // Now determine in which pages to show it if it's enabled
-
-        if (Menu::isPluginPage()) {
-            $getKey = $this->getAnnPrefix(true) . '_selected_sub_tab_area';
-
-            $doNotShowSubTab = isset($_GET[$getKey]) && $_GET[$getKey] === $this->getAnnPrefix(true) . '-plugin-usage-settings-announcements';
-
-            if ($doNotShowSubTab) {
-                return false; // It will be redundant (on the top and in the tab): "Settings" -- "Plugin Usage Preferences" -- "Announcement"
-            }
-
-            // Any other page and tab
-            return true;
-        }
-
-        $currentScreen = get_current_screen();
-
-        if (isset($currentScreen->base) && $currentScreen->base) {
-            /**
-             * Check if we're on allowed screens:
-             *
-             * - Dashboard (dashboard)
-             * - Plugins (plugins)
-             * - General Settings (options-general)
-             *
-             */
-
-            // Allowed exact screen IDs
-            $allowedScreens = array('dashboard', 'plugins', 'options-general');
-
-            if (in_array($currentScreen->base, $allowedScreens)) {
-                return true;
-            }
-        }
-
-        // Finally, none of the conditions were met
-        return false;
+        $location = self::getScreenLocation(get_current_screen());
+        return $location !== '' && self::isShowAnnouncementsEnabled($location);
     }
 
     /**
@@ -373,7 +397,7 @@ class PluginAnnouncements
     public function adminHead()
     {
         // Not relevant for this page
-        if ( ! $this->_showOnCurrentAdminPage() ) {
+        if ( empty($this->bundledAnnouncement) && ! $this->_showOnCurrentAdminPage() ) {
             return;
         }
 
@@ -382,6 +406,11 @@ class PluginAnnouncements
         ob_start();
         ?>
         <style>
+            /* Settings switches tabs in place, including while a feed request is pending. */
+            body:has(.wpacu-settings-tab-link.active[data-wpacu-settings-tab-key="wpacu-setting-plugin-usage-settings"]):has(#wpacu-plugin-usage-settings-announcements-tab-item:checked) #pluginann-announcements-container {
+                display: none !important;
+            }
+
             #pluginann-announcements-container {
                 margin: 20px 0 0 0;
             }
@@ -393,6 +422,10 @@ class PluginAnnouncements
                 border-bottom: 1px solid rgba(40, 44, 42, .3);
             }
 
+            #pluginann-announcements-container a.notice-dismiss {
+                text-decoration: none;
+            }
+
             #pluginann-announcements-container .notice-info .pluginann-ann-title {
                 font-size: 15px;
                 margin: 12px 0 10px;
@@ -401,6 +434,11 @@ class PluginAnnouncements
             #pluginann-announcements-container .notice-info .pluginann-ann-message {
                 font-size: 14px;
                 margin: 12px 0 16px;
+            }
+
+            #pluginann-announcements-container .pluginann-ann-title a,
+            #pluginann-announcements-container .pluginann-ann-message a {
+                text-decoration: underline !important;
             }
 
             #pluginann-announcements-container .notice-info .pluginann-ann-message a.button-primary,
@@ -414,15 +452,40 @@ class PluginAnnouncements
             }
 
             ul#pluginann-announcement-action-links li {
-                display: inline-block;
+                display: inline-flex;
+                align-items: center;
                 float: none;
-                margin-right: 20px;
+                margin-right: 10px;
+            }
+
+            ul#pluginann-announcement-action-links li + li::before {
+                content: "";
+                width: 3px;
+                height: 3px;
+                flex: none;
+                margin-inline-end: 10px;
+                border-radius: 50%;
+                background-color: currentColor;
             }
 
             ul#pluginann-announcement-action-links li a {
                 color: #2271b1;
                 display: inline-flex;
+                align-items: center;
+                gap: 0;
                 transition: color 0.3s ease;
+            }
+
+            #pluginann-announcements-container #pluginann-announcement-action-links a,
+            #pluginann-announcements-container #pluginann-announcement-action-links a span {
+                text-decoration: none !important;
+            }
+
+            ul#pluginann-announcement-action-links li a .dashicons {
+                width: 18px;
+                height: 18px;
+                margin-right: 5px;
+                font-size: 18px;
             }
 
             ul#pluginann-announcement-action-links li a:hover {
@@ -547,7 +610,7 @@ class PluginAnnouncements
             #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 10px 20px;
+                gap: 10px;
                 margin: 0 0 16px;
             }
             #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links li {
@@ -580,6 +643,32 @@ class PluginAnnouncements
             }
             #pluginann-announcements-container .pluginann-preview-toolbar .button-link { font-size: 12px; }
             #pluginann-announcements-container .pluginann-campaign #pluginann-announcement-action-links { margin: 14px 0 10px; }
+            #pluginann-announcements-container hr.pluginann-bundled-divider {
+                margin: 12px 0 8px;
+                border: 0;
+                border-top: 1px solid currentColor;
+                color: inherit;
+                opacity: .25;
+            }
+            #pluginann-announcements-container #pluginann-announcement-action-links.pluginann-bundled-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 10px;
+                margin: 0;
+            }
+            #pluginann-announcements-container .pluginann-bundled-actions li { margin: 0; }
+            #pluginann-announcements-container .pluginann-bundled-actions a {
+                align-items: center;
+                gap: 0;
+                min-height: 24px;
+            }
+            #pluginann-announcements-container .pluginann-bundled-actions .dashicons {
+                flex: none;
+                width: 16px;
+                height: 16px;
+                margin-right: 5px;
+                font-size: 16px;
+            }
             #pluginann-announcements-container .pluginann-campaign-decoration { display: none; }
             @supports (container-type: inline-size) and selector(:has(*)) {
                 #pluginann-announcements-container:has(.pluginann-campaign) { container-type: inline-size; }
@@ -743,19 +832,74 @@ class PluginAnnouncements
     }
 
     /**
-     * Fetch announcements from cache or remote feed.
+     * Return the feed records allowed by the site's current announcement preference.
      *
      * @return array
      */
     public function getAnnouncementsFromTheFeed()
     {
-        // This is the central consent boundary. Keep it here even when callers
-        // already check the setting so future code cannot fetch the remote feed
-        // before an administrator has explicitly opted in.
+        // Check the site's announcement preference before accessing the cache or feed.
         if ( ! self::isShowAnnouncementsEnabled() ) {
             return array();
         }
 
+        $announcements = $this->readAnnouncementFeed(true);
+        if (SettingsAdmin::getStoredAnnouncementPreference() === 'important') {
+            return array_values(array_filter($announcements, function ($ann) {
+                return $ann['type'] === 'important';
+            }));
+        }
+
+        return $announcements;
+    }
+
+    /**
+     * Read the public upgrade offer independently of banner audience and dismissal.
+     * Upgrade links use the cached feed without initiating an HTTP request.
+     *
+     * @return int
+     */
+    public function getBlackFridayUpgradeDiscount()
+    {
+        if ( ! self::isShowAnnouncementsEnabled() || ! Menu::userCanAccessPlugin() ) {
+            return 0;
+        }
+
+        $now = current_time('timestamp', true);
+        foreach ($this->readAnnouncementFeed(false) as $record) {
+            if ( ! isset($record['theme']) || $record['theme'] !== 'black-friday'
+                || $record['type'] === 'important'
+                || $record['start_time_unix'] > $now || $record['end_time_unix'] - $now < self::UPGRADE_LINK_MIN_TIME_REMAINING ) {
+                continue;
+            }
+
+            if (isset($record['conditions']) && ! self::isMatchForExtraConditions($record['conditions'], Plugin::getPluginUsageData($record['conditions']))) {
+                continue;
+            }
+
+            if (isset($record['menu_discount_percent'])) {
+                return $record['menu_discount_percent'];
+            }
+
+            // Older published feeds carry the exact discount in the upgrade button.
+            if (isset($record['link_label']) && preg_match('/^Upgrade\s+(?:&|and)\s+Save\s+([1-9][0-9]?|100)%$/i', $record['link_label'], $match)) {
+                return (int)$match[1];
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Cache the full, sanitized feed so changing the preference takes effect
+     * immediately without a second download.
+     *
+     * @param bool $allowFetch Whether to request the feed on a cache miss.
+     *
+     * @return array
+     */
+    private function readAnnouncementFeed($allowFetch)
+    {
         $announcements = get_transient( $this->getTransientKey() );
 
         // Already in the cache? Make sure it's read correctly
@@ -781,8 +925,13 @@ class PluginAnnouncements
                 }
             }
 
-            // Nothing usable -> wipe the transient and move on
-            delete_transient( $this->getTransientKey() );
+            if ($allowFetch) {
+                delete_transient( $this->getTransientKey() );
+            }
+        }
+
+        if ( ! $allowFetch ) {
+            return array();
         }
 
         $fetchUrl = add_query_arg( $this->getAnnPrefix(), wp_rand(), $this->getFeedUrl() );
@@ -866,8 +1015,8 @@ class PluginAnnouncements
                 continue;
             }
 
-            $startTime = isset($ann['start_date']) ? $this->parseAnnouncementDate($ann['start_date']) : false;
-            $endTime = isset($ann['end_date']) ? $this->parseAnnouncementDate($ann['end_date']) : false;
+            $startTime = isset($ann['start_date']) ? self::parseAnnouncementDate($ann['start_date']) : false;
+            $endTime   = isset($ann['end_date']) ? self::parseAnnouncementDate($ann['end_date']) : false;
             if ($startTime === false || $endTime === false || $endTime < $startTime) {
                 continue;
             }
@@ -880,16 +1029,23 @@ class PluginAnnouncements
 
             $priority = isset($ann['priority']) && is_string($ann['priority']) ? strtolower(trim($ann['priority'])) : 'low';
             $priority = isset($this->priorityLevels[$priority]) ? $priority : 'low';
+            $type     = isset($ann['type']) && in_array($ann['type'], array('important', 'offer'), true) ? $ann['type'] : 'general';
             $sanitized = array(
                 'id' => $id,
                 'title' => $title,
                 'message' => $message,
                 'priority' => $priority,
+                'type' => $type,
                 'start_date' => gmdate('Y-m-d H:i:s', $startTime),
                 'end_date' => gmdate('Y-m-d H:i:s', $endTime),
                 'start_time_unix' => $startTime,
                 'end_time_unix' => $endTime,
             );
+
+            if (isset($ann['menu_discount_percent']) && is_int($ann['menu_discount_percent'])
+                && $ann['menu_discount_percent'] >= 1 && $ann['menu_discount_percent'] <= 100) {
+                $sanitized['menu_discount_percent'] = $ann['menu_discount_percent'];
+            }
 
             if (isset($ann['theme']) && is_string($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) {
                 $sanitized['theme'] = $ann['theme'];
@@ -936,7 +1092,14 @@ class PluginAnnouncements
         return $sanitizedAnnouncements;
     }
 
-    private function parseAnnouncementDate($value)
+    /**
+     * Parse a UTC campaign date from a bundled or online announcement.
+     *
+     * @param mixed $value
+     *
+     * @return int|false
+     */
+    public static function parseAnnouncementDate($value)
     {
         if ( ! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
             return false;
@@ -1046,6 +1209,86 @@ class PluginAnnouncements
     }
 
     /**
+     * Use edition-specific classes around the publisher's sanitized content.
+     *
+     * @param array $ann Sanitized announcement from the local or remote feed.
+     *
+     * @return void
+     */
+    private function renderAnnouncementBody($ann)
+    {
+        if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) {
+            $this->renderCampaignContent($ann);
+            return;
+        }
+
+        $prefix = esc_attr($this->getAnnPrefix());
+        if ( ! empty($ann['title']) ) {
+            ?><p class="<?php echo $prefix; ?>-ann-title"><strong><?php echo wp_kses($ann['title'], $this->allowedTitleHtmlTags); ?></strong></p><?php
+        }
+        if ( ! empty($ann['message']) ) {
+            ?><p class="<?php echo $prefix; ?>-ann-message"><?php echo wp_kses($ann['message'], $this->allowedMessageHtmlTags); ?></p><?php
+        }
+    }
+
+    /**
+     * Select active, eligible records in priority order. Records of equal
+     * priority retain their order in the export, including on PHP 5.6.
+     *
+     * @param array $announcements
+     * @param array $includingSnoozed Eligible records used to stagger subsequent online notices.
+     *
+     * @return array
+     */
+    private function getShowableAnnouncements($announcements, &$includingSnoozed)
+    {
+        $includingSnoozed = array();
+        if ( empty($announcements) ) {
+            return array();
+        }
+
+        $settingsAdmin = new SettingsAdmin();
+        $settings      = $settingsAdmin->getOption('announcements');
+        $now           = current_time('timestamp', true);
+        $byPriority    = array('high' => array(), 'medium' => array(), 'low' => array());
+
+        foreach ($announcements as $ann) {
+            $id = isset($ann['id']) ? (string)$ann['id'] : '';
+            if ($id === '' || (empty($ann['title']) && empty($ann['message'])) || ! empty($settings['list'][$id]['seen'])) {
+                continue;
+            }
+
+            if (isset($_COOKIE[self::getSnoozeCookieName($id)])) {
+                continue;
+            }
+
+            $start = isset($ann['start_time_unix']) ? (int)$ann['start_time_unix'] : 0;
+            $end   = isset($ann['end_time_unix']) ? (int)$ann['end_time_unix'] : 0;
+            if ($start <= 0 || $now < $start || $now > $end) {
+                continue;
+            }
+
+            $conditions = isset($ann['conditions']) ? $ann['conditions'] : array();
+            if ( ! self::isMatchForExtraConditions($conditions, Plugin::getPluginUsageData($conditions)) ) {
+                continue;
+            }
+
+            $snoozed = isset($settings['list'][$id]['snoozed']) ? (int)$settings['list'][$id]['snoozed'] : 0;
+            if ($snoozed > $now) {
+                $ann['snoozed']     = $snoozed;
+                $includingSnoozed[] = $ann;
+                continue;
+            }
+
+            $priority                = isset($ann['priority'], $byPriority[$ann['priority']]) ? $ann['priority'] : 'low';
+            $byPriority[$priority][] = $ann;
+            $includingSnoozed[]      = $ann;
+        }
+
+        return array_merge($byPriority['high'], $byPriority['medium'], $byPriority['low']);
+    }
+
+    /**
      * @param string $isCallType
      * @param string $fallbackBaseUrl URL of the admin page to use for non-AJAX fallback links.
      *
@@ -1055,212 +1298,88 @@ class PluginAnnouncements
      */
     public function displayOneAnnouncement($isCallType = 'regular', $fallbackBaseUrl = '')
     {
-        // Get announcements
-        $feedAnnouncements = $this->getAnnouncementsFromTheFeed();
-
-        if ( empty( $feedAnnouncements ) ) {
+        $showableAnnouncementsNow = $this->getShowableAnnouncements($this->getAnnouncementsFromTheFeed(), $showableAnnouncementsIncludingAnySnoozed);
+        if ( empty($showableAnnouncementsNow) ) {
             return;
         }
 
-        // Sort announcements by priority descending ('high' first)
-        usort( $feedAnnouncements, array( $this, '_comparePriority' ) );
+        $ann      = reset($showableAnnouncementsNow);
+        $annId    = (string)$ann['id'];
+        $prefix   = esc_attr($this->getAnnPrefix());
+        $priority = isset($ann['priority']) ? $ann['priority'] : 'low';
 
-        // Get all announcements saved settings
-        $settingsAdmin = new SettingsAdmin();
-        $announcementsSettings = $settingsAdmin->getOption('announcements');
+        $showRemindMeLaterAction = true;
 
-        $currentTime = current_time('timestamp', true);
-
-        // Prepare the announcements that can be shown
-        $showableAnnouncementsNow = $showableAnnouncementsIncludingAnySnoozed = array();
-
-        foreach ( $feedAnnouncements as $ann ) {
-            $annId = isset($ann['id']) ? $ann['id'] : null;
-
-            if (empty($annId)) {
-                // It always needs to have an "id" (any string, including numerical)
-                continue;
-            }
-
-            // It needs to have a title or a message (either of them, or both)
-            $annTitle = isset($ann['title'])   ? $ann['title']   : null;
-            $annMsg   = isset($ann['message']) ? $ann['message'] : null;
-
-            if ( empty($annTitle) && empty($annMsg) ) {
-                continue;
-            }
-
-            // Seen?
-            if (isset($announcementsSettings['list'][$annId]['seen']) && $announcementsSettings['list'][$annId]['seen']) {
-                continue;
-            }
-
-            $startTime = isset($ann['start_time_unix']) ? (int)$ann['start_time_unix'] : 0;
-            $endTime   = isset($ann['end_time_unix']) ? (int)$ann['end_time_unix'] : 0;
-
-            if ($startTime <= 0 || $endTime <= 0 || $endTime < $startTime) {
-                continue;
-            }
-
-            // It always has to be within the "start" and the "end" time
-            $isWithinTheTimePeriod = $currentTime >= $startTime && $currentTime <= $endTime;
-
-            if ( ! $isWithinTheTimePeriod) {
-                continue;
-            }
-
-            // Does it have extra conditions? Check them!
-            // e.g. at least a few days have to pass since plugin activation (first usage)
-            $conditions = isset($ann['conditions']) && is_array($ann['conditions']) ? $ann['conditions'] : array();
-
-            $pluginUsageData = Plugin::getPluginUsageData($conditions);
-
-            if ( ! self::isMatchForExtraConditions($conditions, $pluginUsageData) ) {
-                continue;
-            }
-
-            // Snoozed?
-
-            // Current time has to be < than the snooze time (the time it was at the moment the action was taken + the snoozing period)
-            if (isset($announcementsSettings['list'][$annId]['snoozed']) &&
-                ($snoozeTime = $announcementsSettings['list'][$annId]['snoozed']) &&
-                $currentTime < $snoozeTime) {
-                $ann['snoozed'] = $snoozeTime;
-                $showableAnnouncementsIncludingAnySnoozed[] = $ann;
-                continue;
-            } else {
-                $showableAnnouncementsIncludingAnySnoozed[] = $ann;
-            }
-
-            // Final list (all that could be shown)
-            $showableAnnouncementsNow[] = $ann;
+        if ( (current_time('timestamp', true) + $this->snoozeTimeCurrent) > $ann['end_time_unix'] ) {
+            // By the time it should technically show up, it will expire
+            // The admin can view it in the "Settings" -- "Plugin Usage Preferences" -- "Announcements"
+            $showRemindMeLaterAction = false;
         }
 
-        ob_start();
+        $queryStringAction = $this->getQueryStringAction();
+        $annIdQuery        = $this->getAnnIdQuery();
+        $fallbackNonce     = wp_create_nonce($this->getFallbackNonceAction());
 
-        foreach ( $showableAnnouncementsNow as $ann ) {
-            $annId          = isset($ann['id'])       ? $ann['id']       : null;
+        // When the announcement HTML is generated through admin-ajax.php, add_query_arg()
+        // would otherwise use the AJAX endpoint itself as the link base. Passing the page
+        // URL explicitly keeps these links usable as true non-JavaScript/AJAX fallbacks.
+        $fallbackUrlBase = $fallbackBaseUrl !== '' ? $fallbackBaseUrl : false;
 
-            $priority       = isset($ann['priority']) ? $ann['priority'] : 'low';
-
-            $titleRaw       = (isset($ann['title'])   && $ann['title'])   ? $this->filterOutputForUniquePrefix($ann['title'])   : '';
-            $messageRaw     = (isset($ann['message']) && $ann['message']) ? $this->filterOutputForUniquePrefix($ann['message']) : '';
-
-            $sanitizedTitle = $sanitizedMsg = '';
-
-            if ($titleRaw) {
-                $sanitizedTitle = wp_kses($titleRaw, $this->allowedTitleHtmlTags);
-            }
-
-            if ($messageRaw) {
-                $sanitizedMsg = wp_kses($messageRaw, $this->allowedMessageHtmlTags);
-            }
-
-            $showRemindMeLaterAction = true;
-
-            if ( (current_time('timestamp', true) + $this->snoozeTimeCurrent) > $ann['end_time_unix'] ) {
-                // By the time it should technically show up, it will expire
-                // The admin can view it in the "Settings" -- "Plugin Usage Preferences" -- "Announcements"
-                $showRemindMeLaterAction = false;
-            }
-
-            $queryStringAction = $this->getQueryStringAction();
-            $annIdQuery        = $this->getAnnIdQuery();
-            $fallbackNonce     = wp_create_nonce($this->getFallbackNonceAction());
-
-            // When the announcement HTML is generated through admin-ajax.php, add_query_arg()
-            // would otherwise use the AJAX endpoint itself as the link base. Passing the page
-            // URL explicitly keeps these links usable as true non-JavaScript/AJAX fallbacks.
-            $fallbackUrlBase = $fallbackBaseUrl !== '' ? $fallbackBaseUrl : false;
-
-            if ($showRemindMeLaterAction) {
-                // /?{$queryStringAction}=snoozed&{$annIdQuery}={id}&_wpnonce={nonce}
-                $fallbackUrlRemindLater = add_query_arg(
-                    array(
-                        $queryStringAction => 'snoozed',
-                        $annIdQuery        => $annId,
-                        '_wpnonce'         => $fallbackNonce,
-                    ),
-                    $fallbackUrlBase
-                );
-            }
-
-            // /?{$queryStringAction}=seen&{$annIdQuery}={id}&_wpnonce={nonce}
-            $fallbackUrlMarkAsSeen = add_query_arg(
+        if ($showRemindMeLaterAction) {
+            // /?{$queryStringAction}=snoozed&{$annIdQuery}={id}&_wpnonce={nonce}
+            $fallbackUrlRemindLater = add_query_arg(
                 array(
-                    $queryStringAction => 'seen',
-                    $annIdQuery        => $annId,
+                    $queryStringAction => 'snoozed',
+                    $annIdQuery        => rawurlencode($annId),
                     '_wpnonce'         => $fallbackNonce,
                 ),
                 $fallbackUrlBase
             );
+        }
 
-            // /?{$queryStringAction}=never_show_any&_wpnonce={nonce}
-            $fallbackUrlNeverShowAny = add_query_arg(
-                array(
-                    $queryStringAction => 'never_show_any',
-                    '_wpnonce'         => $fallbackNonce,
-                ),
-                $fallbackUrlBase
-            );
-            ?>
-                    <?php if ($isCallType === 'regular') { ?>
-                        <div id="pluginann-announcements-container">
-                    <?php } ?>
-                            <div class="notice notice-info inline is-dismissible pluginann-announcement<?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?> pluginann-campaign pluginann-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>"
-                                 data-pluginann-annoucement-priority="<?php echo esc_attr($priority); ?>"
-                                 data-pluginann-announcement-id="<?php echo esc_attr( $annId ); ?>">
+        // /?{$queryStringAction}=seen&{$annIdQuery}={id}&_wpnonce={nonce}
+        $fallbackUrlMarkAsSeen = add_query_arg(
+            array(
+                $queryStringAction => 'seen',
+                $annIdQuery        => rawurlencode($annId),
+                '_wpnonce'         => $fallbackNonce,
+            ),
+            $fallbackUrlBase
+        );
 
-                                <?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?>
-                                    <?php $this->renderCampaignContent($ann); ?>
-                                <?php } else { ?>
+        ?>
+                <?php if ($isCallType === 'regular') { ?>
+                    <div id="<?php echo $prefix; ?>-announcements-container">
+                <?php } ?>
+                        <div class="notice notice-info inline is-dismissible <?php echo $prefix; ?>-announcement<?php if (isset($ann['theme']) && array_key_exists($ann['theme'], $this->campaignThemes())) { ?> <?php echo $prefix; ?>-campaign <?php echo $prefix; ?>-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>"
+                             data-<?php echo $prefix; ?>-annoucement-priority="<?php echo esc_attr($priority); ?>"
+                             data-<?php echo $prefix; ?>-announcement-id="<?php echo esc_attr( $annId ); ?>">
 
-                                <?php
-                                if ($sanitizedTitle !== '') {
-                                ?>
-                                    <p class="pluginann-ann-title"><strong><?php echo $sanitizedTitle; ?></strong></p>
-                                <?php
-                                }
+                            <?php $this->renderAnnouncementBody($ann); ?>
 
-                                if ($sanitizedMsg !== '') {
-                                ?>
-                                    <p class="pluginann-ann-message"><?php echo $sanitizedMsg; ?></p>
-                                <?php
-                                }
-                                ?>
-
+                            <!-- [Action links] -->
+                            <ul id="<?php echo $prefix; ?>-announcement-action-links">
+                                <?php if ($showRemindMeLaterAction) { ?>
+                                    <li><a href="<?php echo esc_url( $fallbackUrlRemindLater ); ?>"  class="<?php echo $prefix; ?>-snooze-it"><span class="<?php echo $prefix; ?>-icon <?php echo $prefix; ?>-snooze" aria-hidden="true"></span> <?php esc_html_e('Snooze for 24h', 'wp-asset-clean-up'); ?></a></li>
                                 <?php } ?>
 
-                                <!-- [Action links] -->
-                                <ul id="pluginann-announcement-action-links">
-                                    <?php if ($showRemindMeLaterAction) { ?>
-                                        <li><a href="<?php echo esc_url( $fallbackUrlRemindLater ); ?>"  class="pluginann-snooze-it"><span class="pluginann-icon pluginann-snooze" aria-hidden="true"></span> Remind Me Later</a></li>
-                                    <?php } ?>
-
-                                    <li><a href="<?php echo esc_url( $fallbackUrlMarkAsSeen ); ?>"   class="pluginann-mark-it-as-seen pluginann-main-action-link"><span class="pluginann-icon pluginann-seen" aria-hidden="true"></span> Mark as Seen</a></li>
-                                    <li><a href="<?php echo esc_url( $fallbackUrlNeverShowAny ); ?>" class="pluginann-never-show-any"><span class="pluginann-icon pluginann-block" aria-hidden="true"></span> Never show plugin announcements</a></li>
-                                </ul>
-                                <!-- [/Action links] -->
-                                <hr />
-                                <p style="font-size: 12px; font-style: italic; margin: 10px 0 10px;"><strong>Note:</strong> <?php echo Plugin::getConfig('title'); ?>'s annoucements can always be managed in <a style="text-decoration: none;" target="_blank" href="<?php echo admin_url('admin.php?page='.Plugin::getConfig('id').'_settings&pluginann_selected_tab_area=pluginann-setting-plugin-usage-settings&pluginann_selected_sub_tab_area=pluginann-plugin-usage-settings-announcements'); ?>">"Settings" &rarr; "Plugin Usage Preferences" &rarr; "Announcements"</a></p>
-                            </div>
-                    <?php if ($isCallType === 'regular') { ?>
+                                <li><a href="<?php echo esc_url( $fallbackUrlMarkAsSeen ); ?>"   class="<?php echo $prefix; ?>-mark-it-as-seen <?php echo $prefix; ?>-main-action-link"><span class="<?php echo $prefix; ?>-icon <?php echo $prefix; ?>-seen" aria-hidden="true"></span> <?php esc_html_e('Dismiss this announcement', 'wp-asset-clean-up'); ?></a></li>
+                                <li><a class="wpacu-announcement-preferences" href="<?php echo esc_url($this->getAnnouncementsSettingsUrl()); ?>"><span class="dashicons dashicons-admin-settings" aria-hidden="true"></span><span><?php esc_html_e('Preferences', 'wp-asset-clean-up'); ?></span></a></li>
+                            </ul>
+                            <!-- [/Action links] -->
                         </div>
-                    <?php } ?>
+                <?php if ($isCallType === 'regular') { ?>
+                    </div>
+                <?php } ?>
 
-            <?php
-            // For regular view (to avoid showing any other notices at the same time)
-            MainAdmin::instance()->setTopAdminNoticeDisplayed();
+        <?php
+        // For regular view (to avoid showing any other notices at the same time)
+        MainAdmin::instance()->setTopAdminNoticeDisplayed();
 
-            if (count($showableAnnouncementsIncludingAnySnoozed) > 1) {
-                $this->snoozeNextAnnouncementsAfterCurrentOne($annId, $showableAnnouncementsIncludingAnySnoozed);
-            }
-
-            echo $this->filterOutputForUniquePrefix(ob_get_clean());
-
-            // Only show one announcement
-            break;
+        if (count($showableAnnouncementsIncludingAnySnoozed) > 1) {
+            $this->snoozeNextAnnouncementsAfterCurrentOne($annId, $showableAnnouncementsIncludingAnySnoozed);
         }
+
     }
 
     /**
@@ -1319,11 +1438,113 @@ class PluginAnnouncements
         return false; // Default to false if operator is invalid
     }
 
+
+    /**
+     * @param string $announcementId
+     *
+     * @return string Browser fallback scoped to this site, user and campaign.
+     */
+    public static function getSnoozeCookieName($announcementId)
+    {
+        return 'wpacu_snooze_' . md5(admin_url() . '|' . get_current_user_id() . '|' . $announcementId);
+    }
+
+    /**
+     * Render the bundled announcement and its actions, including snoozing without JavaScript.
+     *
+     * @param array $ann
+     *
+     * @return void
+     */
+    private function renderBundledAnnouncement($ann)
+    {
+        $prefix     = esc_attr($this->getAnnPrefix());
+        $actionKey  = $this->getQueryStringAction();
+        $actionArgs = array(
+            $this->getAnnIdQuery() => rawurlencode($ann['id']),
+            '_wpnonce'             => wp_create_nonce($this->getFallbackNonceAction()),
+        );
+        $snoozeUrl    = add_query_arg(array($actionKey => 'snoozed') + $actionArgs);
+        $dismissUrl   = add_query_arg(array($actionKey => 'seen') + $actionArgs);
+
+        ?>
+        <div id="<?php echo $prefix; ?>-announcements-container">
+            <div class="notice notice-info inline <?php echo $prefix; ?>-announcement<?php if (isset($ann['theme'])) { ?> <?php echo $prefix; ?>-campaign <?php echo $prefix; ?>-theme-<?php echo esc_attr($ann['theme']); ?><?php } ?>" data-<?php echo $prefix; ?>-announcement-id="<?php echo esc_attr($ann['id']); ?>">
+                <?php $this->renderAnnouncementBody($ann); ?>
+                <a class="notice-dismiss" data-wpacu-notice-action="seen" href="<?php echo esc_url($dismissUrl); ?>"><span class="screen-reader-text"><?php esc_html_e('Dismiss this announcement permanently', 'wp-asset-clean-up'); ?></span></a>
+                <hr class="<?php echo $prefix; ?>-bundled-divider" aria-hidden="true">
+                <ul id="<?php echo $prefix; ?>-announcement-action-links" class="<?php echo $prefix; ?>-bundled-actions">
+                    <?php if (current_time('timestamp', true) + $this->snoozeTimeCurrent <= $ann['end_time_unix']) { ?>
+                        <li><a data-wpacu-notice-action="snoozed" href="<?php echo esc_url($snoozeUrl); ?>"><span class="dashicons dashicons-clock" aria-hidden="true"></span><?php esc_html_e('Snooze for 24h', 'wp-asset-clean-up'); ?></a></li>
+                    <?php } ?>
+                    <li><a data-wpacu-notice-action="seen" href="<?php echo esc_url($dismissUrl); ?>"><span class="dashicons dashicons-dismiss" aria-hidden="true"></span><?php esc_html_e('Dismiss this announcement', 'wp-asset-clean-up'); ?></a></li>
+                    <li><a class="wpacu-announcement-preferences" href="<?php echo esc_url($this->getAnnouncementsSettingsUrl()); ?>"><span class="dashicons dashicons-admin-settings" aria-hidden="true"></span><span><?php esc_html_e('Preferences', 'wp-asset-clean-up'); ?></span></a></li>
+                </ul>
+                <span role="alert" class="wpacu-bundled-action-error"></span>
+            </div>
+        </div>
+        <?php if ($this->closeAnnouncementWay === 'ajax') { ?>
+        <script>
+        (function () {
+            var container = document.getElementById('<?php echo $prefix; ?>-announcements-container');
+            var error = container.querySelector('.wpacu-bundled-action-error');
+            var cookieName = <?php echo wp_json_encode(self::getSnoozeCookieName($ann['id'])); ?>;
+            var cookieScope = '; Path=' + <?php echo wp_json_encode(parse_url(admin_url(), PHP_URL_PATH)); ?> + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+
+            container.addEventListener('click', function (event) {
+                var link = event.target.closest('a[data-wpacu-notice-action]');
+                if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) { return; }
+                if (container.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+                var action = link.getAttribute('data-wpacu-notice-action');
+                var snoozedHere = false;
+                if (action === 'snoozed') {
+                    try {
+                        document.cookie = cookieName + '=1; Max-Age=<?php echo (int)$this->snoozeTimeCurrent; ?>' + cookieScope;
+                        snoozedHere = document.cookie.split('; ').indexOf(cookieName + '=1') !== -1;
+                    } catch (ignore) {}
+                }
+                if (!window.fetch || !window.FormData) { return; }
+                event.preventDefault();
+                container.setAttribute('aria-busy', 'true');
+                error.textContent = '';
+
+                var data = new FormData();
+                data.append('action', '<?php echo esc_js(Plugin::getConfig('id')); ?>_announcements_action');
+                data.append('nonce', '<?php echo esc_js(wp_create_nonce(Plugin::getConfig('id') . '_announcements_nonce')); ?>');
+                data.append('action_type', action);
+                data.append('<?php echo esc_js($this->getAnnIdQuery()); ?>', container.querySelector('[data-<?php echo $prefix; ?>-announcement-id]').getAttribute('data-<?php echo $prefix; ?>-announcement-id'));
+
+                if (snoozedHere) { container.remove(); }
+                fetch(<?php echo wp_json_encode(admin_url('admin-ajax.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>, {
+                    method: 'POST', credentials: 'same-origin', body: data
+                }).then(function (response) {
+                    return response.json();
+                }).then(function (result) {
+                    if (!result || result.success !== true) { throw new Error(); }
+                    if (snoozedHere) { document.cookie = cookieName + '=; Max-Age=0' + cookieScope; }
+                    container.remove();
+                }).catch(function () {
+                    if (snoozedHere) { return; }
+                    container.removeAttribute('aria-busy');
+                    error.textContent = <?php echo wp_json_encode(__('Could not save your choice. Please try again.', 'wp-asset-clean-up'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                });
+            });
+        }());
+        </script>
+        <?php }
+        MainAdmin::setTopAdminNoticeDisplayed();
+    }
+
     /**
      * @return void
      */
     public function renderAnnouncementsContainer()
     {
+        if ( ! empty($this->bundledAnnouncement) ) {
+            $this->renderBundledAnnouncement($this->bundledAnnouncement);
+            return;
+        }
+
         // Not relevant for this page
         if ( ! $this->_showOnCurrentAdminPage() ) {
             return;
@@ -1345,6 +1566,11 @@ class PluginAnnouncements
     public function fillAnnouncementContainerAjax()
     {
         check_ajax_referer(Plugin::getConfig('id') . '_announcements_nonce', 'nonce');
+
+        $location = isset($_POST['location']) && is_string($_POST['location']) ? $_POST['location'] : '';
+        if ( ! self::isShowAnnouncementsEnabled($location) ) {
+            wp_send_json_success(array('html' => ''));
+        }
 
         $announcements = $this->getAnnouncementsFromTheFeed();
 
@@ -1440,19 +1666,27 @@ class PluginAnnouncements
 
         $currentAnnouncements['global'][$settingName] = $settingValue;
 
+        if ($settingName === 'enabled') {
+            $currentAnnouncements['global']['never_show_any'] = (int)$settingValue === 1 ? 0 : 1;
+        }
+
+        if ( empty($currentAnnouncements['global']['never_show_any']) ) {
+            unset($currentAnnouncements['global']['off_source']);
+        }
+
         $settingsAdminClass->updateOption('announcements', MiscArray::filterList($currentAnnouncements));
     }
 
     /**
      * @param $actionType
-     * @param $announcementId (if empty, then the $actionType is likely "never_show_any" for all announcements)
+     * @param string $announcementId Current announcement, when provided by the notice.
      * @param string $updateMode ("regular" - page reloads | "ajax")
      *
      * @return void
      */
     public function updateAnnouncementsViaActionType($actionType, $announcementId = '', $updateMode = 'regular')
     {
-        if (in_array($actionType, array('seen', 'snoozed')) && empty($announcementId)) {
+        if (in_array($actionType, array('seen', 'snoozed'), true) && (string)$announcementId === '') {
             if ($updateMode === 'ajax') {
                 wp_send_json_error(['message' => 'Invalid announcement ID.']);
             }
@@ -1465,6 +1699,18 @@ class PluginAnnouncements
             $snoozeUntil = current_time('timestamp', true) + $this->snoozeTimeCurrent;
             $this->updateAnnouncementState($announcementId, 'snoozed', $snoozeUntil);
 
+            $option   = get_option(WPACU_PLUGIN_ID . '_settings');
+            $settings = is_string($option) ? json_decode($option, true) : $option;
+            if (empty($settings['announcements']['list'][$announcementId]['snoozed'])
+                || (int)$settings['announcements']['list'][$announcementId]['snoozed'] < $snoozeUntil) {
+                if ($updateMode === 'ajax') {
+                    wp_send_json_error(array('message' => 'Could not save the announcement snooze.'));
+                }
+
+                setcookie(self::getSnoozeCookieName($announcementId), '1', $snoozeUntil, parse_url(admin_url(), PHP_URL_PATH), '', is_ssl());
+                return;
+            }
+
             if ($updateMode === 'ajax') {
                 wp_send_json_success(['message' => 'Announcement snoozed for 24 hours.']);
             }
@@ -1476,16 +1722,6 @@ class PluginAnnouncements
 
             if ($updateMode === 'ajax') {
                 wp_send_json_success(['message' => 'Announcement marked as seen.']);
-            }
-        }
-
-        // All announcements setting
-        if ($actionType === 'never_show_any') {
-            $this->updateAnnouncementsSettings('enabled', 0);
-            $this->updateAnnouncementsSettings('never_show_any', 1);
-
-            if ($updateMode === 'ajax') {
-                wp_send_json_success(['message' => 'User will never see announcements again.']);
             }
         }
 
@@ -1527,7 +1763,7 @@ class PluginAnnouncements
     }
 
     /**
-     * This works for all actions (e.g. snooze, seen, never show any)
+     * Handle individual snooze and dismiss links without AJAX.
      *
      * In case the AJAX call is not made (e.g. due to JavaScript errors or AJAX calls are disabled), then a fallback is in place
      * e.g. a "href" in the link that is clicked to reload the page and perform the action
@@ -1551,7 +1787,7 @@ class PluginAnnouncements
             ? sanitize_text_field(wp_unslash($_GET[$annIdQuery]))
             : '';
 
-        if ( ! in_array($actionType, array('seen', 'snoozed', 'never_show_any'), true) ) {
+        if ( ! in_array($actionType, array('seen', 'snoozed'), true) ) {
             return;
         }
 
@@ -1580,27 +1816,7 @@ class PluginAnnouncements
     }
 
     /**
-     * Compare two announcements based on priority.
-     * Higher priority announcements come first.
-     *
-     * @param array $a First announcement.
-     * @param array $b Second announcement.
-     * @return int Comparison result.
-     */
-    private function _comparePriority( $a, $b )
-    {
-        $priorityA = isset( $a['priority'] ) && isset( $this->priorityLevels[ $a['priority'] ] ) ? $this->priorityLevels[ $a['priority'] ] : $this->priorityLevels['low'];
-        $priorityB = isset( $b['priority'] ) && isset( $this->priorityLevels[ $b['priority'] ] ) ? $this->priorityLevels[ $b['priority'] ] : $this->priorityLevels['low'];
-
-        if ( $priorityA === $priorityB ) {
-            return 0;
-        }
-
-        return ( $priorityA > $priorityB ) ? -1 : 1;
-    }
-
-    /**
-     * THis is valid for all actions (e.g. snooze, seen, never show any)
+     * Handle snooze and dismiss actions for individual announcements.
      *
      * @return void
      */
@@ -1611,7 +1827,7 @@ class PluginAnnouncements
         $annIdQuery = $this->getAnnIdQuery();
 
         $actionType     = isset($_POST['action_type']) ? sanitize_text_field($_POST['action_type']) : '';
-        $announcementId = isset($_POST[$annIdQuery])   ? sanitize_text_field($_POST[$annIdQuery]) : '';
+        $announcementId = isset($_POST[$annIdQuery])   ? sanitize_text_field(wp_unslash($_POST[$annIdQuery])) : '';
 
         self::updateAnnouncementsViaActionType($actionType, $announcementId, 'ajax');
     }
@@ -1641,7 +1857,7 @@ class PluginAnnouncements
     public function displayJsFooter()
     {
         // Not relevant for this page
-        if ( ! $this->_showOnCurrentAdminPage() ) {
+        if ( ! empty($this->bundledAnnouncement) || ! $this->_showOnCurrentAdminPage() ) {
             return;
         }
 
@@ -1725,6 +1941,7 @@ class PluginAnnouncements
                             data: {
                                 action: '<?php echo Plugin::getConfig('id'); ?>_fill_announcement_container',
                                 nonce: nonce,
+                                location: <?php echo wp_json_encode(self::getScreenLocation(get_current_screen())); ?>,
                                 fallback_url: window.location.href
                             }
                         }).done(function(response) {
@@ -1798,7 +2015,7 @@ class PluginAnnouncements
                             });
                         }
 
-                        // Send request on link click (e.g. snooze, seen, never show any)
+                        // Send the snooze or dismiss request.
                         function pluginannSendAnnouncementRequest(actionType, announcementId) {
                             var requestData = {
                                 action: '<?php echo Plugin::getConfig('id'); ?>_announcements_action',
@@ -1830,7 +2047,7 @@ class PluginAnnouncements
                             e.preventDefault();
 
                             var $announcement  = $(this).closest('[data-pluginann-announcement-id]');
-                            var announcementId = $announcement.data('pluginann-announcement-id');
+                            var announcementId = $announcement.attr('data-pluginann-announcement-id');
 
                             pluginannSendAnnouncementRequest('snoozed', announcementId).done(function(response) {
                                 if (response.success) {
@@ -1846,7 +2063,10 @@ class PluginAnnouncements
                         /*
                          * "Mark as seen" click
                          */
-                        $(document).on('click', '.pluginann-mark-it-as-seen', function(e) {
+                        // A feed can include the original unprefixed action class on a message link.
+                        // Keep that literal intact when the script template expands the edition prefix.
+                        var feedSeenSelector = '.plugin' + 'ann-mark-it-as-seen';
+                        $(document).on('click', '.pluginann-mark-it-as-seen, #pluginann-announcements-container ' + feedSeenSelector, function(e) {
                             // Case 1: If the actual "Mark as Seen" is clicked that also has the class "pluginann-main-action-link",
                             // prevent its default behaviour (empty link anyway, it acts as a button)
 
@@ -1857,7 +2077,7 @@ class PluginAnnouncements
                             }
 
                             var $announcement  = $(this).closest('[data-pluginann-announcement-id]');
-                            var announcementId = $announcement.data('pluginann-announcement-id');
+                            var announcementId = $announcement.attr('data-pluginann-announcement-id');
 
                             pluginannSendAnnouncementRequest('seen', announcementId).done(function(response) {
                                 if (response.success) {
@@ -1870,24 +2090,6 @@ class PluginAnnouncements
                             });
                         });
 
-                        /*
-                         * "Never show any" click
-                         */
-                        $(document).on('click', '.pluginann-never-show-any', function(e) {
-                            e.preventDefault();
-
-                            var $announcement = $(this).closest('[data-pluginann-announcement-id]');
-
-                            pluginannSendAnnouncementRequest('never_show_any').done(function(response) {
-                                if (response.success) {
-                                    $announcement.slideUp();
-                                } else {
-                                    console.log(response.data.message || 'Error disabling announcements.');
-                                }
-                            }).fail(function() {
-                                console.log('Error processing request. Please try again later!');
-                            });
-                        });
                     <?php
                     }
                     ?>

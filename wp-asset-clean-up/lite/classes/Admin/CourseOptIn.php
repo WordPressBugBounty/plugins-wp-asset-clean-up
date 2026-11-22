@@ -14,6 +14,11 @@ class CourseOptIn
     const CONSENT_VERSION = '2026-10-25-v1';
 
     /**
+     * Quick Setup offers both the course and subsequent Asset CleanUp emails.
+     */
+    const UPDATES_CONSENT_VERSION = '2026-11-21-v2';
+
+    /**
      *
      */
     const META_KEY = '_' . WPACU_PLUGIN_ID . '_lite_course_optin';
@@ -52,34 +57,13 @@ class CourseOptIn
      */
     private function canUseCourse()
     {
+        if ($this->isQuickSetupPost()) {
+            // A form left open in DEV must not submit or change consent in a release build.
+            return false;
+        }
+
         return defined('WPACU_LITE_PLUGIN_VERSION') && ! defined('WPACU_PRO_PLUGIN_VERSION')
             && is_user_logged_in() && Menu::userCanAccessPlugin();
-    }
-
-    /**
-     * Offer the prominent invitation only on the existing first-activation flow.
-     * A prior decision or subscription must survive reactivation.
-     *
-     * @return void
-     */
-    public function prepareOnboarding()
-    {
-        // Run before Plugin::adminInit() consumes its first-activation marker.
-        if ( ! isset($_SERVER['HTTP_REFERER'])
-            || strpos($_SERVER['HTTP_REFERER'], '/plugins.php') === false
-            || ! $this->canUseCourse()
-            || ! get_transient(WPACU_PLUGIN_ID . '_redirect_after_activation')) {
-            return;
-        }
-
-        $user_id = get_current_user_id();
-        $state   = get_user_meta($user_id, self::META_KEY, true);
-        if (get_user_meta($user_id, self::ONBOARDING_KEY, true)
-            || (is_array($state) && ! empty($state['status']))) {
-            return;
-        }
-
-        update_user_meta($user_id, self::ONBOARDING_KEY, 'offered');
     }
 
     /**
@@ -96,6 +80,23 @@ class CourseOptIn
 
         return get_user_meta($user_id, self::ONBOARDING_KEY, true) === 'offered'
             && ! (is_array($state) && ! empty($state['status']));
+    }
+
+    /**
+     * Offer the ordinary Getting Started course invitation to the activating administrator.
+     *
+     * @return void
+     */
+    public static function offerOnFirstActivation()
+    {
+        $user_id = get_current_user_id();
+        $state   = get_user_meta($user_id, self::META_KEY, true);
+
+        if (get_user_meta($user_id, self::ONBOARDING_KEY, true) || (is_array($state) && ! empty($state['status']))) {
+            return;
+        }
+
+        update_user_meta($user_id, self::ONBOARDING_KEY, 'offered');
     }
 
     /**
@@ -378,7 +379,7 @@ class CourseOptIn
   border-color: #006f7b;
 }
 
-#wpacu-lite-course-invitation .wpacu-gs-course-optin-actions .wpacu-gs-button.is-loading {
+#wpacu-lite-course-invitation .wpacu-gs-course-optin-actions button.is-loading {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -389,7 +390,7 @@ class CourseOptIn
 #wpacu-lite-course-invitation .wpacu-course-submit-icon { width: 18px; height: 18px; font-size: 18px; }
 #wpacu-lite-course-invitation .is-loading .wpacu-course-submit-icon { display: none; }
 
-#wpacu-lite-course-invitation .wpacu-gs-button.is-loading::before {
+#wpacu-lite-course-invitation .wpacu-gs-course-optin-actions button.is-loading::before {
   content: "";
   width: 14px;
   height: 14px;
@@ -405,7 +406,7 @@ class CourseOptIn
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #wpacu-lite-course-invitation .wpacu-gs-button.is-loading::before {
+  #wpacu-lite-course-invitation .wpacu-gs-course-optin-actions button.is-loading::before {
     animation: none;
   }
 }
@@ -570,9 +571,12 @@ class CourseOptIn
             $notice = $this->pullNotice($user_id);
         }
 
-        $status  = is_array($state) && isset($state['status']) ? $state['status'] : '';
-
-        if ($status === 'subscribed') { return; }
+        $status                   = is_array($state) && isset($state['status']) ? $state['status'] : '';
+        $wpacu_course_quick_setup = false;
+        if ($status === 'subscribed' && ( ! $wpacu_course_quick_setup
+            || (isset($state['consent_version']) && $state['consent_version'] === self::UPDATES_CONSENT_VERSION) )) {
+            return;
+        }
 
         $wpacu_course_onboarding = ! empty($config['onboarding']);
         $wpacu_course_placement  = isset($config['placement']) && $config['placement'] === 'help'
@@ -793,7 +797,7 @@ class CourseOptIn
     {
         delete_transient($this->noticeKey(get_current_user_id()));
         ob_start();
-        $this->render(array('include_script' => false));
+        $this->render(array('include_script' => false, 'quick_setup' => $this->isQuickSetupPost()));
         $html = ob_get_clean();
         wp_send_json_success(array('html' => $html));
     }
@@ -829,6 +833,7 @@ class CourseOptIn
             return false;
         }
 
+        $consentVersion = self::CONSENT_VERSION;
         $endpoint = apply_filters('wpacu_lite_course_optin_endpoint', self::ENDPOINT);
 
         if ( ! is_string($endpoint) || strtolower((string)wp_parse_url($endpoint, PHP_URL_SCHEME)) !== 'https' ) {
@@ -843,7 +848,7 @@ class CourseOptIn
             'placement'       => isset($_POST['wpacu_course_placement'])
                 && in_array($_POST['wpacu_course_placement'], array('getting_started', 'help', 'first_rule', 'first_activation'), true)
                     ? $_POST['wpacu_course_placement'] : 'getting_started',
-            'consent_version' => self::CONSENT_VERSION,
+            'consent_version' => $consentVersion,
             'plugin_version'  => WPACU_LITE_PLUGIN_VERSION
         );
 
@@ -875,7 +880,7 @@ class CourseOptIn
             return false;
         }
 
-        $this->storeState('pending', $email);
+        $this->storeState('pending', $email, $consentVersion);
         if (get_user_meta(get_current_user_id(), self::ONBOARDING_KEY, true) === 'offered') {
             update_user_meta(get_current_user_id(), self::ONBOARDING_KEY, 'completed');
         }
@@ -997,10 +1002,11 @@ class CourseOptIn
      *
      * @param string $status
      * @param string $email
+     * @param string $consentVersion Version accepted on a new submission. Reminder actions retain the previous version.
      *
      * @return void
      */
-    private function storeState($status, $email = '')
+    private function storeState($status, $email = '', $consentVersion = '')
     {
         if ( ! in_array($status, array('pending', 'dismissed'), true) ) {
             return;
@@ -1008,10 +1014,15 @@ class CourseOptIn
 
         $user_id = get_current_user_id();
         $state   = get_user_meta($user_id, self::META_KEY, true);
+        if ($consentVersion === '') {
+            $consentVersion = isset($state['consent_version']) && $state['consent_version'] === self::UPDATES_CONSENT_VERSION
+                ? self::UPDATES_CONSENT_VERSION : self::CONSENT_VERSION;
+        }
+
         $value   = array(
             'status'          => $status,
             'timestamp'       => time(),
-            'consent_version' => self::CONSENT_VERSION
+            'consent_version' => $consentVersion
         );
 
         if ($email !== '' && is_email($email)) {
@@ -1082,5 +1093,13 @@ class CourseOptIn
         }
         wp_safe_redirect($url, 303);
         exit();
+    }
+
+    /**
+     * @return bool
+     */
+    private function isQuickSetupPost()
+    {
+        return isset($_POST['wpacu_course_return_to']) && $_POST['wpacu_course_return_to'] === 'quick_setup';
     }
 }

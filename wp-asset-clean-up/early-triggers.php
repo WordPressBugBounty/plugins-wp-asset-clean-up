@@ -750,6 +750,7 @@ if ( ! function_exists( 'wpacuGetQueryStringsToBeIgnoredPredefinedList') ) {
             // Asset CleanUp's ones (e.g. after the form from the CSS/JS manager is submitted, within the front-end view, at the bottom of the page)
 
             'wpassetcleanup_load',
+            'wpacu_asset_list_challenge',
             'wpassetcleanup_time_r',
             'wpacu_time_r',
             '_',
@@ -919,6 +920,107 @@ if ( ! function_exists('assetCleanUpRequestUriHasAnyPublicVar') ) {
 	}
 }
 
+if ( ! function_exists('wpacuPaginationHasAlternateDocument') ) {
+    function wpacuPaginationHasAlternateDocument($args)
+    {
+        return ! empty($args['rest_route']) || ! empty($args['sitemap']) || ! empty($args['sitemap-stylesheet']);
+    }
+}
+
+if ( ! function_exists('wpacuGetEarlyPaginationQuery') ) {
+    // Use the saved rules only. The MU loader runs before WP_Rewrite and WP_Query exist.
+    function wpacuGetEarlyPaginationQuery($path, $homePath, $queryString = '')
+    {
+        $rules = get_option('rewrite_rules');
+        if ( ! is_array($rules) || ! class_exists('WP_MatchesMapRegex', false) ) {
+            return array();
+        }
+
+        $homePath = rtrim($homePath, '/');
+        if ($homePath !== '' && stripos($path, $homePath . '/') === 0) {
+            $path = substr($path, strlen($homePath));
+        }
+        $path = trim($path, '/');
+        $verbose = preg_match('/^[^%]*%(?:postname|category|tag|author)%/', (string)get_option('permalink_structure'));
+
+        foreach ($rules as $pattern => $query) {
+            if ( ! preg_match("#^$pattern#", $path, $matches) && ! preg_match("#^$pattern#", urldecode($path), $matches) ) {
+                continue;
+            }
+
+            // Like WP::parse_request(), skip a generic verbose page rule when the page doesn't exist.
+            if ($verbose && preg_match('/pagename=\$matches\[([0-9]+)\]/', $query, $pageMatch)
+                && (empty($matches[$pageMatch[1]]) || ! get_page_by_path($matches[$pageMatch[1]])) ) {
+                continue;
+            }
+
+            $args = array();
+            parse_str(WP_MatchesMapRegex::apply((string)parse_url($query, PHP_URL_QUERY), $matches), $args);
+            if (wpacuPaginationHasAlternateDocument($args)) {
+                return array();
+            }
+            if (isset($args['page']) && is_string($args['page'])) {
+                // Older core rules capture the slash before the page number.
+                $args['page'] = trim($args['page'], '/');
+            }
+            if ($queryString !== '') {
+                parse_str($queryString, $requestedArgs);
+                if (wpacuPaginationHasAlternateDocument($requestedArgs)) {
+                    return array();
+                }
+                $routingKeys = $args + array_flip(wpacuGetWpPublicQueryVars());
+                foreach (array_intersect_key($requestedArgs, $routingKeys) as $key => $value) {
+                    if ( ! isset($args[$key]) || $args[$key] !== $value ) {
+                        return array();
+                    }
+                }
+            }
+            // Escape hex digits in slugs may have different case in the saved and requested URLs.
+            foreach ($args as $key => $value) {
+                if (is_string($value) && strpos($value, '%') !== false) {
+                    $args[$key] = preg_replace_callback('/%[a-f0-9]{2}/i', static function ($match) {
+                        return strtoupper($match[0]);
+                    }, $value);
+                }
+            }
+            return $args;
+        }
+        return array();
+    }
+}
+
+if ( ! function_exists('wpacuPostHasContentSegment') ) {
+    function wpacuPostHasContentSegment($postId, $segment, $objectQuery = array())
+    {
+        $post = get_post($postId);
+        if ( ! $post || (get_option('show_on_front') === 'page' && (int)get_option('page_for_posts') === (int)$postId) ) {
+            return false;
+        }
+
+        foreach (array('p', 'page_id', 'attachment_id') as $key) {
+            if (isset($objectQuery[$key]) && (int)$objectQuery[$key] !== (int)$postId) {
+                return false;
+            }
+        }
+        // A page and post may share the same permalink. The winning page rule identifies the owner.
+        if (isset($objectQuery['pagename'])) {
+            $page = is_string($objectQuery['pagename']) ? get_page_by_path($objectQuery['pagename']) : null;
+            if ( ! $page || (int)$page->ID !== (int)$postId ) {
+                return false;
+            }
+        } elseif (isset($objectQuery['name']) && (
+            ! is_string($objectQuery['name']) || sanitize_title_for_query($objectQuery['name']) !== $post->post_name
+            || $post->post_type !== (isset($objectQuery['post_type']) ? $objectQuery['post_type'] : 'post')
+        )) {
+            return false;
+        }
+
+        // Use the same literal delimiter and upper bound as WP::handle_404().
+        $breaks = substr_count($post->post_content, '<!--nextpage-->');
+        return $breaks > 0 && (int)$segment <= $breaks + 1;
+    }
+}
+
 if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 	/**
 	 * Any matches from "Settings" -> "Plugin Usage Preferences" -> "Do not load the plugin on certain pages"?
@@ -934,26 +1036,34 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			return false;
 		}
 
-		if ($targetUri === '') {
-			// When called from the Dashboard, it should never be empty
-			if (is_admin()) {
-				return false;
-			}
+        if ($targetUri === '') {
+            if ( is_admin() || empty($_SERVER['REQUEST_URI']) ) {
+                return false;
+            }
 
-			$targetUri = isset($_SERVER['REQUEST_URI']) ? rawurldecode($_SERVER['REQUEST_URI']) : ''; // Invalid request
-		} else {
-			// Passed from the Dashboard as a URL; Strip the prefix and hostname to keep only the URI
-			$parseUrl  = parse_url(rawurldecode($targetUri));
-			$targetUri = isset($parseUrl['path']) ? $parseUrl['path'] : '';
-		}
+            $requestUri = $_SERVER['REQUEST_URI'];
+            $targetUri  = rawurldecode($requestUri);
+        } else {
+            $parts = parse_url($targetUri);
+            if ( empty($parts['path']) && empty($parts['host']) ) {
+                return false;
+            }
+
+            $path       = isset($parts['path']) ? $parts['path'] : '/';
+            $requestUri = isset($parts['query']) ? $path . '?' . $parts['query'] : $path;
+            $targetUri  = rawurldecode($path);
+        }
+
+        // Global patterns retain their existing Dashboard and front-end semantics.
+        $cacheKey = ($targetUri === rawurldecode($requestUri) ? 'uri:' : 'path:') . $requestUri;
 
 		if ($targetUri === '') {
 			return false; // Invalid request
 		}
 
 		// Already detected? Avoid duplicate queries
-		if (isset($GLOBALS['wpacu_no_load_matches'][$targetUri])) {
-			return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+		if (isset($GLOBALS['wpacu_no_load_matches'][$cacheKey])) {
+			return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
 		}
 
         $doNotLoadRules = array();
@@ -970,8 +1080,8 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
             if ( $doNotLoadPatternsNormalized === "/cart/\n/checkout/" ) {
                 foreach (array('/cart/', '/checkout/') as $doNotLoadDefaultRule) {
                     if (strpos($targetUri, $doNotLoadDefaultRule) !== false) {
-                        $GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_settings';
-                        return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+                        $GLOBALS['wpacu_no_load_matches'][$cacheKey] = 'is_set_in_settings';
+                        return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
                     }
                 }
             } elseif ( wpacuLoadRegexClassForMu() ) {
@@ -983,8 +1093,8 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
             foreach ( $doNotLoadRules as $doNotLoadRule ) {
                 if ( \WpAssetCleanUp\Regex::matchesRule( $doNotLoadRule, $targetUri ) ) {
                     // There's a match
-                    $GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_settings';
-                    return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+                    $GLOBALS['wpacu_no_load_matches'][$cacheKey] = 'is_set_in_settings';
+                    return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
                 }
             }
         }
@@ -993,19 +1103,18 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 		 * Page Options -> The following option might be checked "Do not load Asset CleanUp Pro on this page (this will disable any functionality of the plugin)"
 		 * For homepage (e.g. the latest posts) or a page, post or custom post type
 		 */
-		$parseUrl       = parse_url(get_site_url());
-		$rootUrl        = $parseUrl['scheme'].'://'.$parseUrl['host'];
-		$homepageUri    = isset($parseUrl['path']) ? $parseUrl['path'] : '/';
-		$cleanTargetUri = $targetUri;
-
-		if (strpos($targetUri, '?') !== false) {
-			list($cleanTargetUri) = explode('?', $cleanTargetUri);
-		}
+        $homepageUri = (string)parse_url(get_home_url(), PHP_URL_PATH);
+        $request     = explode('?', $requestUri, 2);
+        $requestPath = rtrim(rawurldecode($request[0]), '/');
+        $requestArgs = null;
+        // Ordinary single-content permalinks use /N/. A static front page uses /<pagination base>/N/.
+        $segment = preg_match('~/([1-9][0-9]*)$~D', $requestPath, $suffix) ? $suffix[1] : null;
+        $segmentQuery = null;
 
 		/*
 		 * First verification: If it's a homepage, but not a "page" homepage but a different one such as the latest posts
 		 */
-		$isHomePageUri = trim($homepageUri, '/') === trim($cleanTargetUri, '/') && ! assetCleanUpRequestUriHasAnyPublicVar($targetUri);
+		$isHomePageUri = rtrim(rawurldecode($homepageUri), '/') === $requestPath && ! assetCleanUpRequestUriHasAnyPublicVar($requestUri);
 		$isSinglePageSetAsHomePage = ( get_option('show_on_front') === 'page' && get_option('page_on_front') > 0 );
 
 		if ( $isHomePageUri && ! $isSinglePageSetAsHomePage ) {
@@ -1014,22 +1123,44 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 
             if (isset($globalPageOptionsList['page_options']['homepage']['no_wpacu_load'])
                 && $globalPageOptionsList['page_options']['homepage']['no_wpacu_load'] == 1) {
-                $GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_page';
-                return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+                $GLOBALS['wpacu_no_load_matches'][$cacheKey] = 'is_set_in_page';
+                return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
             }
 		}
 
 		/*
 		 * Second verification: For any post, page, custom post type including any page set as the homepage in "Reading" -> "Your homepage displays" -> "A static page (select below)"
 		 */
-		if ($isHomePageUri && $isSinglePageSetAsHomePage) {
+        $frontSegment = null;
+        if ($isSinglePageSetAsHomePage && $requestPath === rtrim(rawurldecode($homepageUri), '/') && isset($request[1])) {
+            // Plain static-front pagination has no object ID in its URL. Other routing arguments can select a different object.
+            parse_str($request[1], $requestArgs);
+            if (isset($requestArgs['page']) || isset($requestArgs['paged'])) {
+                $isHomePageUri = false;
+                $publicArgs = array_intersect_key($requestArgs, array_flip(wpacuGetWpPublicQueryVars()));
+                if ( ! wpacuPaginationHasAlternateDocument($requestArgs) && ! array_diff(array_keys($publicArgs), array('page', 'paged')) ) {
+                    $number = ! empty($publicArgs['paged']) ? $publicArgs['paged'] : (isset($publicArgs['page']) ? $publicArgs['page'] : '');
+                    if (is_string($number) && preg_match('/^[1-9][0-9]*$/D', $number)) {
+                        $frontSegment = $number;
+                    }
+                }
+            }
+        } elseif ($isSinglePageSetAsHomePage && $segment !== null
+            && dirname(dirname($requestPath)) === (rtrim(rawurldecode($homepageUri), '/') ?: '/') ) {
+            $segmentQuery = wpacuGetEarlyPaginationQuery($request[0], $homepageUri, isset($request[1]) ? $request[1] : '');
+            if ($segmentQuery === array('paged' => $segment)) {
+                $frontSegment = $segment;
+            }
+        }
+
+		if ($isSinglePageSetAsHomePage && ($isHomePageUri || ($frontSegment !== null && wpacuPostHasContentSegment(get_option('page_on_front'), $frontSegment)))) {
 			$pageId = get_option('page_on_front');
 			$pageOptionsJson = get_post_meta($pageId, '_' . WPACU_PLUGIN_ID . '_page_options', true);
 			$pageOptions = @json_decode( $pageOptionsJson, ARRAY_A );
 
 			if (isset($pageOptions['no_wpacu_load']) && $pageOptions['no_wpacu_load'] == 1) {
-				$GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_page';
-				return $GLOBALS['wpacu_no_load_matches'][$targetUri];
+				$GLOBALS['wpacu_no_load_matches'][$cacheKey] = 'is_set_in_page';
+				return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
 			}
 		} else {
 			$excludePostIds = array();
@@ -1041,7 +1172,7 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			// Visiting a post, page or custom post type but not the homepage
 			global $wpdb;
 
-			$anyPagesWithSpecialOptionsQuery = 'SELECT meta_value FROM `' . $wpdb->prefix . 'postmeta` WHERE ';
+			$anyPagesWithSpecialOptionsQuery = 'SELECT meta_value, post_id FROM `' . $wpdb->prefix . 'postmeta` WHERE ';
 
 			if ( ! empty($excludePostIds) ) {
 				$anyPagesWithSpecialOptionsQuery .= ' post_id NOT IN ('.implode(',', $excludePostIds).') AND ';
@@ -1052,31 +1183,78 @@ if ( ! function_exists('assetCleanUpHasNoLoadMatches') ) {
 			$anyPagesWithSpecialOptions = $wpdb->get_col( $anyPagesWithSpecialOptionsQuery );
 
 			if ( ! empty( $anyPagesWithSpecialOptions ) ) {
-				foreach ( $anyPagesWithSpecialOptions as $metaValue ) {
+                // Extract IDs from the same result before a pagination lookup can replace it.
+                $postIds = $segment !== null ? $wpdb->get_col(null, 1) : array();
+				foreach ( $anyPagesWithSpecialOptions as $row => $metaValue ) {
 					$postPageOptions = @json_decode($metaValue, ARRAY_A);
 
 					if ( ! isset($postPageOptions['no_wpacu_load'], $postPageOptions['_page_uri']) ) {
 						continue;
 					}
 
-					$dbPageUrl = $postPageOptions['_page_uri'];
-					$dbPageUri = str_replace( $rootUrl, '', $dbPageUrl );
+                    $storedUri = $postPageOptions['_page_uri'];
+                    if ( ! is_string($storedUri) || $storedUri === '' || (int)$postPageOptions['no_wpacu_load'] !== 1 ) {
+                        continue;
+                    }
 
-					// This is a post/page/custom post type check
-					// If the homepage page root URL is detected, then it's a former static page set as homepage and its URI is outdated
-					if (trim($dbPageUri, '/') === trim($homepageUri, '/')) {
-						continue;
-					}
+                    // Older versions could save the port before the path, or a full permalink.
+                    if ($storedUri[0] === ':') {
+                        $storedUri = preg_replace('~^:[0-9]+(?=/)~', '', $storedUri);
+                    }
 
-					if ( ( $dbPageUri === $targetUri ) || ( strpos( $targetUri, $dbPageUri ) === 0 ) ) {
-						$GLOBALS['wpacu_no_load_matches'][$targetUri] = 'is_set_in_page';
-						return $GLOBALS['wpacu_no_load_matches'][$targetUri];
-					}
+                    $parts = parse_url($storedUri);
+                    if ( empty($parts['path']) ) {
+                        continue;
+                    }
+
+                    $storedPath = rtrim(rawurldecode($parts['path']), '/');
+                    if ($storedPath !== $requestPath) {
+                        if ($segment === null || $requestPath !== $storedPath . '/' . $segment || ! empty($parts['query'])
+                            || $storedPath === rtrim(rawurldecode($homepageUri), '/') || empty($postIds[$row]) ) {
+                            continue;
+                        }
+
+                        if ($segmentQuery === null) {
+                            $segmentQuery = wpacuGetEarlyPaginationQuery($request[0], $homepageUri, isset($request[1]) ? $request[1] : '');
+                        }
+                        if ( ! isset($segmentQuery['page']) || $segmentQuery['page'] !== $segment ) {
+                            continue;
+                        }
+
+                        $baseQuery = wpacuGetEarlyPaginationQuery($parts['path'], $homepageUri);
+                        $objectQuery = $segmentQuery;
+                        unset($baseQuery['page'], $objectQuery['page']);
+                        if (empty($objectQuery) || $objectQuery !== $baseQuery || ! wpacuPostHasContentSegment($postIds[$row], $segment, $objectQuery)) {
+                            continue;
+                        }
+                    }
+
+                    // A former static front page can still have its old homepage URI.
+                    if ( empty($parts['query']) && $storedPath === rtrim(rawurldecode($homepageUri), '/') ) {
+                        continue;
+                    }
+
+                    $storedArgs = array();
+                    if (isset($parts['query'])) {
+                        if ($requestArgs === null) {
+                            parse_str(isset($request[1]) ? $request[1] : '', $requestArgs);
+                        }
+                        parse_str($parts['query'], $storedArgs);
+                    }
+
+                    foreach ($storedArgs as $key => $value) {
+                        if ( ! isset($requestArgs[$key]) || $requestArgs[$key] !== $value ) {
+                            continue 2;
+                        }
+                    }
+
+                    $GLOBALS['wpacu_no_load_matches'][$cacheKey] = 'is_set_in_page';
+                    return $GLOBALS['wpacu_no_load_matches'][$cacheKey];
 				}
 			}
 		}
 
-		$GLOBALS['wpacu_no_load_matches'][$targetUri] = false;
+		$GLOBALS['wpacu_no_load_matches'][$cacheKey] = false;
 
 		return false;
 	}
@@ -1546,7 +1724,7 @@ if ( ! function_exists('assetCleanUpNoLoad') ) {
                             exit( $msg );
 						} elseif ( $wpacuNoLoadMatchesStatus === 'is_set_in_page' ) {
                             $msg = sprintf(
-                                __('This homepage\'s URI is matched by the rule you have in the "Page Options", thus %s is not loaded on that page and no CSS/JS are to be managed. If you wish to view the CSS/JS manager, please uncheck the option and reload this page.',
+                                __('%s is disabled for this page in "Page Options". To use the CSS/JS Manager here, uncheck that option and reload the page.',
                                     'wp-asset-clean-up'
                                 ), WPACU_PLUGIN_TITLE);
                             exit( $msg );

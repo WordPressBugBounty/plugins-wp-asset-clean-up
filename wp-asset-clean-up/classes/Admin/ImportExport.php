@@ -656,6 +656,7 @@ class ImportExport
 
 		// "Settings" (Replace)
 		if (isset($valuesArray['settings']) && is_array($valuesArray['settings']) && ! empty($valuesArray['settings'])) {
+            $valuesArray['settings'] = SettingsAdminOnlyForAdmin::preserveManagerVisibilityForNonAdmins($valuesArray['settings']);
 			// "Site-wide Common Unloads" - apply settings
 
 			// JS
@@ -686,7 +687,7 @@ class ImportExport
 		// "Homepage" Unloads
 		if (isset($valuesArray['homepage']) && is_array($valuesArray['homepage'])
 			&& isset($valuesArray['homepage']['unloads']) && is_array($valuesArray['homepage']['unloads'])
-			&& (isset($valuesArray['homepage']['unloads']['scripts'])
+			&& ($valuesArray['homepage']['unloads'] === array() || isset($valuesArray['homepage']['unloads']['scripts'])
 		    || isset($valuesArray['homepage']['unloads']['styles']))) {
 			Misc::addUpdateOption(WPACU_PLUGIN_ID . '_front_page_no_load', wp_json_encode($valuesArray['homepage']['unloads']));
 			$importedList[] = 'homepage_unloads';
@@ -695,7 +696,7 @@ class ImportExport
 		// "Homepage" Load Exceptions
 		if (isset($valuesArray['homepage']) && is_array($valuesArray['homepage'])
 			&& isset($valuesArray['homepage']['load_exceptions']) && is_array($valuesArray['homepage']['load_exceptions'])
-			&& (isset($valuesArray['homepage']['load_exceptions']['scripts'])
+			&& ($valuesArray['homepage']['load_exceptions'] === array() || isset($valuesArray['homepage']['load_exceptions']['scripts'])
 		    || isset($valuesArray['homepage']['load_exceptions']['styles']))) {
 			Misc::addUpdateOption(WPACU_PLUGIN_ID . '_front_page_load_exceptions', wp_json_encode($valuesArray['homepage']['load_exceptions']));
 			$importedList[] = 'homepage_exceptions';
@@ -703,7 +704,7 @@ class ImportExport
 
 		// "Site-Wide" (Everywhere) Unloads
 		if (isset($valuesArray['global_unload']) && is_array($valuesArray['global_unload'])
-			&& (isset($valuesArray['global_unload']['scripts'])
+			&& ($valuesArray['global_unload'] === array() || isset($valuesArray['global_unload']['scripts'])
 		    || isset($valuesArray['global_unload']['styles']))) {
 			Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_unload', wp_json_encode($valuesArray['global_unload']));
 			$importedList[] = 'sitewide_unloads';
@@ -711,14 +712,14 @@ class ImportExport
 
 		// Bulk Unloads (e.g. Unload on all pages of product post type)
 		if (isset($valuesArray['bulk_unload']) && is_array($valuesArray['bulk_unload'])
-			&& (isset($valuesArray['bulk_unload']['scripts'])
+			&& ($valuesArray['bulk_unload'] === array() || isset($valuesArray['bulk_unload']['scripts'])
 		    || isset($valuesArray['bulk_unload']['styles']))) {
 			Misc::addUpdateOption(WPACU_PLUGIN_ID . '_bulk_unload', wp_json_encode($valuesArray['bulk_unload']));
 			$importedList[] = 'bulk_unload';
 		}
 
 		// Post type: load exception
-		if ( ! empty($valuesArray['post_type_exceptions']) && is_array($valuesArray['post_type_exceptions']) ) {
+		if (isset($valuesArray['post_type_exceptions']) && is_array($valuesArray['post_type_exceptions'])) {
 			Misc::addUpdateOption(WPACU_PLUGIN_ID . '_post_type_load_exceptions', wp_json_encode($valuesArray['post_type_exceptions']));
 			$importedList[] = 'post_type_load_exceptions';
 		}
@@ -745,7 +746,7 @@ class ImportExport
 		}
 
 		// Global Data (CSS/JS rules, Plugins Manager rules, preloads, attributes, etc.)
-		if ( ! empty($valuesArray['global_data']) && is_array($valuesArray['global_data']) ) {
+		if (isset($valuesArray['global_data']) && is_array($valuesArray['global_data'])) {
 			$globalDataToImport = apply_filters(
 				'wpacu_internal_import_export_global_data_for_import',
 				StoredProDataTransfer::filterGlobalDataForTransfer($valuesArray['global_data']),
@@ -756,7 +757,8 @@ class ImportExport
 				$globalDataToImport = array();
 			}
 
-			if ( ! empty($globalDataToImport) ) {
+			// Only an explicitly empty group may clear existing data after filtering.
+			if ($valuesArray['global_data'] === array() || ! empty($globalDataToImport)) {
 				Misc::addUpdateOption(WPACU_PLUGIN_ID . '_global_data', wp_json_encode($globalDataToImport));
 				$importedList[] = 'global_data';
 

@@ -375,6 +375,7 @@ class MainFront
 		Main::instance()->getCurrentPostId();
 
 		define( 'WPACU_CURRENT_PAGE_ID', Main::instance()->getCurrentPostId() );
+        do_action('wpacu_internal_frontend_page_resolved');
 	}
 
 	/**
@@ -814,7 +815,7 @@ class MainFront
 			*/
 
 			// Add handles such as the Oxygen Builder CSS ones that are missing and added differently to the queue
-			$allStyles = $this->wpStylesFilter( $wp_styles, 'registered', $list );
+			$allStyles = $this->wpStylesFilter( $wp_styles, 'registered' );
 
 			if ( $allStyles !== null && ! empty( $allStyles->registered ) ) {
 				// Going through all the registered styles
@@ -926,7 +927,7 @@ class MainFront
 	/**
 	 * @param $wpStylesFilter
 	 * @param string $listType
-	 * @param array $unloadedList
+	 * @param array $unloadedList Retained for existing callers. Unloads are resolved after load exceptions.
 	 *
 	 * @return mixed
 	 */
@@ -935,26 +936,10 @@ class MainFront
 		global $wp_styles, $oxygen_vsb_css_styles;
 
 		if ( ( $listType === 'registered' ) && is_object( $oxygen_vsb_css_styles ) && ! empty( $oxygen_vsb_css_styles->registered ) ) {
-			$stylesSpecialCases = array();
-
 			foreach ($oxygen_vsb_css_styles->registered as $oxygenHandle => $oxygenValue) {
 				if (! array_key_exists($oxygenHandle, $wp_styles->registered)) {
 					$wpStylesFilter->registered[$oxygenHandle] = $oxygenValue;
-					$stylesSpecialCases[$oxygenHandle] = $oxygenValue->src;
 				}
-			}
-
-			$unloadedSpecialCases = array();
-
-			foreach ($unloadedList as $unloadedHandle) {
-				if (array_key_exists($unloadedHandle, $stylesSpecialCases)) {
-					$unloadedSpecialCases[$unloadedHandle] = $stylesSpecialCases[$unloadedHandle];
-				}
-			}
-
-			if (! empty($unloadedSpecialCases)) {
-				// This will be later used in 'wp_loaded' below to extract the special styles
-				echo Main::$wpStylesSpecialDelimiters['start'] . wp_json_encode($unloadedSpecialCases) . Main::$wpStylesSpecialDelimiters['end'];
 			}
 		}
 
@@ -977,44 +962,51 @@ class MainFront
 		return $wpStylesFilter;
 	}
 
-	/**
-	 *
-	 */
-	public static function filterStylesSpecialCases()
-	{
-		if ( isset($_REQUEST['wpacu_no_css_unload']) ) {
-			return;
-		}
+    /**
+     * Oxygen prints from a separate WP_Styles registry, which can be populated late in wp_head.
+     * At flush time the registry and the effective unload decisions are both available in PHP.
+     *
+     * @return void
+     */
+    public static function filterStylesSpecialCases()
+    {
+        if (isset($_REQUEST['wpacu_no_css_unload'])) {
+            return;
+        }
 
-		add_action('wp_loaded', static function() {
-			ob_start(static function($htmlSource) {
-				if (strpos($htmlSource, Main::$wpStylesSpecialDelimiters['start']) === false && strpos($htmlSource, Main::$wpStylesSpecialDelimiters['end']) === false) {
-					return $htmlSource;
-				}
+        add_action('wp_loaded', static function () {
+            ob_start(static function ($htmlSource) {
+                global $oxygen_vsb_css_styles;
 
-				$jsonStylesSpecialCases = Misc::extractBetween($htmlSource, Main::$wpStylesSpecialDelimiters['start'], Main::$wpStylesSpecialDelimiters['end']);
+                if (empty($oxygen_vsb_css_styles->registered)) {
+                    return $htmlSource;
+                }
 
-				$stylesSpecialCases = json_decode($jsonStylesSpecialCases, ARRAY_A);
+                $main = Main::instance();
+                foreach (array_unique($main->allUnloadedAssets['styles']) as $handle) {
+                    if ( ! isset($oxygen_vsb_css_styles->registered[$handle]->src) ) {
+                        continue;
+                    }
 
-				if ( ! empty($stylesSpecialCases) && wpacuJsonLastError() === JSON_ERROR_NONE) {
-					foreach ($stylesSpecialCases as $styleSrc) {
-						$styleLocalSrc = Misc::getLocalSrcIfExist($styleSrc);
-						$styleRelSrc = isset($styleLocalSrc['rel_src']) ? $styleLocalSrc['rel_src'] : $styleSrc;
-						$htmlSource = CleanUp::cleanLinkTagFromHtmlSource($styleRelSrc, $htmlSource);
-					}
+                    $style = $oxygen_vsb_css_styles->registered[$handle];
+                    if ( ! is_string($style->src) || $style->src === '' ) {
+                        continue;
+                    }
 
-					// Strip the info HTML comment
-					$htmlSource = str_replace(
-						Main::$wpStylesSpecialDelimiters['start'] . $jsonStylesSpecialCases . Main::$wpStylesSpecialDelimiters['end'],
-						'',
-						$htmlSource
-					);
-				}
+                    // A handle already owned by the WordPress registry can point to another file.
+                    if (isset($main->wpAllStyles['registered'][$handle]) && $main->wpAllStyles['registered'][$handle] !== $style) {
+                        continue;
+                    }
 
-				return $htmlSource;
-			});
-		}, 1);
-	}
+                    $styleLocalSrc = Misc::getLocalSrcIfExist($style->src);
+                    $styleRelSrc   = isset($styleLocalSrc['rel_src']) ? $styleLocalSrc['rel_src'] : $style->src;
+                    $htmlSource    = CleanUp::cleanLinkTagFromHtmlSource($styleRelSrc, $htmlSource);
+                }
+
+                return $htmlSource;
+            });
+        }, 1);
+    }
 
 	/**
 	 *

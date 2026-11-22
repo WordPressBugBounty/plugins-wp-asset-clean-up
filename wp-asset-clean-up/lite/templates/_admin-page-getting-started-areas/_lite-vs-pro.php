@@ -446,7 +446,7 @@ $wpacu_lvp_status_icon = function ($state) {
                     </ul>
 
                     <a class="wpacu-lvp-text-link" href="<?php echo esc_url($wpacu_lvp_urls['pricing']); ?>" target="_blank" rel="noopener noreferrer">
-                        <?php esc_html_e('View Pro plans', 'wp-asset-clean-up'); ?>
+                        <?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('View Pro plans', 'wp-asset-clean-up'))); ?>
                     </a>
                 </article>
             </div>
@@ -704,7 +704,7 @@ $wpacu_lvp_status_icon = function ($state) {
                     <?php esc_html_e('Continue with Lite', 'wp-asset-clean-up'); ?>
                 </a>
                 <a class="wpacu-lvp-button wpacu-lvp-button--accent" href="<?php echo esc_url($wpacu_lvp_urls['pricing']); ?>" target="_blank" rel="noopener noreferrer">
-                    <?php esc_html_e('View Pro plans', 'wp-asset-clean-up'); ?>
+                    <?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('View Pro plans', 'wp-asset-clean-up'))); ?>
                 </a>
                 <a class="wpacu-lvp-button wpacu-lvp-button--ghost-light" href="<?php echo esc_url($wpacu_lvp_urls['help']); ?>">
                     <?php esc_html_e('Open Help Center', 'wp-asset-clean-up'); ?>

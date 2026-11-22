@@ -22,7 +22,7 @@ class CriticalCss
 	{
         // Show any critical CSS signature in the front-end view?
         add_action('wp_head', static function() {
-            if ( OptimizeCommon::preventAnyFrontendOptimization() || ( Main::instance()->settings['critical_css_status'] === 'off' ) || ! has_filter('wpacu_critical_css') ) {
+            if ( ! self::isEnabledForCurrentRequest() || ! has_filter('wpacu_critical_css') ) {
                 return;
             }
 
@@ -33,11 +33,18 @@ class CriticalCss
         add_filter('wpacu_alter_source_for_critical_css', array($this, 'alterHtmlSourceForCriticalCss'));
 
         // 2) Print the critical CSS
-        // Only continue if critical CSS is globally deactivated
+        // Only register the stored rules if critical CSS is globally enabled.
         if (Main::instance()->settings['critical_css_status'] !== 'off') {
             add_filter('wpacu_critical_css', array($this, 'showAnyCriticalCss'));
         }
 	}
+
+    private static function isEnabledForCurrentRequest()
+    {
+        return ! wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')
+            && Main::instance()->settings['critical_css_status'] !== 'off'
+            && ! OptimizeCommon::preventAnyFrontendOptimization();
+    }
 
 	/**
 	 * @param $htmlSource
@@ -47,7 +54,7 @@ class CriticalCss
 	public static function alterHtmlSourceForCriticalCss($htmlSource)
 	{
 		// The marker needs to be there
-		if (strpos($htmlSource, self::CRITICAL_CSS_MARKER) === false) {
+		if (strpos($htmlSource, self::CRITICAL_CSS_MARKER) === false || ! self::isEnabledForCurrentRequest()) {
 			return $htmlSource;
 		}
 
@@ -81,6 +88,8 @@ class CriticalCss
 		$criticalCssContent = OptimizeCss::maybeAlterContentForCssFile( $criticalCssData['content'], $doCssMinify, array( 'alter_font_face' ) );
 
 		$criticalCssStyleTag = '<style '.Misc::getStyleTypeAttribute().' id="wpacu-critical-css" data-wpacu-critical-css-type="'.$criticalCssData['location_key'].'">'.$criticalCssContent.'</style>';
+
+		$needsAsyncCssFallback = false;
 
 		/*
 		 * By default the page will have the critical CSS applied as well as non-render blocking LINK tags (non-critical)
@@ -136,34 +145,20 @@ class CriticalCss
 
 			preg_match_all( '#<link[^>]*(stylesheet|(as(\s+|)=(\s+|)(|"|\')style(|"|\')))[^>]*(>)#Umi', $cleanerHtmlSource, $matchesSourcesFromTags, PREG_SET_ORDER );
 
-            if ( empty( $matchesSourcesFromTags ) ) {
-				return $htmlSource;
-			}
-
 			foreach ( $matchesSourcesFromTags as $results ) {
 				$matchedTag = $results[0];
 
-				if (! empty($keepRenderBlockingList) && preg_match('#('.implode('|', $keepRenderBlockingList).')#Usmi', $matchedTag)) {
-					continue;
-				}
+                // These rules exempt a link from changes. An existing async link still uses the fallback.
+                $skipLinkChanges = ( ! empty($keepRenderBlockingList) && preg_match('#('.implode('|', $keepRenderBlockingList).')#Usmi', $matchedTag) )
+                    || strpos($matchedTag, 'data-wpacu-apply-media-query=') !== false
+                    || Misc::hasExactDataAttr($matchedTag, 'data-wpacu-skip')
+                    || strpos($matchedTag, 'data-wpacu-skip-preload=\'1\'') !== false;
 
-				// Marked for no alteration or for loading based on the media query match? Then, it's already non-render blocking, and it has to be skipped!
-				if (strpos($matchedTag, 'data-wpacu-apply-media-query=') !== false || Misc::hasExactDataAttr($matchedTag, 'data-wpacu-skip')) {
-					continue;
-				}
-
-				if ( strpos ($matchedTag, 'data-wpacu-skip-preload=\'1\'') !== false  ) {
-					continue; // skip async preloaded (for debugging purposes or when it is not relevant)
-				}
-
-				if ( preg_match( '#rel(\s+|)=(\s+|)([\'"])preload([\'"])#i', $matchedTag ) && strpos( $matchedTag, 'data-wpacu-preload-css-basic=\'1\'' ) !== false ) {
+				if ( ! $skipLinkChanges && preg_match( '#rel(\s+|)=(\s+|)([\'"])preload([\'"])#i', $matchedTag ) && strpos( $matchedTag, 'data-wpacu-preload-css-basic=\'1\'' ) !== false ) {
                     $htmlSource = str_replace( $matchedTag, '', $htmlSource );
-				} elseif ( preg_match( '#rel(\s+|)=(\s+|)([\'"])stylesheet([\'"])#i', $matchedTag ) ) {
-                    // Already applied "async"
-                    if (strpos($matchedTag, 'data-wpacu-preload-it-async') !== false) {
-                        continue;
-                    }
-
+                } elseif (Misc::hasExactDataAttr($matchedTag, 'data-wpacu-preload-it-async')) {
+                    $needsAsyncCssFallback = true;
+				} elseif ( ! $skipLinkChanges && preg_match( '#rel(\s+|)=(\s+|)([\'"])stylesheet([\'"])#i', $matchedTag ) ) {
 					$matchedTagAlteredForPreload = str_ireplace(
 						array(
 							'<link ',
@@ -185,19 +180,25 @@ class CriticalCss
 					);
 
 					$htmlSource = str_replace( $matchedTag, $matchedTagAlteredForPreload, $htmlSource );
+                    $needsAsyncCssFallback = true;
 				}
 			}
 		}
 
-		// For debugging purposes: preview how the page would load without critical CSS & all the non-render blocking CSS files loaded
-		// It should show a flash of unstyled content: https://en.wikipedia.org/wiki/Flash_of_unstyled_content
-		if ( isset($_GET['wpacu_no_critical_css']) ) {
-            $replaceWith = '';
-		} else {
-            $replaceWith = $criticalCssStyleTag . Misc::preloadAsyncCssFallbackOutput();
+        $markerParts = explode(self::CRITICAL_CSS_MARKER, $htmlSource, 2);
+        if (count($markerParts) === 1) {
+            return $htmlSource;
         }
 
-		return str_replace(self::CRITICAL_CSS_MARKER, $replaceWith, $htmlSource);
+		// For debugging purposes: preview how the page would load without critical CSS & all the non-render blocking CSS files loaded
+		// It should show a flash of unstyled content: https://en.wikipedia.org/wiki/Flash_of_unstyled_content
+        $replaceWith = isset($_GET['wpacu_no_critical_css']) ? '' : $criticalCssStyleTag;
+        if ($needsAsyncCssFallback) {
+            $replaceWith .= Misc::preloadAsyncCssFallbackOutput();
+        }
+
+        // Use the first marker and discard any duplicates from repeated head output.
+        return $markerParts[0] . $replaceWith . str_replace(self::CRITICAL_CSS_MARKER, '', $markerParts[1]);
 	}
 
 	/**

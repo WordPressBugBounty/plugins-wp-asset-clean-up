@@ -21,7 +21,7 @@ if (! $wpacuAssetPositionIsPro) {
             <?php esc_html_e('Position:', 'wp-asset-clean-up'); ?> <strong><?php echo esc_html($wpacuAssetPositionLabel); ?></strong>
             <a class="go-pro-link-no-style"
                href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=manage_asset&utm_medium=' . $wpacuAssetPositionUtm)); ?>">
-                <span class="wpacu-tooltip" style="width: 322px; margin-left: -146px;"><?php echo esc_html(sprintf(__('Upgrade to Pro to move this %s asset between HEAD and BODY site-wide.', 'wp-asset-clean-up'), $wpacuAssetPositionKind)); ?></span>
+                <span class="wpacu-tooltip" style="width: 322px; margin-left: -146px;"><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', sprintf(__('Upgrade to Pro to move this %s asset between HEAD and BODY site-wide.', 'wp-asset-clean-up'), $wpacuAssetPositionKind))); ?></span>
                 <img width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" valign="top" alt="" /> <?php esc_html_e('Change it?', 'wp-asset-clean-up'); ?>
             </a>
         </span>

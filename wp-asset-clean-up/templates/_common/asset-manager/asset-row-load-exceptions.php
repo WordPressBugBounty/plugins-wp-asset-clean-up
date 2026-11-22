@@ -35,6 +35,10 @@ if ($data['row']['global_unloaded']) {
             <legend>Make an exception from any unload rule &amp; <strong>always load it</strong>:</legend>
 		    <ul class="wpacu_area_two wpacu_asset_options wpacu_exception_options_area">
                 <li>
+                    <?php // Follow the exception checkbox when the manager enables or disables this area. ?>
+                    <span hidden="hidden"><input type="checkbox" checked="checked" <?php disabled( ! $anyUnloadRuleSet ); ?>
+                           name="<?php echo esc_attr(WPACU_FORM_ASSETS_POST_KEY); ?>[<?php echo esc_attr($assetType); ?>][<?php echo esc_attr($data['row']['obj']->handle); ?>][load_exception_editable]"
+                           value="1" /></span>
                     <label for="wpacu_load_it_option_<?php echo $assetTypeS; ?>_<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>">
                         <input data-handle="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
                                data-handle-for="<?php echo $assetTypeS; ?>"

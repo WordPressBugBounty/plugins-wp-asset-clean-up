@@ -62,10 +62,18 @@ class OptimizeCss
 			if (! empty($allPatterns)) {
 				// Make "Inline CSS Files" compatible with "Optimize CSS Delivery" from WP Rocket
 				add_filter('rocket_async_css_regex_pattern', static function($regex) {
+                    if ( ! self::canApplyInlineCssCompatibility() ) {
+                        return $regex;
+                    }
+
 					return '/(?=<link(?!.*wpacu-to-be-inlined.*)[^>]*\s(rel\s*=\s*[\'"]stylesheet["\']))<link(?!.*wpacu-to-be-inlined.*)[^>]*\shref\s*=\s*[\'"]([^\'"]+)[\'"](.*)>/iU';
 				});
 
 				add_filter('style_loader_tag', static function($styleTag) use ($allPatterns) {
+                    if ( ! self::canApplyInlineCssCompatibility() ) {
+                        return $styleTag;
+                    }
+
                     foreach ($allPatterns as $patternToCheck) {
                         if (Regex::matchesRule($patternToCheck, $styleTag)) {
                             return str_replace( '<link ', '<link wpacu-to-be-inlined=\'1\' ', $styleTag );
@@ -77,6 +85,14 @@ class OptimizeCss
 			}
 		}
 	}
+
+    private static function canApplyInlineCssCompatibility()
+    {
+        return ! is_admin()
+            && ! wpacuIsDefinedConstant('WPACU_ALLOW_ONLY_UNLOAD_RULES')
+            && self::isInlineCssEnabled()
+            && ! OptimizeCommon::preventAnyFrontendOptimization();
+    }
 
     /**
      * @return array
@@ -416,7 +432,7 @@ class OptimizeCss
 			$uniqueAssetStr = md5( $value->handle );
 		}
 
-		$transientName = 'wpacu_css_optimize_'.$uniqueAssetStr;
+		$transientName = 'wpacu_css_optimize_'.$uniqueAssetStr . '_imports_url_v3';
 		// Page options and exclusions can change minification for the same source file.
 		$transientName .= $doFileMinify ? '_minify_1' : '_minify_0';
 		$transientName .= FontsGoogleLocal::getAssetOptimizationCacheSuffix();
@@ -469,7 +485,8 @@ class OptimizeCss
 			}
 	    }
 
-        $src = $srcForDynamicCacheCheck;
+        $hadFileImports = false;
+        $src            = $srcForDynamicCacheCheck;
 
 		if ( $cacheDynamicLoadedCssEnabled && $dynamicLoadedCssSourceType === 'simple-custom-css' ) {
 			$pathToAssetDir = '';
@@ -515,7 +532,7 @@ class OptimizeCss
 			 */
 			$pathToAssetDir = OptimizeCommon::getPathToAssetDir($src);
 
-			$cssContent = FileSystem::fileGetContents($localAssetPath, 'combine_css_imports');
+			$cssContent = FileSystem::fileGetContents($localAssetPath, 'combine_css_imports', $hadFileImports);
 
 			$sourceBeforeOptimization = str_replace(Misc::getWpRootDirPathBasedOnPath($localAssetPath), '/', $localAssetPath);
 		}
@@ -575,7 +592,7 @@ class OptimizeCss
 				}
 			}
 
-			// Move any @imports to top; This also strips any @imports to Google Fonts if the option is chosen
+			// Remove Google Fonts imports when requested.
 			$cssContentBeforeAlteration = $cssContent;
 			$cssContent = self::importsUpdate( $cssContent );
 
@@ -606,6 +623,20 @@ class OptimizeCss
 				}
 			}
 		}
+
+        // Keep unresolved imports at their original link unless an independent font
+        // setting changed the file. Only move that standalone file when every
+        // remaining import has an absolute URL or a relative URL we can rebase.
+        if (self::hasImportRule($cssContent)) {
+            $target = '(?:https?://|/)';
+            if ($isCssFile) {
+                $target .= '|[a-z0-9_./-]+\.css(?=["\'\s)])';
+            }
+            $relocatableImports = '~@import\s*(?:url\(\s*)?["\']?(?:' . $target . ')~i';
+            if ($cssContent === $cssContentBefore || self::hasImportRule(preg_replace($relocatableImports, '', $cssContent))) {
+                return array();
+            }
+        }
 
 		// If it stays like this, it means there is content there, even if only comments
 		$cssContentBecomesEmptyAfterMin = false;
@@ -658,7 +689,9 @@ class OptimizeCss
                     );
                 }
 				// There's no point in changing the original CSS (static) file location
-				OptimizeCommon::setTransient($transientName, 'no_alter');
+				if ( ! $hadFileImports ) {
+                    OptimizeCommon::setTransient($transientName, 'no_alter');
+                }
 				return array();
 			}
 
@@ -739,7 +772,9 @@ class OptimizeCss
 		              $dbVer;
 
 		// Re-add transient
-		OptimizeCommon::setTransient($transientName, $saveOutput);
+		if ( ! $hadFileImports ) {
+            OptimizeCommon::setTransient($transientName, $saveOutput);
+        }
 
 		return array(
 			OptimizeCommon::getSourceRelPath($src), // Original SRC (Relative path)
@@ -757,10 +792,16 @@ class OptimizeCss
 	 */
 	public static function alterHtmlSource($htmlSource, $cleanUpTemporaryAttributes = true)
 	{
-		// There has to be at least one "<link" or "<style", otherwise, it could be a feed request or something similar (not page, post, homepage etc.)
-		if ( (stripos($htmlSource, '<link') === false && stripos($htmlSource, '<style') === false) || isset($_GET['wpacu_no_optimize_css']) ) {
+		if (isset($_GET['wpacu_no_optimize_css'])) {
 			return $htmlSource;
 		}
+
+        // Critical CSS can supply the first stylesheet on the page.
+        if (stripos($htmlSource, '<link') === false && stripos($htmlSource, '<style') === false) {
+            return strpos($htmlSource, CriticalCss::CRITICAL_CSS_MARKER) !== false
+                ? apply_filters('wpacu_alter_source_for_critical_css', $htmlSource)
+                : $htmlSource;
+        }
 
 		/* [wpacu_timing] */ Misc::scriptExecTimer('alter_html_source_for_optimize_css'); /* [/wpacu_timing] */
 
@@ -929,92 +970,58 @@ class OptimizeCss
 		return '';
 	}
 
-	/**
-	 *
-	 * @param $cssContent
-	 * @param $appendBefore
-	 * @param $fix
-	 *
-	 * @return mixed
-	 */
-	public static function maybeFixCssContent($cssContent, $appendBefore, $fix = 'path')
-	{
-		// Updates (background | font etc.) URLs to the right path and others
-		if ($fix === 'path') {
-			// Clear any extra spaces between @import and the single/double quotes
-			$cssContent = preg_replace('/@import(\s+|)([\'"])/i', '@import \\2', $cssContent);
+    /**
+     * Rebase relative CSS references when moving a stylesheet to a cache file or inline tag.
+     *
+     * @param string $cssContent
+     * @param string $appendBefore Source directory URL with its trailing slash.
+     * @param string $fix
+     *
+     * @return string
+     */
+    public static function maybeFixCssContent($cssContent, $appendBefore, $fix = 'path')
+    {
+        if ($fix !== 'path' || $appendBefore === '' ||
+            (stripos($cssContent, 'url(') === false && stripos($cssContent, '@import') === false)) {
+            return $cssContent;
+        }
 
-			$cssContentPathReps = array(
-				// @import with url(), background-image etc.
-				'url("../' => 'url("'.$appendBefore.'../',
-				"url('../" => "url('".$appendBefore.'../',
-				'url(../'  => 'url('.$appendBefore.'../',
+        // Match whole strings and comments so URL-like text inside them stays literal.
+        $pattern = <<<'REGEX'
+~
+    /\* [^*]*+ (?: \* (?!/) [^*]*+ )*+ (?: \*/ | $ )
+  | " (?: [^"\\]++ | \\. )*+ (?: " | $ )
+  | ' (?: [^'\\]++ | \\. )*+ (?: ' | $ )
+  | (?<![a-z0-9_\x80-\xff-])
+    (?<opening> url\( \s*+ | @import \s*+ (?=["']) )
+    (?<value>
+        " (?: [^"\\]++ | \\. )*+ "
+      | ' (?: [^'\\]++ | \\. )*+ '
+      | (?: [^\s()"'\\]++ | \\. )++
+    )
+~isx
+REGEX;
+        $rebased = preg_replace_callback($pattern, static function ($match) use ($appendBefore) {
+            if ( ! isset($match['value']) ) {
+                return $match[0];
+            }
 
-				'url("./'  => 'url("'.$appendBefore.'./',
-				"url('./"  => "url('".$appendBefore.'./',
-				'url(./'   => 'url('.$appendBefore.'./',
+            $value  = $match['value'];
+            $quoted = $value[0] === '"' || $value[0] === "'";
+            $path   = $quoted ? substr($value, 1, -1) : $value;
+            $url    = ltrim($path);
 
-				// @import without URL
-				'@import "../' => '@import "'.$appendBefore.'../',
-				"@import '../" => "@import '".$appendBefore.'../',
+            if ($url === '' || $url[0] === '/' || $url[0] === '#' ||
+                preg_match('~^[a-z][a-z0-9+.-]*:~i', $url)) {
+                return $match[0];
+            }
 
-				'@import "./'  => '@import "'.$appendBefore.'./',
-				"@import './"  => "@import '".$appendBefore.'./'
-			);
+            $offset = strlen($match['opening']) + (int)$quoted + strlen($path) - strlen($url);
+            return substr_replace($match[0], $appendBefore, $offset, 0);
+        }, $cssContent);
 
-			$cssContent = str_replace(array_keys($cssContentPathReps), array_values($cssContentPathReps), $cssContent);
-
-			// Rare cases
-			$cssContent = preg_replace('/url\((\s+)http/i', 'url(http', $cssContent);
-
-			// Avoid Background URLs starting with "#", "data", "http" or "https" as they do not need to have a path updated
-			preg_match_all('/url\((?![\'"]?(?:#|data|http|https):)[\'"]?([^\'")]*)[\'"]?\)/i', $cssContent, $matches);
-
-			// If it starts with forward slash (/), it doesn't need fix, just skip it
-			// Also skip ../ types as they were already processed
-			$toSkipList = array("url('/", 'url("/', 'url(/');
-
-			foreach ($matches[0] as $match) {
-				$fullUrlMatch = trim($match);
-
-				foreach ($toSkipList as $toSkip) {
-					if (substr($fullUrlMatch, 0, strlen($toSkip)) === $toSkip) {
-						continue 2; // doesn't need any fix, go to the next match
-					}
-				}
-
-				// Go through all situations: with and without quotes, with traversal directory (e.g. ../../)
-				$alteredMatch = str_replace(
-					array('url("', "url('"),
-					array('url("' . $appendBefore, "url('" . $appendBefore),
-					$fullUrlMatch
-				);
-
-				$alteredMatch = trim($alteredMatch);
-
-				if (! in_array($fullUrlMatch[4], array("'", '"', '/', '.', '#'))) {
-					$alteredMatch = str_replace('url(', 'url(' . $appendBefore, $alteredMatch);
-					$alteredMatch = str_replace(array('")', '\')'), ')', $alteredMatch);
-				}
-
-				// Finally, apply the changes
-				$cssContent = str_replace($fullUrlMatch, $alteredMatch, $cssContent);
-
-				// Bug fix
-				$cssContent = str_replace(
-					array($appendBefore . '"' . $appendBefore, $appendBefore . "'" . $appendBefore),
-					$appendBefore,
-					$cssContent
-				);
-
-				// Bug Fix 2
-				$cssContent = str_replace($appendBefore . 'http', 'http', $cssContent);
-				$cssContent = str_replace($appendBefore . '//', '//', $cssContent);
-			}
-		}
-
-		return $cssContent;
-	}
+        return is_string($rebased) ? $rebased : $cssContent;
+    }
 
 	/**
 	 * Next: Alter the HTML source by updating the original link URLs with the just cached ones
@@ -1804,8 +1811,13 @@ class OptimizeCss
 
 				$appendBeforeAnyRelPath = $cdnUrlForCss ? OptimizeCommon::cdnToUrlFormat($cdnUrlForCss, 'raw') : '';
 
+                $cssContent = FileSystem::fileGetContents($localAssetPath, 'combine_css_imports');
+                if ($cssContent === false || self::hasImportRule($cssContent)) {
+                    continue;
+                }
+
 				$cssContent = self::maybeFixCssContent(
-					FileSystem::fileGetContents($localAssetPath, 'combine_css_imports'), // CSS content
+                    $cssContent,
 					$appendBeforeAnyRelPath . OptimizeCommon::getPathToAssetDir($linkHrefOriginal) . '/'
 				);
 
@@ -1847,7 +1859,7 @@ class OptimizeCss
 		}
 
 		/* [START] Change CSS Content */
-		// Move any @imports to the top of the content; This also strips any @imports to Google Fonts if the option is chosen
+		// Remove Google Fonts imports when requested.
 		$cssContent = self::importsUpdate( $cssContent );
 
 		if (in_array('alter_font_face', $extraParams)) {
@@ -1890,7 +1902,8 @@ class OptimizeCss
 			return $cssContent;
 		}
 
-		if (mb_strlen($cssContent) < 40000) { // Smaller than ~40KB? Do not cache it
+		// Old inline cache entries can contain hoisted or truncated imports.
+		if (mb_strlen($cssContent) < 40000 || self::hasImportRule($cssContent)) {
 			$useCacheForInlineStyle = false;
 		}
 
@@ -1930,7 +1943,7 @@ class OptimizeCss
 		if ( $doCssMinify && in_array('just_minify', $extraParams) ) {
 			$cssContent = MinifyCss::applyMinification( $cssContent, $useCacheForInlineStyle );
 		} else {
-			// Move any @imports to top; This also strips any @imports to Google Fonts if the option is chosen
+			// Remove Google Fonts imports when requested.
 			$cssContent = self::importsUpdate( $cssContent );
 
 			if ( $doCssMinify ) {
@@ -1961,32 +1974,33 @@ class OptimizeCss
 		       (int)Main::instance()->settings['inline_css_files_below_size_input'] > 0;
 	}
 
-	/**
-	 * Source: https://www.minifier.org/ | https://github.com/matthiasmullie/minify
-	 *
-	 * @param $content
-	 *
-	 * @return string
-	 */
-	public static function importsUpdate($content)
-	{
-		if (preg_match_all('/(;?)(@import (?<url>url\()?(?P<quotes>["\']?).+?(?P=quotes)(?(url)\)));?/', $content, $matches)) {
-			// Remove from content (they will be appended to the top if they qualify)
-			foreach ($matches[0] as $import) {
-				$content = str_replace($import, '', $content);
-			}
+    /**
+     * Count ambiguous references (including escaped at-keywords) conservatively.
+     *
+     * @param string $content
+     *
+     * @return bool
+     */
+    public static function hasImportRule($content)
+    {
+        return stripos($content, '@import') !== false
+            || (strpos($content, '\\') !== false && preg_match('/@[a-z]{0,5}\\\\/i', $content));
+    }
 
-			// Strip any @imports to Google Fonts if it's the case
-			$importsAddToTop = Main::instance()->settings['google_fonts_remove'] ? FontsGoogleRemove::stripGoogleApisImport($matches[2]) : $matches[2];
-
-			// Add it to the top if there are any imports left
-			if (! empty($importsAddToTop)) {
-				$content = implode(';', $importsAddToTop) . ';' . trim($content, ';');
-			}
-		}
-
-		return $content;
-	}
+    /**
+     * Remove eligible Google Fonts imports in place, preserving cascade order.
+     *
+     * @param string $content
+     *
+     * @return string
+     */
+    public static function importsUpdate($content)
+    {
+        if (self::hasImportRule($content) && Main::instance()->settings['google_fonts_remove']) {
+            return FontsGoogleRemove::stripGoogleFontImportsFromCss($content);
+        }
+        return $content;
+    }
 
 	/**
 	 * @param string $returnType

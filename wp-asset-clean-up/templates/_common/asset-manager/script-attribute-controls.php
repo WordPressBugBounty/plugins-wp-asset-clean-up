@@ -20,7 +20,7 @@ $wpacuScriptAttrsIsPro = defined('WPACU_PRO_PLUGIN_VERSION');
         <ul class="wpacu-script-attributes-settings <?php echo $wpacuScriptAttrIndex === 0 ? 'wpacu-first' : ''; ?>">
             <li>
                 <?php if (! $wpacuScriptAttrsIsPro) { ?>
-                    <a class="go-pro-link-no-style wpacu-script-attribute-pro-lock" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL)); ?>"><span class="wpacu-tooltip wpacu-larger"><?php esc_html_e('Script attribute rules are available in Pro.', 'wp-asset-clean-up'); ?><br /><?php esc_html_e('Click here to upgrade', 'wp-asset-clean-up'); ?>.</span><img style="margin: 0; vertical-align: bottom;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" valign="top" alt="" /></a>
+                    <a class="go-pro-link-no-style wpacu-script-attribute-pro-lock" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL)); ?>"><span class="wpacu-tooltip wpacu-larger"><?php esc_html_e('Script attribute rules are available in Pro.', 'wp-asset-clean-up'); ?><br /><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('Click here to upgrade', 'wp-asset-clean-up'))); ?>.</span><img style="margin: 0; vertical-align: bottom;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" valign="top" alt="" /></a>
                 <?php } ?>
                 <strong><?php if ($wpacuScriptAttrsIsPro) { ?><u><?php } echo esc_html($wpacuScriptAttr); if ($wpacuScriptAttrsIsPro) { ?></u><?php } ?></strong> <span class="wpacu-script-attribute-arrow" aria-hidden="true">&#10230;</span>
             </li>

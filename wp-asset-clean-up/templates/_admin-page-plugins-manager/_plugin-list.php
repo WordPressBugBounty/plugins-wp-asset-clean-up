@@ -63,7 +63,7 @@ foreach ($plugins as $pluginData) {
            href="<?php echo esc_url(ProPreview::getUpgradeUrl($wpacuLitePreviewContext)); ?>">
             <span class="dashicons dashicons-unlock" aria-hidden="true"></span>
             <span class="wpacu-lite-pm-upgrade-button-copy">
-                <strong><?php echo esc_html($wpacuLitePreviewCtaLabel); ?></strong>
+                <strong><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', $wpacuLitePreviewCtaLabel)); ?></strong>
                 <small><?php esc_html_e('View pricing and choose the right plan', 'wp-asset-clean-up'); ?></small>
             </span>
         </a>

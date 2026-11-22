@@ -35,7 +35,7 @@ class Plugin
 	 */
 	public function init()
 	{
-		// After fist time activation or in specific situations within the Dashboard
+		// After first time activation or in specific situations within the Dashboard
 		add_action('admin_init', array($this, 'adminInit'));
 
 		$uninstallCleanupStatus = Misc::getVar('get', 'wpacu_uninstall_cleanup_done');
@@ -67,21 +67,31 @@ class Plugin
 	}
 
 	/**
-	 * Actions taken when the plugin is activated
-	 */
-	public function whenActivated()
+     * Actions taken when the plugin is activated.
+     *
+     * @param bool $networkWide
+     *
+     * @return void
+     */
+    public function whenActivated($networkWide = false)
 	{
 	    if (wpacuGetConstant('WPACU_WRONG_PHP_VERSION') === 'true') {
-		    $recordMsg = __( '"Asset CleanUp Pro" plugin has not been activated because the PHP version used on this server is below 5.6.', 'wp-asset-clean-up' );
+            /* translators: %s: Plugin name. */
+            $recordMsg = sprintf(
+                __('"%s" plugin has not been activated because the PHP version used on this server is below 5.6.', 'wp-asset-clean-up'),
+                WPACU_PLUGIN_TITLE
+            );
 		    deactivate_plugins( WPACU_PLUGIN_BASE );
 		    error_log( $recordMsg );
 		    wp_die($recordMsg);
 	    }
 
-		// Prepare for the redirection to the WPACU_ADMIN_PAGE_ID_START plugin page
-        // If there is no record that the plugin was already activated at least once
-		if ( ! get_option(WPACU_PLUGIN_ID . '_first_usage') ) {
-			set_transient(WPACU_PLUGIN_ID . '_redirect_after_activation', 1, 15);
+        $firstUsage = get_option(WPACU_PLUGIN_ID . '_first_usage', null);
+        if ( ! $firstUsage ) {
+            // Editions can route the activating request directly to their own welcome screen.
+            if (apply_filters('wpacu_internal_use_default_activation_redirect', true, $networkWide, $firstUsage === null)) {
+                set_transient(WPACU_PLUGIN_ID . '_redirect_after_activation', 1, 15);
+            }
 
 			// Make a record when Asset CleanUp (Pro) is used for the first time
 			// In case this is the first time the plugin is activated

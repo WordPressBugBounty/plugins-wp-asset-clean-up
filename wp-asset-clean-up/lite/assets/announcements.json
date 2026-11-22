@@ -1,0 +1,15 @@
+[
+    {
+        "id": "27",
+        "title": "Upgrade to Asset CleanUp Pro and save 40%.",
+        "message": "Manage whole plugins and unlock more ways to fine-tune what loads on your website. <a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=asset-cleanup-lite&amp;utm_medium=dashboard-announcement&amp;utm_campaign=black-friday-2026&amp;utm_content=message-link\"><strong>Get your Black Friday upgrade offer.</strong></a>",
+        "priority": "high",
+        "type": "offer",
+        "menu_discount_percent": 40,
+        "start_date": "2026-11-01 00:00:00",
+        "end_date": "2026-11-30 10:00:59",
+        "theme": "black-friday",
+        "link": "https://www.gabelivan.com/items/wp-asset-cleanup-pro/?utm_source=asset-cleanup-lite&utm_medium=dashboard-announcement&utm_campaign=black-friday-2026&utm_content=cta-button",
+        "link_label": "Upgrade & Save 40%"
+    }
+]

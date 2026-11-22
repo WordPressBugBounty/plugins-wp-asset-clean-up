@@ -1778,7 +1778,7 @@ SQL;
 
             $src = (isset($data['assets_info'][$assetType][$handle][$srcKey]) && $data['assets_info'][$assetType][$handle][$srcKey]) ? $data['assets_info'][$assetType][$handle][$srcKey] : false;
 
-             $conditionalCommentOutput = '';
+            $conditionalCommentOutput = '';
 
             if (isset($data['assets_info'][$assetType][$handle]['extra']['conditional']) && $data['assets_info'][$assetType][$handle]['extra']['conditional']) {
                 // Enqueued asset
@@ -1790,8 +1790,8 @@ SQL;
             }
             // [/Advanced/Pro ones]
 
-            if ($conditionalComment) {
-                $conditionalCommentOutput = '<small>&nbsp;&nbsp;<span><img style="vertical-align: middle;" width="20" height="20" src="' . WPACU_PLUGIN_URL . '/assets/icons/icon-ie.svg" alt="" title="Microsoft / Public domain" />&nbsp;<span style="font-weight: 400; color: #1C87CF;">Loads only in Internet Explorer based on the following condition:</span> <em> if ' . $conditionalComment . '</em></span></small>&nbsp;';
+            if (is_string($conditionalComment) && $conditionalComment !== '') {
+                $conditionalCommentOutput = '<small>&nbsp;&nbsp;<span><img style="vertical-align: middle;" width="20" height="20" src="' . WPACU_PLUGIN_URL . '/assets/icons/icon-ie.svg" alt="" title="Microsoft / Public domain" />&nbsp;<span style="font-weight: 400; color: #1C87CF;">Loads only in Internet Explorer based on the following condition:</span> <em> if ' . esc_html($conditionalComment) . '</em></span></small>&nbsp;';
             }
 
             $isExternalSrc = true;
@@ -2519,7 +2519,7 @@ SQL;
                     ?>
                     <div>
                         <a <?php if ($isExternalSrc) { ?> data-wpacu-external-source="<?php echo esc_attr($src . $appendAfterSrc); ?>" <?php } ?>
-                                href="<?php echo esc_attr(Misc::getHrefFromSource($src) . $appendAfterSrc); ?>"
+                                href="<?php echo esc_url(Misc::getHrefFromSource($src) . $appendAfterSrc); ?>"
                                 target="_blank">
                             <small><?php echo esc_html(str_replace(site_url(), '', $src)); ?></small>
                         </a> <?php if ($isExternalSrc) { ?><span data-wpacu-external-source-status></span><?php } ?>

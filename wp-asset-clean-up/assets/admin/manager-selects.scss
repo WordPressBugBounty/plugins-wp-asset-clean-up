@@ -1,7 +1,0 @@
-// Independent build: sass manager-selects.scss manager-selects.css --no-source-map;
-// minify manager-selects.css to manager-selects.min.css.
-// Loaded only on CSS/JS Manager and Plugins Manager screens.
-.wpacu-wrap select:not([multiple]):not([size]),
-#wpacu-plugins-load-manager-wrap select:not([multiple]):not([size]) {
-    padding-right: 36px;
-}

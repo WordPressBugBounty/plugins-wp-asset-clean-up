@@ -25,6 +25,11 @@ class MinifyCss
 	public static function applyMinification($cssContent, $forInlineStyle = false
 		)
 	{
+        // The bundled minifier hoists imports and loses conditional clauses.
+        if (OptimizeCss::hasImportRule($cssContent)) {
+            return $cssContent;
+        }
+
 		if ( ! class_exists('\MatthiasMullieWpacu\Minify\CSS') ) {
                 require_once WPACU_PLUGIN_DIR . '/vendor/autoload.php';
             }

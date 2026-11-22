@@ -81,7 +81,7 @@ class OptimizeCommon
                 HardcodedAssets::attachExternalHardcodedAssetsUrlsToCurrentExternalUrlsList($anyHardCodedAssets);
             }
 
-            $reps = array('{wpacu_hardcoded_assets}' => base64_encode(wp_json_encode($anyHardCodedAssets)));
+            $reps = array('{wpacu_hardcoded_assets}' => Main::encodeFetchList($anyHardCodedAssets, Main::START_DEL_HARDCODED));
 
             if (isset($_GET['wpacu_print']) && Menu::userCanAccessPlugin()) {
                 // This replacement is inserted into an HTML comment, not a plain-text response.
@@ -1673,12 +1673,42 @@ class OptimizeCommon
                 }
                 if ($url) {
                     $path = self::getLocalAssetPath($url, $assetType);
-                    $sourceFiles[$url] = $path ? self::getCombineFileHash($path, $sourceHashes) : false;
+                    $sourceFiles[$url] = self::getCombineSourceFileHash($path, $assetType, $sourceHashes);
                     if ($path) { $parts[] = $sourceFiles[$url]; }
                 }
             }
         }
         return sha1(wp_json_encode($parts));
+    }
+
+    /**
+     * CSS can depend on local imports. Validate the expanded contents alongside
+     * the raw file hash used to identify its original link.
+     *
+     * @param string|false $path
+     * @param string $assetType
+     * @param array $sourceHashes
+     *
+     * @return string|false
+     */
+    private static function getCombineSourceFileHash($path, $assetType, &$sourceHashes)
+    {
+        if ( ! $path || $assetType !== 'css' ) {
+            return self::getCombineFileHash($path, $sourceHashes);
+        }
+
+        if ( ! array_key_exists($path, $sourceHashes) ) {
+            $raw = FileSystem::fileJustGetContents($path);
+            $sourceHashes[$path] = is_string($raw) ? sha1($raw) : false;
+            if (is_string($raw) && OptimizeCss::hasImportRule($raw)) {
+                $expanded = (new CombineCssImports())->resolveStylesheet($path, $raw);
+                $sourceHashes['imports:' . $path] = OptimizeCss::hasImportRule($expanded) ? false : sha1($expanded);
+            }
+        }
+
+        return isset($sourceHashes['imports:' . $path])
+            ? 'imports:' . sha1($sourceHashes[$path] . ':' . $sourceHashes['imports:' . $path])
+            : $sourceHashes[$path];
     }
 
     /**
@@ -1754,8 +1784,15 @@ class OptimizeCommon
         }
         foreach ($validation['sources'] as $url => $expectedHash) {
             $path = self::getLocalAssetPath($url, $assetType);
-            $hash = $path ? self::getCombineFileHash($path, $sourceHashes) : false;
-            if ($hash !== $expectedHash) { return false; }
+            // Ordinary files need only their original streaming hash on a cache hit.
+            $checkImports = $assetType === 'css' && is_string($expectedHash) && strncmp($expectedHash, 'imports:', 8) === 0;
+            $hash         = $checkImports ? self::getCombineSourceFileHash($path, $assetType, $sourceHashes)
+                                          : self::getCombineFileHash($path, $sourceHashes);
+            if ($hash !== $expectedHash) {
+                // A formerly ordinary file may now contain an import.
+                unset($sourceHashes[$path]);
+                return false;
+            }
         }
         return true;
     }

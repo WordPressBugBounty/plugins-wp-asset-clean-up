@@ -216,7 +216,7 @@ class MetaBoxes
 				$postId = (int) $post->ID;
 			}
 
-			if ( $postId > 1 ) {
+			if ( $postId > 0 ) {
 				$metaPageOptionsJson = get_post_meta( $postId, '_' . WPACU_PLUGIN_ID . '_page_options', true );
 				return @json_decode( $metaPageOptionsJson, ARRAY_A );
 			}

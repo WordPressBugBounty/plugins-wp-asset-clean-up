@@ -46,6 +46,18 @@ class ProPreview
         if ($compact) {
             $classes .= ' wpacu-lite-pro-preview-notice-compact';
         }
+
+        $buttonTitle = __('Get Asset CleanUp Pro', 'wp-asset-clean-up');
+        $buttonHint  = __('View pricing and choose the right plan', 'wp-asset-clean-up');
+        if (strpos($context, 'css_js_manager_') === 0) {
+            $discount = UpgradeNotices::getUpgradeDiscount();
+            if ($discount > 0) {
+                /* translators: %d is the current discount percentage. */
+                $buttonHint = sprintf(__('Save %d%% during Black Friday', 'wp-asset-clean-up'), $discount);
+            }
+        } else {
+            $buttonTitle = apply_filters('wpacu_internal_upgrade_label', $buttonTitle);
+        }
         ?>
         <div class="<?php echo esc_attr($classes); ?>" data-wpacu-lite-pro-preview-notice="1">
             <div class="wpacu-lite-pro-preview-notice-icon" aria-hidden="true">
@@ -62,8 +74,8 @@ class ProPreview
                href="<?php echo esc_url(self::getUpgradeUrl($context)); ?>">
                 <span class="dashicons dashicons-unlock" aria-hidden="true"></span>
                 <span class="wpacu-lite-pm-upgrade-button-copy">
-                    <strong><?php esc_html_e('Get Asset CleanUp Pro', 'wp-asset-clean-up'); ?></strong>
-                    <small><?php esc_html_e('View pricing and choose the right plan', 'wp-asset-clean-up'); ?></small>
+                    <strong><?php echo esc_html($buttonTitle); ?></strong>
+                    <small><?php echo esc_html($buttonHint); ?></small>
                 </span>
             </a>
         </div>
@@ -90,7 +102,7 @@ class ProPreview
             'title'   => __('Available in Asset CleanUp Pro', 'wp-asset-clean-up'),
             'message' => __('This control is part of the Pro preview. Asset CleanUp Lite does not save or apply these rules. Upgrade to Pro to use this feature.', 'wp-asset-clean-up'),
             'confirm' => __('Back to Preview', 'wp-asset-clean-up'),
-            'link'    => __('Explore Pro Features', 'wp-asset-clean-up'),
+            'link'    => apply_filters('wpacu_internal_upgrade_label', __('Explore Pro Features', 'wp-asset-clean-up')),
             'url'     => esc_url_raw(add_query_arg(array(
                 'utm_campaign' => 'asset_cleanup_pro',
                 'utm_content'  => sanitize_key($context)

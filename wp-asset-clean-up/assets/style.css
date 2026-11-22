@@ -10186,10 +10186,6 @@ input[data-wpacu-master-input][hidden] {
   font-size: 27px;
 }
 .wpacu-announcements-page .wpacu-announcements-master {
-  display: grid;
-  grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0;
   margin-top: 22px;
   padding: 20px;
   border: 1px solid var(--wpacu-ann-border);
@@ -10197,7 +10193,7 @@ input[data-wpacu-master-input][hidden] {
   background: #f5f9fb;
 }
 .wpacu-announcements-page .wpacu-announcements-master h3 {
-  margin: 3px 0 9px;
+  margin: 0 0 8px;
   color: #263740;
   font-size: 18px;
 }
@@ -10210,41 +10206,140 @@ input[data-wpacu-master-input][hidden] {
 .wpacu-announcements-page .wpacu-announcements-master p + p {
   margin-top: 8px;
 }
-.wpacu-announcements-page .wpacu-announcements-master-kicker {
-  display: block;
-  margin-bottom: 4px;
-  color: #687983;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.wpacu-announcements-page .wpacu-announcements-choices {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 16px 0;
+  padding: 0;
+  border: 0;
 }
-.wpacu-announcements-page .wpacu-announcements-master-control {
+.wpacu-announcements-page .wpacu-announcements-choice {
+  --wpacu-choice-accent: #14746d;
+  --wpacu-choice-surface: #eaf6f3;
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--wpacu-ann-border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+.wpacu-announcements-page .wpacu-announcements-choice > input[type=radio] {
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+}
+.wpacu-announcements-page .wpacu-announcements-choice > input[type=radio]:focus {
+  outline: none;
+  box-shadow: none;
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input[value=important]) {
+  --wpacu-choice-accent: #29649b;
+  --wpacu-choice-surface: #edf4fb;
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input[value=off]) {
+  --wpacu-choice-accent: #606b76;
+  --wpacu-choice-surface: #eceff1;
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input:checked) {
+  border-color: var(--wpacu-choice-accent);
+  background: var(--wpacu-choice-surface);
+  box-shadow: inset 3px 0 var(--wpacu-choice-accent);
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input:checked) > input {
+  border-color: var(--wpacu-choice-accent);
+  background: #fff;
+  accent-color: var(--wpacu-choice-accent);
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input:checked) > input::before {
+  background-color: var(--wpacu-choice-accent);
+}
+.wpacu-announcements-page .wpacu-announcements-choice:focus-within {
+  outline: 2px solid var(--wpacu-choice-accent);
+  outline-offset: 2px;
+}
+.wpacu-announcements-page .wpacu-announcements-choice:has(> input:focus:not(:focus-visible)) {
+  outline: none;
+}
+@media (forced-colors: active) {
+  .wpacu-announcements-page .wpacu-announcements-choice:has(> input:checked) {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+  .wpacu-announcements-page .wpacu-announcements-choice > input[type=radio] {
+    appearance: auto;
+  }
+  .wpacu-announcements-page .wpacu-announcements-choice > input[type=radio]::before {
+    display: none;
+  }
+}
+.wpacu-announcements-page .wpacu-announcements-choice-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--wpacu-ann-muted);
+  line-height: 1.5;
+}
+.wpacu-announcements-page .wpacu-announcements-choice-copy strong {
+  color: var(--wpacu-ann-text);
+  font-size: 14px;
+}
+.wpacu-announcements-page .wpacu-announcements-choice-copy > span:first-child {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 11px;
-  min-width: 0;
-  padding: 4px 22px 4px 0;
+  gap: 3px 8px;
 }
-.wpacu-announcements-page .wpacu-announcements-control-label {
-  display: flex;
-  flex-direction: column;
-  min-width: 105px;
-}
-.wpacu-announcements-page .wpacu-announcements-control-label strong {
-  color: var(--wpacu-ann-brand);
-}
-.wpacu-announcements-page .wpacu-announcements-control-label small {
-  margin-top: 2px;
-  color: #69777e;
-}
-.wpacu-announcements-page .wpacu-announcements-master-copy {
-  min-width: 0;
-  padding: 4px 0 4px 22px;
-  border-left: 1px solid #d5e3e7;
+#wpacu-settings-vertical-tab-wrap .wpacu-announcements-page .wpacu-announcements-choice-copy .wpacu-status-badge {
+  margin-left: 0;
+  padding: 3px 8px;
+  border-color: #b7dfc5;
+  background: #eef9f1;
+  color: var(--wpacu-success, #168545);
+  line-height: 1.35;
 }
 .wpacu-announcements-page .wpacu-announcements-dependent {
   transition: opacity 0.2s ease;
+}
+.wpacu-announcements-page .wpacu-announcements-master:not(:has(input[value=on]:checked, input[value=important]:checked)) .wpacu-announcement-locations {
+  display: none;
+}
+.wpacu-announcements-page .wpacu-announcement-locations {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 0;
+  border: 0;
+}
+.wpacu-announcements-page .wpacu-announcement-locations legend {
+  padding: 0;
+  color: var(--wpacu-ann-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.wpacu-announcements-page .wpacu-announcement-locations .wpacu-announcement-locations-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 6px;
+}
+.wpacu-announcements-page .wpacu-announcement-locations label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.wpacu-announcements-page .wpacu-announcement-locations input {
+  margin: 0;
+}
+.wpacu-announcements-page .wpacu-announcement-locations .wpacu-announcement-locations-error:not(:empty) {
+  margin-top: 8px;
+  color: #a32424;
+}
+.wpacu-announcements-page .wpacu-announcements-master:not(:has(.wpacu-announcements-choices input:checked)) + .wpacu-announcements-dependent,
+.wpacu-announcements-page .wpacu-announcements-master:has(input[value=off]:checked) + .wpacu-announcements-dependent {
+  opacity: 0.4;
 }
 .wpacu-announcements-page .wpacu-announcements-explainer {
   display: grid;
@@ -10528,16 +10623,11 @@ input[data-wpacu-master-input][hidden] {
     font-size: 23px;
   }
   .wpacu-announcements-page .wpacu-announcements-master {
-    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
   }
-  .wpacu-announcements-page .wpacu-announcements-master-control {
-    width: 100%;
-    padding: 0 0 16px;
-  }
-  .wpacu-announcements-page .wpacu-announcements-master-copy {
-    padding: 16px 0 0;
-    border-top: 1px solid #d5e3e7;
-    border-left: 0;
+  .wpacu-announcements-page .wpacu-announcements-choice {
+    gap: 10px;
+    padding: 12px;
   }
   .wpacu-announcements-page .wpacu-announcements-explainer {
     grid-template-columns: 1fr;

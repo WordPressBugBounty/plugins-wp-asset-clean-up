@@ -169,7 +169,7 @@ class AssetsManager
 			                    || ( strpos( $src, '?custom-css' ) !== false );
 
 			if ( $isExternalFile || $isLoadedOnTheFly ) {
-				return '<a class="wpacu-external-file-size" data-src="' . $src . '" href="#">🔗 Get File Size</a>' .
+                return '<a class="wpacu-external-file-size" data-src="' . esc_attr($src) . '" href="#">🔗 Get File Size</a>' .
 				       '<span style="display: none;"><img style="width: 20px; height: 20px;" alt="" align="top" width="20" height="20" src="' . includes_url( 'images/spinner-2x.gif' ) . '"></span>';
 			}
 
@@ -226,7 +226,7 @@ class AssetsManager
 				return MiscAdmin::formatBytes( $sizeInBytes );
 			}
 
-			return '<em style="font-size: 85%;">Error / This file might not exist: /' . str_replace(ABSPATH, '', $pathToFile) . '</em>';
+            return '<em style="font-size: 85%;">Error / This file might not exist: /' . esc_html(str_replace(ABSPATH, '', $pathToFile)) . '</em>';
 		}
 
         if ( isset( $obj->src, $obj->handle ) && $obj->handle === 'jquery' && ! $obj->src ) {
@@ -256,13 +256,24 @@ class AssetsManager
             wp_die('Error: You are not allowed to access this area.');
         }
 
-		if ( ! isset( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_print_loaded_hardcoded_assets_nonce' ) ) {
+		if ( ! isset( $_POST['wpacu_nonce'] ) || ! is_string( $_POST['wpacu_nonce'] ) || ! wp_verify_nonce( $_POST['wpacu_nonce'], 'wpacu_print_loaded_hardcoded_assets_nonce' ) ) {
 			echo 'Error: The security nonce is not valid.';
 			exit();
 		}
 
-		$wpacuListH        = Misc::getVar( 'post', 'wpacu_list_h' );
-		$wpacuSettingsJson = base64_decode( Misc::getVar( 'post', 'wpacu_settings' ) );
+        $blocksH    = Misc::getVar('post', 'wpacu_list_h');
+        $settings   = Misc::getVar('post', 'wpacu_settings');
+        $challenge  = Misc::getVar('post', Main::FETCH_CHALLENGE_KEY);
+        $wpacuListH = '';
+        if (is_string($blocksH) && is_string($settings) && Main::consumeDirectFetchChallenge($challenge, 'hardcoded|' . hash('sha256', $settings))) {
+            $wpacuListH = Main::extractVerifiedFetchList($blocksH, Main::START_DEL_HARDCODED, Main::END_DEL_HARDCODED, $challenge);
+        }
+
+        if ($wpacuListH === '') {
+            wp_send_json_error();
+        }
+
+		$wpacuSettingsJson = base64_decode($settings);
 		$wpacuSettings     = (array) json_decode( $wpacuSettingsJson, ARRAY_A ); // $data values are passed here
 
 		// Only set the following variables if there is at least one hardcoded LINK/STYLE/SCRIPT

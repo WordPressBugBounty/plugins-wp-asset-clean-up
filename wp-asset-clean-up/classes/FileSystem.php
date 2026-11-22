@@ -40,28 +40,23 @@ class FileSystem
 		return false;
 	}
 
-	/**
-	 * @param string $localPathToFile
-	 * @param string $alter
-	 *
-	 * @return false|string
-	 */
-	public static function fileGetContents($localPathToFile, $alter = '')
-	{
-		// ONLY relevant for CSS files
-		if ($alter === 'combine_css_imports') {
-			$cssContent = self::fileJustGetContents($localPathToFile);
+    /**
+     * @param string $localPathToFile
+     * @param string $alter
+     * @param bool $hadImports Whether the file may depend on other stylesheets.
+     *
+     * @return false|string
+     */
+    public static function fileGetContents($localPathToFile, $alter = '', &$hadImports = false)
+    {
+        $content    = self::fileJustGetContents($localPathToFile);
+        $hadImports = $alter === 'combine_css_imports' && is_string($content) && OptimizeCss::hasImportRule($content);
 
-			if (stripos($cssContent, '@import') !== false) {
-				// This custom class does not minify as it's custom-made for combining @import
-                return (new CombineCssImports($localPathToFile))->minify();
-			}
-
-			return $cssContent; // No '@import' found? Just return it
-		}
-
-		return self::fileJustGetContents($localPathToFile);
-	}
+        if ($hadImports) {
+            return (new CombineCssImports())->resolveStylesheet($localPathToFile, $content);
+        }
+        return $content;
+    }
 
 	/**
 	 * Fetch the contents of the targeted file without any alteration

@@ -56,6 +56,11 @@ CSS;
             WPACU_PLUGIN_GO_PRO_URL.'?utm_source=media_query_load&utm_medium=go_pro_modal'
         );
 
+        $upgradeLabel = wp_json_encode(
+            esc_html(apply_filters('wpacu_internal_upgrade_label', __('Upgrade to the Pro version', 'wp-asset-clean-up'))),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+
         $sweetAlertTwoScriptInline = <<<JS
 jQuery(document).ready(function($) { 
     /* [Hardcoded Assets] */
@@ -65,7 +70,7 @@ jQuery(document).ready(function($) {
             text: "Managing hardcoded (non-enqueued) LINK/STYLE/SCRIPT tags is a feature available for Pro users.",
             icon: "info",
             showCancelButton: true,
-            confirmButtonText: 'Upgrade to the Pro version',
+            confirmButtonText: {$upgradeLabel},
             cancelButtonText: 'Maybe later',
             width: '600px'
         }).then((result) => {
@@ -83,7 +88,7 @@ jQuery(document).ready(function($) {
             text: "Instructing the browser to load a file based on the screen size of the visitor's device (e.g. desktop or mobile view) is a feature available for Pro users.",
             icon: "info",
             showCancelButton: true,
-            confirmButtonText: 'Upgrade to the Pro version',
+            confirmButtonText: {$upgradeLabel},
             cancelButtonText: 'Maybe later',
             width: '600px'
         }).then((result) => {

@@ -4,11 +4,15 @@ if (! isset($data)) {
 }
 
 use WpAssetCleanUp\Admin\PluginAnnouncements;
+use WpAssetCleanUp\Admin\SettingsAdmin;
 
-$adminAnnouncementsClass = new PluginAnnouncements();
+$adminAnnouncementsClass    = new PluginAnnouncements();
 $announcementsSavedSettings = $data['announcements'];
-$showAnnouncements = PluginAnnouncements::isShowAnnouncementsEnabled();
-$announcementsFromFeed = $showAnnouncements
+$preference                 = SettingsAdmin::getStoredAnnouncementPreference();
+$selectedLocations          = SettingsAdmin::getAnnouncementLocations($announcementsSavedSettings);
+$showAnnouncements          = PluginAnnouncements::isShowAnnouncementsEnabled();
+$selectedPreference         = $preference === 'undecided' && $showAnnouncements ? 'on' : $preference;
+$announcementsFromFeed      = $showAnnouncements
     ? $adminAnnouncementsClass->getAnnouncementsFromTheFeed()
     : array();
 
@@ -16,67 +20,113 @@ $isLoadedViaAjax = isset($data['is_loaded_via_ajax']) && $data['is_loaded_via_aj
 
 $currentTimeUnix = current_time('timestamp', true);
 
-ob_start();
+$announcementPrefix = esc_attr($adminAnnouncementsClass->filterOutputForUniquePrefix('pluginann'));
 
 if ( ! $isLoadedViaAjax ) { ?>
-    <div id="pluginann-settings-annoucements-container">
+    <div id="<?php echo $announcementPrefix; ?>-settings-annoucements-container">
 <?php } ?>
 
-<div id="pluginann-settings-announcements-wrap">
-    <div class="pluginann-overlay">
-        <div class="pluginann-spinner"></div>
+<div id="<?php echo $announcementPrefix; ?>-settings-announcements-wrap">
+    <div class="<?php echo $announcementPrefix; ?>-overlay">
+        <div class="<?php echo $announcementPrefix; ?>-spinner"></div>
     </div>
 
     <main class="wpacu-announcements-page">
-        <section class="wpacu-announcements-panel" aria-labelledby="pluginannAnnouncementsTitle">
+        <section class="wpacu-announcements-panel" aria-labelledby="<?php echo $announcementPrefix; ?>AnnouncementsTitle">
             <header class="wpacu-announcements-header">
                 <div>
                     <div class="wpacu-announcements-eyebrow"><?php esc_html_e('Plugin communications', 'wp-asset-clean-up'); ?></div>
-                    <h2 id="pluginannAnnouncementsTitle"><?php esc_html_e('Choose which announcements you see', 'wp-asset-clean-up'); ?></h2>
+                    <h2 id="<?php echo $announcementPrefix; ?>AnnouncementsTitle"><?php esc_html_e('Choose which Dashboard notices you receive', 'wp-asset-clean-up'); ?></h2>
                     <p><?php esc_html_e('Receive important maintenance information, critical update notices, practical optimization guides, and occasional product offers directly in the WordPress Dashboard.', 'wp-asset-clean-up'); ?></p>
                 </div>
                 <div class="wpacu-announcements-header-badge"><?php esc_html_e('You stay in control', 'wp-asset-clean-up'); ?></div>
             </header>
 
             <div class="wpacu-announcements-body">
-                <section class="wpacu-announcements-intro" aria-labelledby="pluginannAnnouncementsIntroTitle">
+                <section class="wpacu-announcements-intro" aria-labelledby="<?php echo $announcementPrefix; ?>AnnouncementsIntroTitle">
                     <div class="wpacu-announcements-intro-icon" aria-hidden="true"><span class="dashicons dashicons-megaphone"></span></div>
                     <div>
-                        <h3 id="pluginannAnnouncementsIntroTitle"><?php esc_html_e('Useful notices without permanent clutter', 'wp-asset-clean-up'); ?></h3>
-                        <p><?php esc_html_e('Announcements appear as dismissible notices at the top of eligible Dashboard pages. You can snooze an individual message, mark it as seen, or disable all future announcements here.', 'wp-asset-clean-up'); ?></p>
+                        <h3 id="<?php echo $announcementPrefix; ?>AnnouncementsIntroTitle"><?php esc_html_e('Useful notices without permanent clutter', 'wp-asset-clean-up'); ?></h3>
+                        <p><?php esc_html_e('Announcements appear as dismissible notices at the top of eligible Dashboard pages. You can snooze an individual notice, mark it as seen, or turn off future Dashboard notices here.', 'wp-asset-clean-up'); ?></p>
                     </div>
                 </section>
 
-                <section class="wpacu-announcements-master" aria-labelledby="pluginannAnnouncementsToggleTitle">
-                    <div class="wpacu-announcements-master-control">
-                        <input type="hidden" name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][global][enabled]" value="0">
-                        <label class="wpacu_switch" for="wpacu_announcements_show_checkbox">
-                            <input id="wpacu_announcements_show_checkbox"
-                                   data-target-opacity="#wpacu-settings-announcements-dependent"
-                                   type="checkbox"
-                                <?php checked($showAnnouncements); ?>
-                                   name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][global][enabled]"
-                                   value="1" />
-                            <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
-                        </label>
-                        <span class="wpacu-announcements-control-label">
-                            <strong><?php echo $showAnnouncements ? esc_html__('Opted in', 'wp-asset-clean-up') : esc_html__('Not opted in', 'wp-asset-clean-up'); ?></strong>
-                            <small><?php esc_html_e('Save changes after toggling.', 'wp-asset-clean-up'); ?></small>
-                            <small><a href="https://www.gabelivan.com/privacy-policy/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Privacy details', 'wp-asset-clean-up'); ?></a></small>
-                        </span>
-                    </div>
-                    <div class="wpacu-announcements-master-copy">
-                        <span class="wpacu-announcements-master-kicker"><?php esc_html_e('Main setting', 'wp-asset-clean-up'); ?></span>
-                        <h3 id="pluginannAnnouncementsToggleTitle"><?php esc_html_e('Show plugin announcements', 'wp-asset-clean-up'); ?></h3>
-                        <p><?php esc_html_e('When enabled, Asset CleanUp may contact its CloudFront announcement feed. When disabled, the feed is not requested and no Asset CleanUp announcement notices are shown. Your optimization settings and normal WordPress update checks are not affected.', 'wp-asset-clean-up'); ?></p>
-                    </div>
+                <section class="wpacu-announcements-master" aria-labelledby="<?php echo $announcementPrefix; ?>AnnouncementsToggleTitle">
+                    <h3 id="<?php echo $announcementPrefix; ?>AnnouncementsToggleTitle"><?php esc_html_e('Show plugin announcements', 'wp-asset-clean-up'); ?></h3>
+                    <p><?php esc_html_e('Asset CleanUp checks its online announcement feed while updates are enabled.', 'wp-asset-clean-up'); ?></p>
+                    <fieldset class="wpacu-announcements-choices" aria-labelledby="<?php echo $announcementPrefix; ?>AnnouncementsToggleTitle">
+                        <input type="hidden" name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][previous_preference]" value="<?php echo esc_attr($preference); ?>">
+                        <?php
+                        $announcementChoices = array(
+                            'on' => array(
+                                __('All updates and offers', 'wp-asset-clean-up'),
+                                __('Receive important fixes, release news, optimization tips, and occasional Asset CleanUp offers.', 'wp-asset-clean-up'),
+                            ),
+                            'important' => array(
+                                __('Security & release updates only', 'wp-asset-clean-up'),
+                                __('Receive security notices, key fixes, and major compatibility updates.', 'wp-asset-clean-up'),
+                            ),
+                            'off' => array(
+                                __('Keep announcements off', 'wp-asset-clean-up'),
+                                __('Skip Dashboard announcements. Asset CleanUp won’t request the announcement feed.', 'wp-asset-clean-up'),
+                            ),
+                        );
+                        foreach ($announcementChoices as $value => $choice) {
+                            $choiceId = $announcementPrefix . '-announcements-' . $value;
+                            ?>
+                            <label class="wpacu-announcements-choice">
+                                <input type="radio"
+                                       name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][preference]"
+                                       value="<?php echo esc_attr($value); ?>"
+                                       aria-labelledby="<?php echo esc_attr($choiceId . '-label'); ?>"
+                                       aria-describedby="<?php echo esc_attr(($value === 'on' ? $choiceId . '-badge ' : '') . $choiceId . '-description'); ?>"
+                                       <?php checked($selectedPreference, $value); ?>>
+                                <span class="wpacu-announcements-choice-copy">
+                                    <span>
+                                        <strong id="<?php echo esc_attr($choiceId . '-label'); ?>"><?php echo esc_html($choice[0]); ?></strong>
+                                        <?php if ($value === 'on') { ?>
+                                            <span class="wpacu-status-badge" id="<?php echo esc_attr($choiceId . '-badge'); ?>"><?php esc_html_e('Recommended', 'wp-asset-clean-up'); ?></span>
+                                        <?php } ?>
+                                    </span>
+                                    <span id="<?php echo esc_attr($choiceId . '-description'); ?>"><?php echo esc_html($choice[1]); ?></span>
+                                </span>
+                            </label>
+                        <?php } ?>
+                    </fieldset>
+                    <input type="hidden" name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][previous_locations]" value="<?php echo esc_attr(implode(',', $selectedLocations)); ?>">
+                    <fieldset class="wpacu-announcement-locations" aria-describedby="<?php echo $announcementPrefix; ?>LocationsError">
+                        <legend><?php esc_html_e('Where to show announcements', 'wp-asset-clean-up'); ?></legend>
+                        <div class="wpacu-announcement-locations-options">
+                            <?php
+                            $locationLabels = array(
+                                'dashboard'    => __('Dashboard Home', 'wp-asset-clean-up'),
+                                'plugins'      => __('Installed Plugins', 'wp-asset-clean-up'),
+                                'plugin_pages' => __('Asset CleanUp pages', 'wp-asset-clean-up'),
+                            );
+                            foreach ($locationLabels as $location => $label) { ?>
+                                <label>
+                                    <input type="checkbox" name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][locations][]"
+                                           value="<?php echo esc_attr($location); ?>" <?php checked(in_array($location, $selectedLocations, true)); ?>>
+                                    <?php echo esc_html($label); ?>
+                                </label>
+                            <?php } ?>
+                        </div>
+                        <p id="<?php echo $announcementPrefix; ?>LocationsError" class="wpacu-announcement-locations-error" role="alert"
+                           data-message="<?php esc_attr_e('Choose at least one place to show announcements, or select “Keep announcements off”.', 'wp-asset-clean-up'); ?>"></p>
+                    </fieldset>
+                    <?php if ($preference === 'undecided' && $showAnnouncements) { ?>
+                        <p><?php esc_html_e('All updates and offers are enabled by default. Choose another option here to change which notices you receive.', 'wp-asset-clean-up'); ?></p>
+                    <?php } elseif ($preference === 'undecided') { ?>
+                        <p><?php esc_html_e('No announcement preference is recorded. The feed is off.', 'wp-asset-clean-up'); ?></p>
+                    <?php } elseif ($preference === 'off' && isset($announcementsSavedSettings['global']['off_source'])
+                        && $announcementsSavedSettings['global']['off_source'] === 'notice') { ?>
+                        <p><?php esc_html_e('Announcements were turned off for this site using “Never show plugin announcements”.', 'wp-asset-clean-up'); ?></p>
+                    <?php } ?>
+                    <p><?php esc_html_e('Save changes to apply your choice.', 'wp-asset-clean-up'); ?> <a href="https://www.gabelivan.com/privacy-policy/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Privacy details', 'wp-asset-clean-up'); ?></a><?php
+                        ?></p>
                 </section>
 
-    <?php
-    $announcementsDependentStyle = ($showAnnouncements == 1) ? 'opacity: 1;' : 'opacity: 0.4;';
-    ?>
-
-                <div id="wpacu-settings-announcements-dependent" class="wpacu-announcements-dependent" style="<?php echo esc_attr($announcementsDependentStyle); ?>">
+                <div id="wpacu-settings-announcements-dependent" class="wpacu-announcements-dependent">
                 <div class="wpacu-announcements-explainer">
                     <article><span class="dashicons dashicons-visibility" aria-hidden="true"></span><div><h4><?php esc_html_e('Shown selectively', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('Only announcements valid for your plugin edition, version, and current date are eligible to appear.', 'wp-asset-clean-up'); ?></p></div></article>
                     <article><span class="dashicons dashicons-clock" aria-hidden="true"></span><div><h4><?php esc_html_e('Snooze when busy', 'wp-asset-clean-up'); ?></h4><p><?php esc_html_e('Temporarily hide a notice and let it return later while it is still relevant.', 'wp-asset-clean-up'); ?></p></div></article>
@@ -91,14 +141,21 @@ if ( ! $isLoadedViaAjax ) { ?>
                 <div id="wpacu-settings-announcements-list" class="wpacu-announcements-list">
         <?php if (empty($announcementsFromFeed)) : ?>
                     <div class="wpacu-announcements-empty">
+                    <?php if ( ! $showAnnouncements ) { ?>
+                        <span class="dashicons dashicons-hidden" aria-hidden="true"></span>
+                        <h4><?php esc_html_e('Announcement feed is off', 'wp-asset-clean-up'); ?></h4>
+                        <p><?php esc_html_e('To receive messages from the announcement feed, choose “All updates and offers” or “Security & release updates only” above and save your changes.', 'wp-asset-clean-up'); ?></p>
+                    <?php } else { ?>
                         <span class="dashicons dashicons-saved" aria-hidden="true"></span>
                         <h4><?php esc_html_e('You are all caught up', 'wp-asset-clean-up'); ?></h4>
                         <p><?php esc_html_e('There are no announcements to review right now. New eligible messages will appear here and, when enabled, as dismissible Dashboard notices.', 'wp-asset-clean-up'); ?></p>
+                    <?php } ?>
                     </div>
         <?php else : ?>
             <?php foreach ($announcementsFromFeed as $announcement) : ?>
                 <?php
-                $annId      = isset($announcement['id']) ? $announcement['id']       : '';
+                $annId     = isset($announcement['id']) ? $announcement['id'] : '';
+                $formId    = rawurlencode($annId);
 
                 $titleRaw   = isset($announcement['title']) ? $announcement['title'] : '';
                 $title      = wp_kses($titleRaw, $adminAnnouncementsClass->allowedTitleHtmlTags);
@@ -143,7 +200,7 @@ if ( ! $isLoadedViaAjax ) { ?>
                             ?>
                                 <p class="wpacu-announcement-snoozed"><span class="dashicons dashicons-clock" aria-hidden="true"></span><?php printf(esc_html__('Snoozed until %s', 'wp-asset-clean-up'), esc_html($snoozeUntil)); ?></p>
                             <input type="hidden"
-                                   name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($annId); ?>][snoozed]"
+                                   name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($formId); ?>][snoozed]"
                                    value="<?php echo esc_attr($snoozeUntilRaw); ?>">
                         <?php endif; ?>
                             </div>
@@ -154,15 +211,19 @@ if ( ! $isLoadedViaAjax ) { ?>
                                 </div>
                                 <?php if ($seen) { ?>
                                     <input type="hidden"
-                                           name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($annId); ?>][seen]"
+                                           name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($formId); ?>][seen]"
                                            value="1">
                                 <?php } ?>
                             <?php } else { ?>
                                 <label class="wpacu-announcement-seen-control">
+                                    <input type="hidden"
+                                           name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($formId); ?>][was_seen]"
+                                           value="<?php echo $seen ? '1' : '0'; ?>">
                                     <input type="checkbox"
                                            <?php checked($seen); ?>
                                            class="wpacu-announcement-seen"
-                                           name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($annId); ?>][seen]"
+                                           value="1"
+                                           name="<?php echo esc_attr(WPACU_PLUGIN_ID . '_settings'); ?>[announcements][list][<?php echo esc_attr($formId); ?>][seen]"
                                            data-id="<?php echo esc_attr($annId); ?>">
                                     <span><strong><?php esc_html_e('Mark as seen', 'wp-asset-clean-up'); ?></strong><small><?php esc_html_e('Do not show again', 'wp-asset-clean-up'); ?></small></span>
                                 </label>
@@ -190,10 +251,58 @@ if ( ! $isLoadedViaAjax ) { ?>
 </div>
 
 <?php
-echo $adminAnnouncementsClass->filterOutputForUniquePrefix(ob_get_clean());
-?>
-
-<?php if ( ! $isLoadedViaAjax ) { ?>
+if ( ! $isLoadedViaAjax ) { ?>
 </div>
+<script>
+(function () {
+    var container = document.getElementById('<?php echo $announcementPrefix; ?>-settings-annoucements-container');
+    var form = container.closest('form');
+    if (!form) {
+        return;
+    }
+
+    function validateLocations() {
+        var mode = container.querySelector('.wpacu-announcements-choices input:checked');
+        var locations = container.querySelector('.wpacu-announcement-locations');
+        if (!locations) {
+            return true;
+        }
+        var enabled = mode && (mode.value === 'on' || mode.value === 'important');
+        var invalid = enabled && !locations.querySelector('input:checked');
+        var error = locations.querySelector('[role="alert"]');
+        var message = invalid ? error.getAttribute('data-message') : '';
+
+        locations.hidden = !enabled;
+        if (error.textContent !== message) {
+            error.textContent = message;
+        }
+        return !invalid;
+    }
+
+    validateLocations();
+
+    // The notice actions can replace the settings panel via AJAX.
+    container.addEventListener('change', function (event) {
+        if (event.target.closest('.wpacu-announcements-master')) {
+            validateLocations();
+        }
+    });
+
+    form.addEventListener('submit', function (event) {
+        if (validateLocations()) {
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        var checkbox = container.querySelector('.wpacu-announcement-locations input');
+        if (!checkbox.getClientRects().length) {
+            form.querySelector('[data-wpacu-settings-tab-key="wpacu-setting-plugin-usage-settings"]').click();
+            document.getElementById('wpacu-plugin-usage-settings-announcements-tab-item').click();
+        }
+        checkbox.focus();
+    }, true);
+})();
+</script>
 <?php
 }

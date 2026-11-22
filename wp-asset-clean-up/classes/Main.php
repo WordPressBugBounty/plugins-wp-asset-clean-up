@@ -30,6 +30,11 @@ class Main
     const END_DEL_HARDCODED   = 'END WPACU PLUGIN JSON HARDCODED';
 
     /**
+     * Request parameter used to bind a server-side fetch to its response.
+     */
+    const FETCH_CHALLENGE_KEY = 'wpacu_asset_list_challenge';
+
+    /**
      * Option "Plugin Usage Preferences" -> "Manage in the Dashboard" -> "Select a retrieval way:" ('Direct' or 'WP Remote POST')
      *
      * @var string
@@ -1303,5 +1308,133 @@ SQL;
        // Fallback for the old filters (e.g., Pro version below 1.2.0.7)
        add_filter('wpacu_filter_styles_list_unload',  function ($list) { return apply_filters('wpacu_filter_styles',  $list); });
        add_filter('wpacu_filter_scripts_list_unload', function ($list) { return apply_filters('wpacu_filter_scripts', $list); });
+    }
+
+    /**
+     * @return string A fresh 32-character challenge for a server-side fetch.
+     */
+    public static function newFetchChallenge()
+    {
+        return sprintf('%08x%08x%08x%08x',
+            wp_rand(0, 0x7fffffff), wp_rand(0, 0x7fffffff),
+            wp_rand(0, 0x7fffffff), wp_rand(0, 0x7fffffff)
+        );
+    }
+
+    /**
+     * Issue a single-use challenge for inventory relayed via the browser.
+     *
+     * @param string $context The selected URL or the server-rendered hardcoded list context.
+     *
+     * @return string
+     */
+    public static function newDirectFetchChallenge($context)
+    {
+        $challenge = self::newFetchChallenge();
+        $key       = '_' . WPACU_PLUGIN_ID . '_direct_fetch_' . $challenge;
+        $nonce     = wp_create_nonce('wpacu_direct_fetch|' . $challenge . '|' . $context);
+
+        return set_transient($key, $nonce, 5 * MINUTE_IN_SECONDS) ? $challenge : '';
+    }
+
+    /**
+     * Accept inventory only for this user's session, context and pending scan.
+     *
+     * @param mixed  $challenge
+     * @param string $context
+     *
+     * @return bool
+     */
+    public static function consumeDirectFetchChallenge($challenge, $context)
+    {
+        if ( ! is_string($challenge) || ! preg_match('/^[a-f0-9]{32}$/D', $challenge) ) {
+            return false;
+        }
+
+        $key   = '_' . WPACU_PLUGIN_ID . '_direct_fetch_' . $challenge;
+        $nonce = get_transient($key);
+
+        return is_string($nonce) && wp_verify_nonce($nonce, 'wpacu_direct_fetch|' . $challenge . '|' . $context)
+            && delete_transient($key);
+    }
+
+    /**
+     * Requests without a challenge retain the original base64 debug output.
+     *
+     * @param array $list
+     * @param string $startDelimiter
+     *
+     * @return string
+     */
+    public static function encodeFetchList($list, $startDelimiter)
+    {
+        $encoded   = base64_encode(wp_json_encode($list));
+        // Some HTTP transports turn a canonical POST redirect into a GET.
+        $challenge = isset($_POST[self::FETCH_CHALLENGE_KEY]) ? $_POST[self::FETCH_CHALLENGE_KEY]
+            : (isset($_GET[self::FETCH_CHALLENGE_KEY]) ? $_GET[self::FETCH_CHALLENGE_KEY] : '');
+
+        if ( ! is_string($challenge) || ! preg_match('/^[A-Za-z0-9]{32}$/D', $challenge) ) {
+            return $encoded;
+        }
+
+        return $challenge . '.' . self::fetchListSignature($startDelimiter, $challenge, $encoded) . '.' . $encoded;
+    }
+
+    /**
+     * Read only the plugin's response to this particular server-side fetch.
+     * A page may contain several copies of the public delimiters. Use the
+     * first complete list with a valid signature for this request.
+     *
+     * @param string $html
+     * @param string $startDelimiter
+     * @param string $endDelimiter
+     * @param string $challenge
+     *
+     * @return string Verified base64 list, or an empty string when unavailable.
+     */
+    public static function extractVerifiedFetchList($html, $startDelimiter, $endDelimiter, $challenge)
+    {
+        $prefix       = $startDelimiter . $challenge . '.';
+        $prefixLength = strlen($prefix);
+        $offset       = 0;
+
+        while ( ($start = strpos($html, $prefix, $offset)) !== false ) {
+            $start += $prefixLength;
+            $end    = strpos($html, $endDelimiter, $start);
+
+            if ($end === false) {
+                break;
+            }
+
+            $candidate = substr($html, $start, $end - $start);
+            $offset    = $end + strlen($endDelimiter);
+
+            // Signed base64 cannot contain the prefix. A nested start means
+            // the preceding block was incomplete and this end belongs to the last start.
+            $nestedStart = strrpos($candidate, $prefix);
+            if ($nestedStart !== false) {
+                $candidate = substr($candidate, $nestedStart + $prefixLength);
+            }
+
+            $parts = explode('.', $candidate, 2);
+            if (count($parts) === 2 && strlen($parts[0]) === 64
+                && hash_equals(self::fetchListSignature($startDelimiter, $challenge, $parts[1]), $parts[0])) {
+                return $parts[1];
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param string $startDelimiter
+     * @param string $challenge
+     * @param string $encoded
+     *
+     * @return string
+     */
+    private static function fetchListSignature($startDelimiter, $challenge, $encoded)
+    {
+        return hash_hmac('sha256', get_current_blog_id() . '|' . $startDelimiter . '|' . $challenge . '|' . $encoded, wp_salt('nonce'));
     }
 }

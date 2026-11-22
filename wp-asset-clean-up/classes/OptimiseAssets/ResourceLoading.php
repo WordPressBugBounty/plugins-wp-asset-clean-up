@@ -123,19 +123,14 @@ REGEXP;
             }
         }
 
-        $allImgTagsFound = array();
-
-        $regEx = self::getMainRegExFetchImgTags();
-
-        if (preg_match_all('#' . $regEx . '#i', $htmlSource, $matches, PREG_OFFSET_CAPTURE)) {
-            $allImgTagsFound = $matches[0];
-        }
+        $allImgTagsFound = HtmlCleanup::getImageTagMatches($htmlSource);
 
         if (empty($allImgTagsFound)) {
             return $htmlSource;
         }
 
-        $allImgTagsFound = array_reverse($allImgTagsFound, true);
+        $output     = '';
+        $copyOffset = 0;
 
         foreach ($allImgTagsFound as $imageIndex => $imgTagData) {
             $imgTag       = isset($imgTagData[0]) ? $imgTagData[0] : '';
@@ -159,15 +154,11 @@ REGEXP;
                 continue;
             }
 
-            $htmlSource = substr_replace(
-                $htmlSource,
-                $updatedImgTag,
-                $imgTagOffset,
-                strlen($imgTag)
-            );
+            $output .= substr($htmlSource, $copyOffset, $imgTagOffset - $copyOffset) . $updatedImgTag;
+            $copyOffset = $imgTagOffset + strlen($imgTag);
         }
 
-        return $htmlSource;
+        return $copyOffset === 0 ? $htmlSource : $output . substr($htmlSource, $copyOffset);
     }
 
     /**

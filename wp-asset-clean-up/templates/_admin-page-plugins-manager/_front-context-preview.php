@@ -108,7 +108,7 @@ foreach ($plugins as $plugin) {
                 </div>
                 <div class="wpacu-save-copy">
                     <strong><?php esc_html_e('Plugin rules are available in Pro', 'wp-asset-clean-up'); ?></strong>
-                    <a href="<?php echo esc_url(ProPreview::getUpgradeUrl('frontend_plugins_by_page')); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Unlock plugin rules with Pro', 'wp-asset-clean-up'); ?></a>
+                    <a href="<?php echo esc_url(ProPreview::getUpgradeUrl('frontend_plugins_by_page')); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('Unlock plugin rules with Pro', 'wp-asset-clean-up'))); ?></a>
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Asset CleanUp: Page Speed Booster
  * Plugin URI: https://wordpress.org/plugins/wp-asset-clean-up/
- * Version: 1.4.0.8
+ * Version: 1.4.0.9
  * Requires at least: 4.7
  * Requires PHP: 5.6
  * Description: Unload Chosen Scripts & Styles from Posts/Pages to reduce HTTP Requests, Combine/Minify CSS/JS files
@@ -15,7 +15,7 @@
 // On Multisite, a network-active Lite can load before a site-active Pro and
 // must be allowed to become dormant without leaving its version behind.
 if ( ! defined('WPACU_LITE_PLUGIN_VERSION') ) {
-    define('WPACU_LITE_PLUGIN_VERSION', '1.4.0.8');
+    define('WPACU_LITE_PLUGIN_VERSION', '1.4.0.9');
 }
 
 // Exit if accessed directly
@@ -158,7 +158,7 @@ if ( ! defined('WPACU_PLUGIN_URL') ) {
 
 if ( ! defined('WPACU_EARLY_TRIGGERS_CALLED') ) {
     // [wpacu_lite]
-    add_filter('wpacu_plugin_no_load', function() {
+    add_filter('wpacu_plugin_no_load', function($noLoad) {
         // There's no point in loading the plugin on a REST API call
         // This is valid for the Lite version as the Pro version could work differently  / read more: https://www.assetcleanup.com/docs/?p=1469
 
@@ -173,7 +173,7 @@ if ( ! defined('WPACU_EARLY_TRIGGERS_CALLED') ) {
             return true;
         }
 
-        return false;
+        return $noLoad;
     });
     // [/wpacu_lite]
 

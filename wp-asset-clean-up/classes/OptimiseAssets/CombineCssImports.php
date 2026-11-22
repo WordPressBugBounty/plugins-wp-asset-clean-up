@@ -73,189 +73,56 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 		$this->importExtensions = $extensions;
 	}
 
-	/**
-	 * Move any import statements to the top.
-	 *
-	 * @param string $content Nearly finished CSS content
-	 *
-	 * @return string
-	 */
-	protected function moveImportsToTop($content)
-	{
-		if (preg_match_all('/(;?)(@import (?<url>url\()?(?P<quotes>["\']?).+?(?P=quotes)(?(url)\)));?/', $content, $matches)) {
-			// remove from content
-			foreach ($matches[0] as $import) {
-				$content = str_replace($import, '', $content);
-			}
+    /**
+     * Expand only leading, unconditional relative CSS imports. An unrecognized rule
+     * anywhere in the import tree requires the browser to load the original sheet.
+     *
+     * @param string $source
+     * @param string $content
+     * @param array $parents
+     *
+     * @return string|false
+     */
+    protected function combineImports($source, $content, $parents)
+    {
+        $offset  = 0;
+        $prefix  = '';
+        $pattern = '~\G(\s*)@import\s+(?:url\(\s*(["\']?)([a-z0-9_./-]+\.css)\2\s*\)|(["\'])([a-z0-9_./-]+\.css)\4)\s*;~i';
 
-			// add to top
-			$content = implode(';', $matches[2]).';'.trim($content, ';');
-		}
+        while (preg_match($pattern, $content, $match, 0, $offset)) {
+            $relative = isset($match[5]) ? $match[5] : $match[3];
+            if ($source === '' || $relative[0] === '/') {
+                return false;
+            }
 
-		return $content;
-	}
+            $path      = dirname($source) . '/' . $relative;
+            $canonical = realpath($path);
+            if ( ! $canonical || isset($parents[$canonical]) || count($parents) >= 16 || ! $this->canImportFile($path) ) {
+                return false;
+            }
 
-	/**
-	 * Combine CSS from import statements.
-	 *
-	 * @import's will be loaded and their content merged into the original file,
-	 * to save HTTP requests.
-	 *
-	 * @param string   $source  The file to combine imports for
-	 * @param string   $content The CSS content to combine imports for
-	 * @param string[] $parents Parent paths, for circular reference checks
-	 *
-	 * @return string
-	 *
-	 */
-	protected function combineImports($source, $content, $parents)
-	{
-		$importRegexes = array(
-			// @import url(xxx)
-			'/
-            # import statement
-            @import
+            $child = $this->load($path);
+            if (OptimizeCss::hasImportRule($child)) {
+                $child = $this->combineImports($path, $child, $parents + array($canonical => true));
+                if ($child === false) {
+                    return false;
+                }
+            }
+            // An imported file's namespace and character encoding are sheet-scoped.
+            if (stripos($child, '@namespace') !== false || stripos($child, '@charset') !== false) {
+                return false;
+            }
+            $child   = $this->importFiles($path, $child);
+            $prefix .= $match[1] . $this->move($this->getPathConverter($path, $source), $child);
+            $offset += strlen($match[0]);
+        }
 
-            # whitespace
-            \s+
-
-                # open url()
-                url\(
-
-                    # (optional) open path enclosure
-                    (?P<quotes>["\']?)
-
-                        # fetch path
-                        (?P<path>.+?)
-
-                    # (optional) close path enclosure
-                    (?P=quotes)
-
-                # close url()
-                \)
-
-                # (optional) trailing whitespace
-                \s*
-
-                # (optional) media statement(s)
-                (?P<media>[^;]*)
-
-                # (optional) trailing whitespace
-                \s*
-
-            # (optional) closing semi-colon
-            ;?
-
-            /ix',
-
-			// @import 'xxx'
-			'/
-
-            # import statement
-            @import
-
-            # whitespace
-            \s+
-
-                # open path enclosure
-                (?P<quotes>["\'])
-
-                    # fetch path
-                    (?P<path>.+?)
-
-                # close path enclosure
-                (?P=quotes)
-
-                # (optional) trailing whitespace
-                \s*
-
-                # (optional) media statement(s)
-                (?P<media>[^;]*)
-
-                # (optional) trailing whitespace
-                \s*
-
-            # (optional) closing semi-colon
-            ;?
-
-            /ix',
-		);
-
-		// find all relative imports in css
-		$matches = array();
-		foreach ($importRegexes as $importRegex) {
-			if (preg_match_all($importRegex, $content, $regexMatches, PREG_SET_ORDER)) {
-				$matches = array_merge($matches, $regexMatches);
-			}
-		}
-
-		$search = array();
-		$replace = array();
-
-		// loop the matches
-		foreach ($matches as $match) {
-			// get the path for the file that will be imported
-			$importPath = dirname($source).'/'.$match['path'];
-
-			// only replace the import with the content if we can grab the
-			// content of the file
-			if (!$this->canImportByPath($match['path']) || !$this->canImportFile($importPath)) {
-				continue;
-			}
-
-			// check if current file was not imported previously in the same
-			// import chain.
-			if (in_array($importPath, $parents)) {
-				// No need to have and endless loop (the same file imported again and again)
-				$search[] = $match[0];
-				$replace[] = '';
-				continue;
-				}
-
-			// grab referenced file & optimize it (which may include importing
-			// yet other @import statements recursively)
-			$minifier = new static($importPath);
-			$minifier->setMaxImportSize($this->maxImportSize);
-			$minifier->setImportExtensions($this->importExtensions);
-			$importContent = $minifier->execute($source, $parents);
-
-			// check if this is only valid for certain media
-			if (!empty($match['media'])) {
-				$importContent = '@media '.$match['media'].'{'.$importContent.'}';
-			}
-
-			// add to replacement array
-			$search[] = $match[0];
-			$replace[] = $importContent;
-		}
-
-		// replace the import statements
-		return str_replace($search, $replace, $content);
-	}
-
-	/**
-	 * @param $css
-	 *
-	 * @return mixed
-	 */
-	protected function alterImportsBetweenComments($css)
-	{
-		// RegEx Source: https://blog.ostermiller.org/finding-comments-in-source-code-using-regular-expressions/
-		preg_match_all('#/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/#', $css, $commentsMatches);
-
-		if ( ! empty($commentsMatches[0]) ) {
-			foreach ($commentsMatches[0] as $commentMatch) {
-				if (stripos($commentMatch, '@import') === false) {
-					continue; // the comment needs to have @import
-				}
-
-				$newComment = str_ireplace('@import', '(wpacu)(at)import', $commentMatch);
-				$css = str_replace($commentMatch, $newComment, $css);
-			}
-		}
-
-		return $css;
-	}
+        $rest = substr($content, $offset);
+        if (OptimizeCss::hasImportRule($rest) || stripos($rest, '@namespace') !== false) {
+            return false;
+        }
+        return $prefix . $rest;
+    }
 
 	/**
 	 * Import files into the CSS, base64-sized.
@@ -318,35 +185,33 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 	{
 		$content = '';
 
-		// loop CSS data (raw data and files)
-		foreach ($this->data as $source => $css) {
-			// Some developers might have wrapped @import between comments
-			// No import for those
-			$css = $this->alterImportsBetweenComments($css);
+        foreach ($this->data as $source => $css) {
+            $source   = is_int($source) ? '' : $source;
+            $content .= $this->resolveStylesheet($source, $css, $path, $parents);
+        }
+        return $content;
+    }
 
-			$source = is_int($source) ? '' : $source;
-			$parents = $source ? array_merge($parents, array($source)) : $parents;
-			$css = $this->combineImports($source, $css, $parents);
-			$css = $this->importFiles($source, $css);
+    /**
+     * Use the bytes read for this source, returning them intact on fallback.
+     *
+     * @param string $source
+     * @param string $css
+     * @param string|null $target
+     * @param array $parents
+     *
+     * @return string
+     */
+    public function resolveStylesheet($source, $css, $target = null, $parents = array())
+    {
+        $resolved = $this->combineImports($source, $css, $parents + array(realpath($source) => true));
+        if ($resolved === false) {
+            return $css;
+        }
 
-			/*
-			 * If we'll save to a new path, we'll have to fix the relative paths
-			 * to be relative no longer to the source file, but to the new path.
-			 * If we don't write to a file, fall back to same path so no
-			 * conversion happens (because we still want it to go through most
-			 * of the move code, which also addresses url() & @import syntax...)
-			 */
-			$converter = $this->getPathConverter($source, $path ?: $source);
-			$css = $this->move($converter, $css);
-
-			// combine css
-			$content .= $css;
-		}
-
-		$content = $this->moveImportsToTop($content);
-
-		return $content;
-	}
+        $resolved = $this->importFiles($source, $resolved);
+        return $this->move($this->getPathConverter($source, $target ?: $source), $resolved);
+    }
 
 	/**
 	 * Moving a css file should update all relative urls.
@@ -436,17 +301,13 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 			$type = (strncmp($match[0], '@import', 7) === 0 ? 'import' : 'url');
 
 			$url = $match['path'];
-			if ($this->canImportByPath($url)) {
-				// attempting to interpret GET-params makes no sense, so let's discard them for a while
-				$params = strrchr($url, '?');
-				$url = $params ? substr($url, 0, -strlen($params)) : $url;
+            if ( ! $this->canImportByPath($url) ) {
+                continue;
+            }
 
-				// fix relative url
-				$url = $converter->convert($url);
-
-				// now that the path has been converted, re-apply GET-params
-				$url .= $params;
-			}
+            // Convert just the path, preserving the original query and fragment.
+            $pathLength = strcspn($url, '?#');
+            $url        = $converter->convert(substr($url, 0, $pathLength)) . substr($url, $pathLength);
 
 			/*
 			 * Urls with control characters above 0x7e should be quoted.
@@ -500,7 +361,9 @@ class CombineCssImports extends \MatthiasMullieWpacu\Minify\Minify
 	 */
 	protected function canImportByPath($path)
 	{
-		return preg_match('/^(data:|https?:|\\/)/', $path) === 0;
+        $path = ltrim($path);
+        return $path !== '' && $path[0] !== '/' && $path[0] !== '#' &&
+            ! preg_match('~^[a-z][a-z0-9+.-]*:~i', $path);
 	}
 
 	/**

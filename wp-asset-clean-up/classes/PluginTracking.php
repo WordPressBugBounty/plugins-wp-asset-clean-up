@@ -349,6 +349,10 @@ class PluginTracking
 	 */
 	public function showTrackingNotice()
 	{
+		if (apply_filters('wpacu_internal_hide_communication_notices', false)) {
+			return false;
+		}
+
 	    // On URL request (for debugging)
 		if ( isset($_GET['wpacu_show_tracking_notice']) ) {
 			return true;

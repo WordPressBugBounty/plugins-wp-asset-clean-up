@@ -40,63 +40,85 @@ class CleanUp
 		// Remove "Really Simple Discovery (RSD)" link?
 		if ($settings['remove_rsd_link'] == 1 || $settings['disable_xmlrpc'] === 'disable_all') {
 			// <link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://yourwebsite.com/xmlrpc.php?rsd" />
-			remove_action('wp_head', 'rsd_link');
-		}
-
-		// Remove "REST API" link?
-		if ($settings['remove_rest_api_link'] == 1) {
-			// <link rel='https://api.w.org/' href='https://yourwebsite.com/wp-json/' />
-			remove_action('wp_head', 'rest_output_link_wp_head');
-
-			// Removes the following printed within "Response headers":
-			// <https://yourwebsite.com/wp-json/>; rel="https://api.w.org/"
-			remove_action( 'template_redirect', 'rest_output_link_header', 11 );
-		}
-
-		// Remove "Shortlink"?
-		if ($settings['remove_shortlink'] == 1) {
-			// <link rel='shortlink' href="https://yourdomain.com/?p=1">
-			remove_action('wp_head', 'wp_shortlink_wp_head');
-
-			// link: <https://yourdomainname.com/wp-json/>; rel="https://api.w.org/", <https://yourdomainname.com/?p=[post_id_here]>; rel=shortlink
-			remove_action('template_redirect', 'wp_shortlink_header', 11);
-		}
-
-		// Remove "WordPress version" tag?
-		if ($settings['remove_wp_version'] || $settings['remove_generator_tag']) {
-			// <meta name="generator" content="WordPress 4.9.8" />
-			remove_action('wp_head', 'wp_generator');
-
-			// also hide it from RSS
-			add_filter('the_generator', '__return_false');
-		}
-
-        // Remove all generator tags?
-        // Another function will trigger later that will scan the HTML source, but it's slower
-        // and if, for instance, the meta "generator" will be removed here, then this will process faster
-        // and save some resources (the HTML source is not scanned anymore)
-        if ($settings['remove_generator_tag']) {
-            // WPML Multilingual CMS
-            if (defined('ICL_SITEPRESS_VERSION')) {
-                global $sitepress;
-
-                if ( ! empty($sitepress) && method_exists($sitepress, 'meta_generator_tag')) {
-                    remove_action('wp_head', array($sitepress, 'meta_generator_tag'));
+            add_action('wpacu_internal_frontend_page_resolved', static function () {
+                if ( ! Main::instance()->preventAssetsSettings() ) {
+                    remove_action('wp_head', 'rsd_link');
                 }
-            }
+            });
+		}
 
-            // Give - Donation Plugin
-            remove_action( 'wp_head', 'give_version_in_header' );
+        $removeRestLink = $settings['remove_rest_api_link'] == 1;
+        $removeShortlink = $settings['remove_shortlink'] == 1;
+        $removeWordPressGenerator = $settings['remove_wp_version'] || $settings['remove_generator_tag'];
+
+        if ($removeRestLink || $removeShortlink || $removeWordPressGenerator || $settings['remove_main_feed_link']) {
+            add_action('wpacu_internal_frontend_page_resolved', static function () use ($settings, $removeRestLink, $removeShortlink, $removeWordPressGenerator) {
+                if (Main::instance()->preventAssetsSettings()) {
+                    return;
+                }
+
+                if ($removeRestLink) {
+                    remove_action('wp_head', 'rest_output_link_wp_head');
+                }
+
+                if ($removeShortlink) {
+                    remove_action('wp_head', 'wp_shortlink_wp_head');
+                }
+
+                if ($removeWordPressGenerator) {
+                    remove_action('wp_head', 'wp_generator');
+                }
+
+                if ($settings['remove_generator_tag']) {
+                    // Skip the HTML source scan when the known generators can be removed at the hook.
+                    if (defined('ICL_SITEPRESS_VERSION')) {
+                        global $sitepress;
+
+                        if ( ! empty($sitepress) && method_exists($sitepress, 'meta_generator_tag')) {
+                            remove_action('wp_head', array($sitepress, 'meta_generator_tag'));
+                        }
+                    }
+
+                    remove_action('wp_head', 'give_version_in_header');
+                }
+
+                if ($settings['remove_main_feed_link']) {
+                    add_filter('feed_links_show_posts_feed', '__return_false');
+                    remove_action('wp_head', 'feed_links_extra', 3);
+                }
+            });
+        }
+
+        if ($removeRestLink || $removeShortlink) {
+            // The query is available here, before WordPress sends its Link headers at priority 11.
+            add_action('template_redirect', static function () use ($removeRestLink, $removeShortlink) {
+                if (self::shouldSkipDocumentCleanup()) {
+                    return;
+                }
+
+                if ($removeRestLink) {
+                    remove_action('template_redirect', 'rest_output_link_header', 11);
+                }
+
+                if ($removeShortlink) {
+                    remove_action('template_redirect', 'wp_shortlink_header', 11);
+                }
+            }, 10);
+        }
+
+        if ($removeWordPressGenerator) {
+            add_filter('the_generator', static function ($generator, $type = '') {
+                // The same filter also handles RSS and other non-HTML generator formats.
+                if (($type === 'html' || $type === 'xhtml' || doing_action('wp_head')) && self::shouldSkipDocumentCleanup()) {
+                    return $generator;
+                }
+
+                return false;
+            }, 10, 2);
         }
 
 		if ($settings['disable_rss_feed']) {
 			$this->doDisableRssFeed();
-		}
-
-		// Remove Main RSS Feed Link?
-		if ($settings['remove_main_feed_link']) {
-			add_filter('feed_links_show_posts_feed', '__return_false');
-			remove_action('wp_head', 'feed_links_extra', 3);
 		}
 
 		// Remove Comment RSS Feed Link?
@@ -133,6 +155,25 @@ class CleanUp
          * [END] DEPRECATED
          */
 	}
+
+    private static function shouldSkipDocumentCleanup()
+    {
+        if (Main::instance()->preventAssetsSettings()) {
+            return true;
+        }
+
+        // Elementor maintenance mode can delay WPACU's page resolution until template_redirect:12.
+        // The earlier core Link headers still refer to the original WordPress query.
+        if ( ! defined('WPACU_CURRENT_PAGE_ID') && did_action('wp') && MainFront::isSingularPage()) {
+            $postId = get_queried_object_id();
+            if ($postId > 0) {
+                $pageOptions = MetaBoxes::getPageOptions($postId);
+                return ! empty($pageOptions['no_assets_settings']);
+            }
+        }
+
+        return false;
+    }
 
 	/**
 	 * Called in OptimiseAssets/OptimizeCommon.php
@@ -470,9 +511,14 @@ class CleanUp
 	{
 		// Emojis Actions and Filters
 		remove_action('admin_print_styles', 'print_emoji_styles');
-		remove_action('wp_head', 'print_emoji_detection_script', 7);
 		remove_action('admin_print_scripts', 'print_emoji_detection_script');
-		remove_action('wp_print_styles', 'print_emoji_styles');
+        add_action('wpacu_internal_frontend_page_resolved', static function () {
+            if ( Main::instance()->preventAssetsSettings() ) {
+                return;
+            }
+            remove_action('wp_head', 'print_emoji_detection_script', 7);
+            remove_action('wp_print_styles', 'print_emoji_styles');
+        });
 
 		remove_filter('wp_mail', 'wp_staticize_emoji_for_email');
 		remove_filter('the_content_feed', 'wp_staticize_emoji');
@@ -481,7 +527,9 @@ class CleanUp
 		// TinyMCE Emojis
 		add_filter('tiny_mce_plugins', array($this, 'removeEmojisTinymce'));
 
-		add_filter('emoji_svg_url', '__return_false');
+        add_filter('emoji_svg_url', static function ($url) {
+            return Main::instance()->preventAssetsSettings() ? $url : false;
+        });
 	}
 
 	/**

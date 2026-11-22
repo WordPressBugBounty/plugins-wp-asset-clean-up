@@ -1050,6 +1050,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     const ignoredParams = [
                         wpacu_object.plugin_prefix + '_load',
                         'wpacu_time_r',
+                        'wpacu_asset_list_challenge',
                         'wpacu_manage_dash',
                         'force_manage_dash'
                     ];
@@ -1111,6 +1112,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         [
                             wpacu_object.plugin_prefix + '_load',
                             'wpacu_time_r',
+                            'wpacu_asset_list_challenge',
                             'wpacu_manage_dash',
                             'force_manage_dash'
                         ].forEach(function (paramName) {
@@ -1203,54 +1205,45 @@ document.addEventListener("DOMContentLoaded", function () {
                     $('#wpacu-assets-reloading-in-edit-post-area').remove();
                 },
 
-                wpacuParseContentsForDirectCall: function (contents, statusCode, finalUrl, requestedFetchUrl) {
+                wpacuDirectFetchBlocks: function (contents, start, end, challenge) {
+                    if (typeof contents !== 'string' || !/^[a-f0-9]{32}$/.test(challenge)) {
+                        return '';
+                    }
+
+                    // Send only framed candidates for this scan. PHP verifies their signatures.
+                    const prefix = start + challenge + '.';
+                    return contents.split(prefix).slice(1).map(function (part) {
+                        const endIndex = part.indexOf(end);
+                        const frame = endIndex < 0 ? '' : part.slice(0, endIndex);
+                        return /^[a-f0-9]{64}\.[A-Za-z0-9+/]+={0,2}$/.test(frame) ? prefix + frame + end : '';
+                    }).join('');
+                },
+
+                wpacuShowDirectVerificationError: function () {
+                    $(metaBoxContent).text(wpacu_object.direct_verification_error);
+                    $('.wpacu_asset_row, .wpacu-page-options .wpacu-assets-collapsible-content').removeClass('wpacu_loading');
+                    $('#wpacu-assets-reloading-in-edit-post-area').remove();
+                },
+
+                wpacuParseContentsForDirectCall: function (contents, statusCode, finalUrl, requestedFetchUrl, challenge) {
                     requestedFetchUrl = requestedFetchUrl || wpacu_object.page_url;
 
                     if (finalUrl && $.fn.wpAssetCleanUp().wpacuUrlsPointToDifferentLocations(requestedFetchUrl, finalUrl)) {
                         $.fn.wpAssetCleanUp().wpacuShowRedirectedFetchNotice(requestedFetchUrl, finalUrl);
                         return;
                     }
-                    if (contents.lastIndexOf(wpacu_object.start_del_e) < 0
-                        || contents.lastIndexOf(wpacu_object.end_del_e) < 0
-                        || contents.lastIndexOf(wpacu_object.start_del_h) < 0
-                        || contents.lastIndexOf(wpacu_object.end_del_h) < 0
-                    ) {
-                        // Sometimes, 200 OK (success) is returned, but due to an issue with the page, the assets list is not retrieved
-                        // Do further checks if any of the markers are missing (even if there are no assets to manage, they should be printed)
-                        let wpacuOutputError = wpacu_object.ajax_direct_fetch_error_with_success_response;
 
-                        // Strip tags (Source: https://css-tricks.com/snippets/javascript/strip-html-tags-in-javascript/)
-                        wpacuOutputError = wpacuOutputError.replace(
-                            /{wpacu_output}/,
-                            contents.replace(/(<([^>]+)>)/ig, '')
-                        );
-
-                        // htmlEntities() PHP equivalent: https://css-tricks.com/snippets/javascript/htmlentities-for-javascript/
-                        try {
-                            wpacuOutputError = String(wpacuOutputError).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                        } catch (e) {
-                            console.log(e);
-                        }
-
-                        $(metaBoxContent).html(wpacuOutputError);
+                    const manager = $.fn.wpAssetCleanUp();
+                    const wpacuListE = manager.wpacuDirectFetchBlocks(contents, wpacu_object.start_del_e, wpacu_object.end_del_e, challenge);
+                    const wpacuListH = manager.wpacuDirectFetchBlocks(contents, wpacu_object.start_del_h, wpacu_object.end_del_h, challenge);
+                    if (!wpacuListE || !wpacuListH) {
+                        manager.wpacuShowDirectVerificationError();
                         return;
                     }
 
-                    let wpacuListE = contents.substring(
-                        (contents.lastIndexOf(wpacu_object.start_del_e) + wpacu_object.start_del_e.length),
-                        contents.lastIndexOf(wpacu_object.end_del_e)
-                    );
-
-                    /*
-                     * IMPORTANT NOTE: It looks like UglifyJS jas issues preserving comments that are after consecutive "var"
-                     */
-                    let wpacuListH = contents.substring(
-                        (contents.lastIndexOf(wpacu_object.start_del_h) + wpacu_object.start_del_h.length),
-                        contents.lastIndexOf(wpacu_object.end_del_h)
-                    );
-
                     let dataGetLoadedAssets = {
                         'action'            : wpacu_object.plugin_prefix + '_get_loaded_assets',
+                        'wpacu_asset_list_challenge': challenge,
                         'wpacu_list_e'      : wpacuListE,
                         'wpacu_list_h'      : wpacuListH,
                         'page_url'          : wpacu_object.page_url,
@@ -1311,6 +1304,54 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
                 },
 
+                wpacuRequestDirectAssetList: function (requestedFetchUrl, challenge) {
+                    const dataDirect = { wpacu_asset_list_challenge: challenge };
+                    dataDirect[wpacu_object.plugin_prefix + '_load'] = 1;
+                    dataDirect['wpacu_time_r'] = new Date().getTime();
+
+                    $.ajax({
+                        method: 'GET',
+                        url: requestedFetchUrl,
+                        data: dataDirect,
+                        xhrFields: { withCredentials: true }, // Ensures authentication cookies are sent
+                        cache: false,
+                        complete: function (xhr, textStatus) {
+                            if (xhr.statusText === 'error') {
+                                // Make exception for 404 errors as there could be plugin used such as "404page – your smart custom 404 error page"
+                                if (xhr.status === 404) {
+                                    $.fn.wpAssetCleanUp().wpacuParseContentsForDirectCall(xhr.responseText, xhr.status, xhr.responseURL, requestedFetchUrl, challenge);
+                                    return;
+                                }
+
+                                // Strip any tags (Source: https://css-tricks.com/snippets/javascript/strip-html-tags-in-javascript/)
+                                let errorTextOutput = xhr.responseText.replace(/(<([^>]+)>)/ig, '');
+
+                                // htmlEntities() PHP equivalent: https://css-tricks.com/snippets/javascript/htmlentities-for-javascript/
+                                try {
+                                    errorTextOutput = String(errorTextOutput).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                                } catch (e) {
+                                    console.log(e);
+                                }
+
+                                let wpacuOutputError = wpacu_object.ajax_direct_fetch_error;
+                                wpacuOutputError = wpacuOutputError.replace(/{wpacu_output}/, errorTextOutput);
+                                wpacuOutputError = wpacuOutputError.replace(/{wpacu_status_code_error}/, xhr.status);
+
+                                $(metaBoxContent).html(wpacuOutputError);
+                            }
+                        }
+                    }).done(function (contents, _textStatus, jqXHR) {
+                        // "Step 1" (Fetch the assets from the home page) is now completed
+                        $('#wpacu-fetch-list-step-1-wrap').addClass('wpacu-completed');
+                        $('#wpacu-fetch-list-step-1-status').html($('#wpacu-list-step-completed-status').html());
+
+                        // "Step 2" is in progress, mark it as such
+                        $('#wpacu-fetch-list-step-2-status').html($('#wpacu-list-step-default-status').html());
+
+                        $.fn.wpAssetCleanUp().wpacuParseContentsForDirectCall(contents, jqXHR.status, jqXHR.responseURL, requestedFetchUrl, challenge);
+                    });
+                },
+
                 wpacuAjaxGetAssetsArea: function (forceFetch, requestedFetchUrl) {
                     // A confirmed redirect changes only the URL used to collect assets.
                     // The selected post/archive context is still sent separately with the AJAX request.
@@ -1348,56 +1389,37 @@ document.addEventListener("DOMContentLoaded", function () {
                         return;
                     }
 
-                    let dataDirect = {};
+                    const manager = $.fn.wpAssetCleanUp();
+                    function startDirectFetch(result) {
+                        if (!result || result.success !== true || typeof result.data !== 'string' || !/^[a-f0-9]{32}$/.test(result.data)) {
+                            manager.wpacuShowDirectVerificationError();
+                            return;
+                        }
+                        manager.wpacuRequestDirectAssetList(requestedFetchUrl, result.data);
+                    }
 
                     if (wpacu_object.dom_get_type === 'direct') {
-                        dataDirect[wpacu_object.plugin_prefix + '_load']   = 1;
-                        dataDirect['wpacu_time_r'] = new Date().getTime();
-
-                        $.ajax({
-                            method: 'GET',
-                            url: requestedFetchUrl,
-                            data: dataDirect,
-                            xhrFields: { withCredentials: true }, // Ensures authentication cookies are sent
-                            cache: false,
-                            complete: function (xhr, textStatus) {
-                                if (xhr.statusText === 'error') {
-                                    // Make exception for 404 errors as there could be plugin used such as "404page – your smart custom 404 error page"
-                                    if (xhr.status === 404) {
-                                        $.fn.wpAssetCleanUp().wpacuParseContentsForDirectCall(xhr.responseText, xhr.status, xhr.responseURL, requestedFetchUrl);
-                                        return;
-                                    }
-
-                                    // Strip any tags (Source: https://css-tricks.com/snippets/javascript/strip-html-tags-in-javascript/)
-                                    let errorTextOutput = xhr.responseText.replace(/(<([^>]+)>)/ig, '');
-
-                                    // htmlEntities() PHP equivalent: https://css-tricks.com/snippets/javascript/htmlentities-for-javascript/
-                                    try {
-                                        errorTextOutput = String(errorTextOutput).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                                    } catch (e) {
-                                        console.log(e);
-                                    }
-
-                                    let wpacuOutputError = wpacu_object.ajax_direct_fetch_error;
-                                    wpacuOutputError = wpacuOutputError.replace(/{wpacu_output}/, errorTextOutput);
-                                    wpacuOutputError = wpacuOutputError.replace(/{wpacu_status_code_error}/, xhr.status);
-
-                                    $(metaBoxContent).html(wpacuOutputError);
-                                }
-                            }
-                        }).done(function (contents, _textStatus, jqXHR) {
-                            // "Step 1" (Fetch the assets from the home page) is now completed
-                            $('#wpacu-fetch-list-step-1-wrap').addClass('wpacu-completed');
-                            $('#wpacu-fetch-list-step-1-status').html($('#wpacu-list-step-completed-status').html());
-
-                            // "Step 2" is in progress, mark it as such
-                            $('#wpacu-fetch-list-step-2-status').html($('#wpacu-list-step-default-status').html());
-
-                            $.fn.wpAssetCleanUp().wpacuParseContentsForDirectCall(contents, jqXHR.status, jqXHR.responseURL, requestedFetchUrl);
+                        const prepare = manager.addExtraRequiredParamsToGetLoadedAssets({
+                            action: wpacu_object.plugin_prefix + '_get_loaded_assets',
+                            wpacu_prepare_direct: 'direct',
+                            page_url: wpacu_object.page_url,
+                            redirected_to_url: requestedFetchUrl !== wpacu_object.page_url ? requestedFetchUrl : '',
+                            force_manage_dash: wpacu_object.force_manage_dash,
+                            wpacu_nonce: wpacu_object.wpacu_ajax_get_loaded_assets_nonce
                         });
+                        $.post(wpacu_object.ajax_url, prepare, function (result) {
+                            if (result && result.success === true && result.data === 'wp_remote_post') {
+                                wpacu_object.dom_get_type = 'wp_remote_post';
+                                manager.wpacuAjaxGetAssetsArea(true, requestedFetchUrl);
+                                return;
+                            }
+                            startDirectFetch(result);
+                        }, 'json').fail(manager.wpacuShowDirectVerificationError);
                     } else if (wpacu_object.dom_get_type === 'wp_remote_post') {
                         let dataGetLoadedAssets = {
                             'action':             wpacu_object.plugin_prefix + '_get_loaded_assets',
+                            // A post can become private while the editor stays open.
+                            'wpacu_prepare_direct': 'wp_remote_post',
                             'page_url':           wpacu_object.page_url,
                             'redirected_to_url':  requestedFetchUrl !== wpacu_object.page_url ? requestedFetchUrl : '',
                             'force_manage_dash':  wpacu_object.force_manage_dash,
@@ -1408,6 +1430,10 @@ document.addEventListener("DOMContentLoaded", function () {
                         dataGetLoadedAssets = $.fn.wpAssetCleanUp().addExtraRequiredParamsToGetLoadedAssets(dataGetLoadedAssets);
 
                         $.post(wpacu_object.ajax_url, dataGetLoadedAssets, function (response) {
+                            if (typeof response !== 'string') {
+                                startDirectFetch(response);
+                                return;
+                            }
                             if (!response) {
                                 return false;
                             }
@@ -1465,22 +1491,24 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 },
 
-                wpacuParseResultsForHarcodedAssets: function (contents) {
-                    if (contents.lastIndexOf(wpacu_object.start_del_h) < 0 || contents.lastIndexOf(wpacu_object.end_del_h) < 0) {
-                        // error in fetching the list
+                wpacuParseResultsForHarcodedAssets: function (contents, challenge) {
+                    const $wrap = $('#wpacu-assets-collapsible-wrap-hardcoded-list');
+                    const showError = function () {
+                        // Keep the hidden inputs that preserve existing rules if the fetch fails.
+                        $wrap.find('> .wpacu-assets-collapsible-content > div').first().text(wpacu_object.direct_verification_error);
+                    };
+                    const wpacuListH = $.fn.wpAssetCleanUp().wpacuDirectFetchBlocks(contents, wpacu_object.start_del_h, wpacu_object.end_del_h, challenge);
+                    if (!wpacuListH) {
+                        showError();
+                        return;
                     }
-
-                    // IMPORTANT NOTE: It looks like UglifyJS has issues preserving comments that are after consecutive "var"
-                    let wpacuListH = contents.substring(
-                        (contents.lastIndexOf(wpacu_object.start_del_h) + wpacu_object.start_del_h.length),
-                        contents.lastIndexOf(wpacu_object.end_del_h)
-                    );
 
                     let wpacuSettings = $('#wpacu-assets-collapsible-wrap-hardcoded-list').attr('data-wpacu-settings-frontend');
 
                     let dataGetLoadedHardcodedAssets = {
                         'action'          : wpacu_object.plugin_prefix + '_print_loaded_hardcoded_assets',
                         'wpacu_list_h'    : wpacuListH,
+                        'wpacu_asset_list_challenge': challenge,
                         'wpacu_settings'  : wpacuSettings, // includes $data values as well (with rules) to pass to the hardcoded list
                         'wpacu_time_r'    : new Date().getTime(),
                         'wpacu_nonce'     : wpacu_object.wpacu_print_loaded_hardcoded_assets_nonce
@@ -1495,16 +1523,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     $.post(wpacu_object.ajax_url, dataGetLoadedHardcodedAssets, function (response) {
                         let $mainJQuerySelector = '#wpacu-assets-collapsible-wrap-hardcoded-list';
 
-                        if ( ! response ) {
+                        let responseJson;
+                        try {
+                            responseJson = typeof response === 'string' ? JSON.parse(response) : response;
+                        } catch (e) {
+                            showError();
                             return;
                         }
 
-                        if (response.includes('The security nonce is not valid')) {
-                            $($mainJQuerySelector).find('> .wpacu-assets-collapsible-content').html(response);
+                        if (!responseJson || typeof responseJson.output !== 'string') {
+                            showError();
                             return;
                         }
-
-                        let responseJson = JSON.parse(response);
 
                         $('[data-wpacu-external-srcs-ref]').attr('data-wpacu-external-srcs-ref', responseJson.external_srcs_ref);
 
@@ -1513,7 +1543,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         $($mainJQuerySelector).find('> .wpacu-assets-collapsible-content').html(responseJson.output);
                         $($mainJQuerySelector).find('a.wpacu-assets-collapsible').append(responseJson.after_hardcoded_title);
 
-                    });
+                    }).fail(showError);
                 },
 
                 wpacuCheckSourcesFor404Errors: function () {
@@ -2861,7 +2891,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     // The code below is for the pages loaded in the front-end view
                     // Fetch hardcoded assets
                     if ($('#wpacu-assets-collapsible-wrap-hardcoded-list').length > 0) {
-                        let dataFetchHardcodedList = {};
+                        const challenge = $('#wpacu-assets-collapsible-wrap-hardcoded-list').attr('data-wpacu-direct-challenge');
+                        let dataFetchHardcodedList = { wpacu_asset_list_challenge: challenge };
                         dataFetchHardcodedList[wpacu_object.plugin_prefix + '_load']   = 1;
                         dataFetchHardcodedList['wpacu_time_r'] = new Date().getTime();
                         dataFetchHardcodedList['wpacu_just_hardcoded']                 = 1;
@@ -2877,11 +2908,11 @@ document.addEventListener("DOMContentLoaded", function () {
                             cache: false,
                             complete: function (xhr, textStatus) {
                                 if (xhr.statusText === 'error') {
-                                    $.fn.wpAssetCleanUp().wpacuParseResultsForHarcodedAssets(xhr.responseText);
+                                    $.fn.wpAssetCleanUp().wpacuParseResultsForHarcodedAssets(xhr.responseText, challenge);
                                     }
                             }
                         }).done(function (contents) {
-                            $.fn.wpAssetCleanUp().wpacuParseResultsForHarcodedAssets(contents);
+                            $.fn.wpAssetCleanUp().wpacuParseResultsForHarcodedAssets(contents, challenge);
                         });
                     }
                 }

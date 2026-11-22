@@ -2,6 +2,7 @@
 namespace WpAssetCleanUpLite;
 
 use WpAssetCleanUp\Menu;
+use WpAssetCleanUpLite\Admin\UpgradeNotices;
 
 class MenuLite
 {
@@ -67,7 +68,25 @@ class MenuLite
     {
         unset($topAreaLinks['admin.php?page=' . WPACU_PLUGIN_ID . '_license']);
 
+        $upgradeLink = 'admin.php?page=' . WPACU_PLUGIN_ID . '_go_pro';
+        if (isset($topAreaLinks[$upgradeLink])) {
+            list($label, $icon) = self::getUpgradeMenuDetails($topAreaLinks[$upgradeLink]['title']);
+            $topAreaLinks[$upgradeLink]['title'] = $label;
+            $topAreaLinks[$upgradeLink]['icon'] = '<span class="dashicons ' . $icon . '"></span>';
+        }
+
         return $topAreaLinks;
+    }
+
+    private static function getUpgradeMenuDetails($defaultLabel)
+    {
+        $discount = UpgradeNotices::getUpgradeDiscount();
+        if ($discount > 0) {
+            /* translators: %d is the current discount percentage. */
+            return array(sprintf(__('Go Pro · Save %d%%', 'wp-asset-clean-up'), $discount), 'dashicons-tag');
+        }
+
+        return array($defaultLabel, 'dashicons-star-filled');
     }
 
     /**
@@ -92,10 +111,12 @@ class MenuLite
      */
     public static function addGoProSubmenuPage($parentSlug)
     {
+        list($menuLabel, $icon) = self::getUpgradeMenuDetails(__('Upgrade to Pro', 'wp-asset-clean-up'));
+
         add_submenu_page(
             $parentSlug,
             __('Go Pro', 'wp-asset-clean-up'),
-            __('Go Pro', 'wp-asset-clean-up') . ' <span style="font-size: 16px; color: inherit;" class="dashicons dashicons-star-filled"></span>',
+            esc_html($menuLabel) . ' <span aria-hidden="true" style="font-size: 16px; color: inherit;" class="dashicons ' . $icon . '"></span>',
             Menu::getAccessCapability(),
             WPACU_PLUGIN_ID . '_go_pro',
             function() {}

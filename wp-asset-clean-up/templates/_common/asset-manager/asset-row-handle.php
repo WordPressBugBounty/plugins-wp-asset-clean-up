@@ -53,8 +53,8 @@ if ( ! isset($data, $assetType, $assetTypeS, $assetTypeAbbr, $isCoreFile, $hideC
         // Any conditions set such as "IE" or "lt IE 8"?
         $dataRowExtra = (array)$data['row']['obj']->extra;
         // Notify the user the assets load only on Internet Explorer
-        if ( isset( $dataRowExtra['conditional'] ) && $dataRowExtra['conditional'] && strpos( $dataRowExtra['conditional'], 'IE' ) !== false ) {
-            echo '&nbsp;&nbsp;<span><img style="vertical-align: middle;" width="25" height="25" src="'.WPACU_PLUGIN_URL.'/assets/icons/icon-ie.svg" alt="" title="Microsoft / Public domain" />&nbsp;<span style="font-weight: 400; color: #1C87CF;">Loads only in Internet Explorer based on the following condition:</span> <em> if '.$dataRowExtra['conditional'].'</em></span>';
+        if (isset($dataRowExtra['conditional']) && is_string($dataRowExtra['conditional']) && strpos($dataRowExtra['conditional'], 'IE') !== false) {
+            echo '&nbsp;&nbsp;<span><img style="vertical-align: middle;" width="25" height="25" src="'.WPACU_PLUGIN_URL.'/assets/icons/icon-ie.svg" alt="" title="Microsoft / Public domain" />&nbsp;<span style="font-weight: 400; color: #1C87CF;">Loads only in Internet Explorer based on the following condition:</span> <em> if ' . esc_html($dataRowExtra['conditional']) . '</em></span>';
         }
 
         require WPACU_PLUGIN_DIR . '/templates/_common/asset-manager/asset-row-location-status.php';
@@ -96,7 +96,6 @@ if (! empty($childHandles) && $showDependencyNotice) {
             $childHandlesOutput = '';
 
             foreach ($childHandles as $childHandle) {
-                $childHandleText = $childHandle;
                 $title = '';
                 $color = 'green';
 
@@ -104,13 +103,13 @@ if (! empty($childHandles) && $showDependencyNotice) {
                     $color = '#cc0000';
 
                     if ($assetType === 'styles') {
-                        $title = esc_html__('This CSS handle is already unloaded.', 'wp-asset-clean-up');
+                        $title = esc_attr__('This CSS handle is already unloaded.', 'wp-asset-clean-up');
                     } else {
-                        $title = esc_html__('This JS handle is already unloaded.', 'wp-asset-clean-up');
+                        $title = esc_attr__('This JS handle is already unloaded.', 'wp-asset-clean-up');
                     }
                 }
 
-                $childHandlesOutput .= '<a title="'.$title.'" style="color:'.$color.';font-weight:300;" href="#wpacu_'.$assetTypeS.'_row_'.$childHandle.'">'.$childHandle.'</a>, ';
+                $childHandlesOutput .= '<a title="' . $title . '" style="color:' . $color . ';font-weight:300;" href="#wpacu_' . $assetTypeS . '_row_' . esc_attr($childHandle) . '">' . esc_html($childHandle) . '</a>, ';
             }
 
             echo trim($childHandlesOutput, ', ');

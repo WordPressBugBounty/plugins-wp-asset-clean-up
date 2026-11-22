@@ -31,7 +31,7 @@ if ($isLoadRegExEnabledWithValue) {
     </label>
     <?php if (! $wpacuLoadRegexIsPro) { ?>
         <a class="go-pro-link-no-style wpacu-locked-checkbox-overlay" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=manage_asset&utm_medium=load_via_regex_make_exception')); ?>">
-            <span style="left: -26px;" class="wpacu-tooltip wpacu-larger"><?php esc_html_e('This advanced rule is available in Asset CleanUp Pro. Upgrade to apply it to matching pages or requests.', 'wp-asset-clean-up'); ?></span>
+            <span style="left: -26px;" class="wpacu-tooltip wpacu-larger"><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('This advanced rule is available in Asset CleanUp Pro. Upgrade to apply it to matching pages or requests.', 'wp-asset-clean-up'))); ?></span>
             <img width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" valign="top" alt="" />
         </a>
     <?php } ?>

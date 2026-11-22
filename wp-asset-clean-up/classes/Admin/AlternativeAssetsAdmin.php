@@ -753,61 +753,34 @@ class AlternativeAssetsAdmin
      */
     private function fetchAssetsFromUrl($pageUrl)
     {
-        $currentUrl   = $pageUrl;
-        $responseBody = '';
-
-        for ($redirectCount = 0; $redirectCount <= 3; $redirectCount++) {
-            if ( ! MainAdmin::isAllowedAjaxFetchUrl($currentUrl) ) {
-                return new \WP_Error('wpacu_alt_assets_url_not_allowed', __('The requested or redirected page URL is not allowed.', 'wp-asset-clean-up'));
-            }
-
-            $response = wp_safe_remote_post($currentUrl, array(
-                'body'        => array(WPACU_LOAD_ASSETS_REQ_KEY => 1),
-                'redirection' => 0,
-                'timeout'     => 25
-            ));
-
-            if (is_wp_error($response)) {
-                return $response;
-            }
-
-            $statusCode = (int)wp_remote_retrieve_response_code($response);
-            $location   = wp_remote_retrieve_header($response, 'location');
-
-            if ($statusCode >= 300 && $statusCode < 400 && is_string($location) && $location !== '') {
-                $redirectUrl = \WP_Http::make_absolute_url($location, $currentUrl);
-
-                if ($redirectUrl === '' || ! MainAdmin::isAllowedAjaxFetchUrl($redirectUrl)) {
-                    return new \WP_Error('wpacu_alt_assets_redirect_not_allowed', __('The page redirected to a URL that cannot be fetched safely.', 'wp-asset-clean-up'));
-                }
-
-                $currentUrl = $redirectUrl;
-                continue;
-            }
-
-            if ($statusCode < 200 || $statusCode >= 300) {
-                return new \WP_Error(
-                    'wpacu_alt_assets_http_error',
-                    sprintf(__('The page returned HTTP status %d.', 'wp-asset-clean-up'), $statusCode)
-                );
-            }
-
-            $responseBody = (string)wp_remote_retrieve_body($response);
-            break;
+        $challenge = Main::newFetchChallenge();
+        $response  = MainAdmin::requestAssetList($pageUrl, $challenge, false, $currentUrl);
+        if (is_wp_error($response)) {
+            return $response;
         }
 
+        $statusCode = (int)wp_remote_retrieve_response_code($response);
+        if ($statusCode < 200 || $statusCode >= 300) {
+            return new \WP_Error(
+                'wpacu_alt_assets_http_error',
+                sprintf(__('The page returned HTTP status %d.', 'wp-asset-clean-up'), $statusCode)
+            );
+        }
+
+        $responseBody = (string)wp_remote_retrieve_body($response);
         if ($responseBody === '') {
             return new \WP_Error('wpacu_alt_assets_empty_response', __('The fetched page returned an empty response.', 'wp-asset-clean-up'));
         }
 
-        if (strpos($responseBody, Main::START_DEL_ENQUEUED) === false || strpos($responseBody, Main::END_DEL_ENQUEUED) === false) {
+        $encoded = Main::extractVerifiedFetchList($responseBody, Main::START_DEL_ENQUEUED, Main::END_DEL_ENQUEUED, $challenge);
+
+        if ($encoded === '') {
             return new \WP_Error(
                 'wpacu_alt_assets_payload_missing',
-                __('Asset CleanUp could not find the encoded CSS/JS asset list in the fetched page.', 'wp-asset-clean-up')
+                __('Asset CleanUp could not verify the CSS/JS asset list in the fetched page.', 'wp-asset-clean-up')
             );
         }
 
-        $encoded = Misc::extractBetween($responseBody, Main::START_DEL_ENQUEUED, Main::END_DEL_ENQUEUED);
         $decoded = base64_decode($encoded, true);
         $all     = $decoded !== false ? json_decode($decoded) : null;
 

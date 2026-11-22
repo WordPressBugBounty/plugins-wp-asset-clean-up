@@ -2,6 +2,8 @@
 namespace WpAssetCleanUpLite\Admin;
 
 use WpAssetCleanUp\Main;
+use WpAssetCleanUp\Admin\PluginAnnouncements;
+use WpAssetCleanUp\Admin\SettingsAdmin;
 
 /**
  * The code is triggered only in Asset CleanUp Lite
@@ -11,6 +13,128 @@ use WpAssetCleanUp\Main;
  */
 class UpgradeNotices
 {
+    /**
+     * Read Lite's bundled export on the site Dashboard, Plugins list and Asset CleanUp screens.
+     *
+     * @param array      $announcements
+     * @param \WP_Screen $screen
+     *
+     * @return array
+     */
+    public static function bundledAnnouncements($announcements, $screen)
+    {
+        if (PluginAnnouncements::getScreenLocation($screen) === '') {
+            return $announcements;
+        }
+
+        if (SettingsAdmin::getStoredAnnouncementPreference() !== 'undecided') {
+            return $announcements;
+        }
+
+        return array_merge($announcements, self::readBundledAnnouncements());
+    }
+
+    /**
+     * Return the current public upgrade discount for the Lite sidebar link.
+     *
+     * @return int Percentage, or zero when no bundled offer applies.
+     */
+    public static function getBundledMenuDiscount()
+    {
+        $now = current_time('timestamp', true);
+
+        foreach (self::readBundledAnnouncements() as $record) {
+            if ( ! is_array($record) || ! isset($record['type'], $record['menu_discount_percent'], $record['start_date'], $record['end_date']) ) {
+                continue;
+            }
+
+            $discount = $record['menu_discount_percent'];
+            if ( ! isset($record['theme']) || $record['theme'] !== 'black-friday' || $record['type'] !== 'offer' || array_key_exists('conditions', $record)
+                || ! is_int($discount) || $discount < 1 || $discount > 100) {
+                continue;
+            }
+
+            $start = PluginAnnouncements::parseAnnouncementDate($record['start_date']);
+            $end   = PluginAnnouncements::parseAnnouncementDate($record['end_date']);
+            if ($start !== false && $end !== false && $start <= $now && $end - $now >= PluginAnnouncements::UPGRADE_LINK_MIN_TIME_REMAINING) {
+                return $discount;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @return int Current upgrade discount percentage, or zero outside an eligible campaign.
+     */
+    public static function getUpgradeDiscount()
+    {
+        static $discount;
+        if ($discount === null) {
+            if (PluginAnnouncements::isShowAnnouncementsEnabled()) {
+                $announcements = new PluginAnnouncements();
+                $discount      = $announcements->getBlackFridayUpgradeDiscount();
+            } else {
+                $discount = self::getBundledMenuDiscount();
+            }
+        }
+
+        return $discount;
+    }
+
+    /**
+     * @param string $label Existing Lite upgrade link text.
+     *
+     * @return string
+     */
+    public static function upgradeLabel($label)
+    {
+        $discount = self::getUpgradeDiscount();
+        if ($discount === 0) {
+            return $label;
+        }
+
+        /* translators: 1: upgrade action, 2: percentage discount. */
+        return sprintf(__('%1$s · Black Friday: Save %2$d%%', 'wp-asset-clean-up'), $label, $discount);
+    }
+
+    /**
+     * Read the packaged campaigns once per request for both the menu and notices.
+     *
+     * @return array
+     */
+    private static function readBundledAnnouncements()
+    {
+        static $records;
+        if (isset($records)) {
+            return $records;
+        }
+
+        $records = array();
+        $file    = WPACU_PLUGIN_DIR . '/lite/assets/announcements.json';
+        if ( ! is_file($file) || ! is_readable($file) ) {
+            return $records;
+        }
+
+        // An update can replace this optional file between the checks and the read.
+        $json = @file_get_contents($file, false, null, 0, 262145);
+        if ($json === false || strlen($json) > 262144) {
+            return $records;
+        }
+
+        $json = ltrim($json);
+        if ($json === '' || $json[0] !== '[') {
+            return $records;
+        }
+
+        $decoded = json_decode($json, true);
+        if (is_array($decoded)) {
+            $records = $decoded;
+        }
+
+        return $records;
+    }
+
     /**
 	 *
 	 */

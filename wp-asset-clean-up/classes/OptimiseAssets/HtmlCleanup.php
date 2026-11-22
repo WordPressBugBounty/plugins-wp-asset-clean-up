@@ -44,17 +44,27 @@ class HtmlCleanup
      */
     public static function getStyleTokens($html)
     {
-        return self::scanScriptTokens($html, false, true);
+        return self::scanScriptTokens($html, false, 'style');
+    }
+
+    /**
+     * @param string $html
+     *
+     * @return array|false Image opening tags paired with their original byte offsets.
+     */
+    public static function getImageTagMatches($html)
+    {
+        return self::scanScriptTokens($html, false, 'image');
     }
 
     /**
      * @param string $html
      * @param bool $bodyOnly Require a complete BODY for execution-order analysis.
-     * @param bool $stylesOnly Collect HTML LINK/STYLE elements instead of scripts.
+     * @param string $assetType Elements to collect: script, style or image.
      *
      * @return array|false
      */
-    private static function scanScriptTokens($html, $bodyOnly, $stylesOnly = false)
+    private static function scanScriptTokens($html, $bodyOnly, $assetType = 'script')
     {
         if (strpos($html, "\0") !== false || preg_match('~^scriptbody$~i', 'SCRIPTBODY') !== 1) {
             return false;
@@ -69,7 +79,10 @@ class HtmlCleanup
         }
         $ending    = '(?:' . $space . '++' . $attribute . ')*+' . $space . '*/?>';
         $special   = 'body|template|span|script|style|textarea|title|iframe|xmp|noembed|noframes|noscript|plaintext|select|svg|math|frameset';
-        if ($stylesOnly) {
+        $stylesOnly = $assetType === 'style';
+        if ($assetType === 'image') {
+            $special .= '|img';
+        } elseif ($stylesOnly) {
             $special .= '|link';
         }
         $wanted = $stylesOnly ? array('LINK', 'STYLE', 'SPAN') : array('SCRIPT', 'SPAN');
@@ -163,7 +176,7 @@ class HtmlCleanup
             }
 
             if ( ! $bodyOnly && in_array($name, array('SVG', 'MATH'), true) ) {
-                $region = self::scanForeignRegion($html, $start, $ending, $attribute, $manager, $stylesOnly);
+                $region = self::scanForeignRegion($html, $start, $ending, $attribute, $manager, $assetType);
                 if ($region === false) {
                     return preg_last_error() !== PREG_NO_ERROR ? false : $scripts;
                 }
@@ -189,7 +202,7 @@ class HtmlCleanup
                 continue;
             }
 
-            if (($bodyOnly || $stylesOnly) && $name === 'SELECT') {
+            if (($bodyOnly || $assetType !== 'script') && $name === 'SELECT') {
                 $select = '~\G(?:[^<]*+(?:</?(?:option|optgroup)' . $ending . '|<hr' . $ending . '))*+[^<]*+</select' . $space . '*>~i';
                 if ( ! preg_match($select, $html, $contents, 0, $offset) ) {
                     return $bodyOnly || preg_last_error() !== PREG_NO_ERROR ? false : $scripts;
@@ -209,6 +222,13 @@ class HtmlCleanup
                     return $bodyOnly || preg_last_error() !== PREG_NO_ERROR ? false : $scripts;
                 }
                 $offset = $closeAt + strlen($closer[0]);
+            }
+
+            if ($assetType === 'image') {
+                if ($name === 'IMG' && $templates === 0 && ! $malformed) {
+                    $scripts[] = array($tag[0], $start);
+                }
+                continue;
             }
 
             if ($malformed || $templates > 0 || ! in_array($name, $wanted, true)) {
@@ -291,11 +311,11 @@ class HtmlCleanup
      * @param string $ending
      * @param string $attribute
      * @param bool $manager
-     * @param bool $stylesOnly Collect HTML LINK/STYLE elements instead of scripts.
+     * @param string $assetType Elements to collect: script, style or image.
      *
      * @return array|false
      */
-    private static function scanForeignRegion($html, $start, $ending, $attribute, $manager, $stylesOnly = false)
+    private static function scanForeignRegion($html, $start, $ending, $attribute, $manager, $assetType)
     {
         $pattern   = '~\G<(/?)([a-z][a-z0-9:_-]*)' . str_replace('*/?>', '*(/?)>', $ending) . '~i';
         $space     = '[\x09\x0a\x0c\x0d\x20]';
@@ -462,9 +482,11 @@ class HtmlCleanup
                     }
                 }
 
-                if ($namespace === 'html' && $templates === 0
-                    && ($stylesOnly ? in_array($name, array('link', 'style'), true) : $name === 'script')) {
-                    $found = self::scanScriptTokens(substr($html, $offset, $next - $offset), false, $stylesOnly);
+                if ($namespace === 'html' && $templates === 0 && $assetType === 'image' && $name === 'img') {
+                    $scripts[] = array($tag[0], $offset);
+                } elseif ($namespace === 'html' && $templates === 0
+                    && (($assetType === 'style' && in_array($name, array('link', 'style'), true)) || ($assetType === 'script' && $name === 'script'))) {
+                    $found = self::scanScriptTokens(substr($html, $offset, $next - $offset), false, $assetType);
                     if ( ! is_array($found) || count($found) !== 1 ) {
                         return false;
                     }

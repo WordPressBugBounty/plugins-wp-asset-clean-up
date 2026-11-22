@@ -49,7 +49,7 @@ class CombineJs
         // Resolve translations once for this operation, including missing payloads.
         // A subsequent combine starts fresh for file edits, locale or registry changes.
         $resolvedTranslations = array();
-        $documentSignature = sha1('js-data-boundary-v1' . OptimizeCommon::getCombineDocumentSignature($htmlSource));
+        $documentSignature = sha1('js-tag-identity-v1' . OptimizeCommon::getCombineDocumentSignature($htmlSource));
 
 		if (isset($_GET['wpacu_no_cache']) || wpacuIsDefinedConstant('WPACU_NO_CACHE')) {
 			$skipCache = true;
@@ -67,7 +67,7 @@ class CombineJs
         if (Main::instance()->settings['combine_loaded_js_defer_body']
             || ! OptimizeCommon::combineCacheMatchesDocument($finalCacheList, $documentSignature, 'js', $sourceHashes, $resolvedTranslations)) {
             $domTag = OptimizeCommon::getDomLoadedTag($htmlSource, 'combineJs');
-            $sourceSignature = sha1('js-data-boundary-v1' . OptimizeCommon::getCombineSourceSignature($domTag, 'js', $sourceHashes, $inertSources, $sourceFiles, $registeredInline, $resolvedTranslations));
+            $sourceSignature = sha1('js-tag-identity-v1' . OptimizeCommon::getCombineSourceSignature($domTag, 'js', $sourceHashes, $inertSources, $sourceFiles, $registeredInline, $resolvedTranslations));
             if (! OptimizeCommon::combineCacheMatchesSource($finalCacheList, $sourceSignature)) {
                 $finalCacheList = array();
             }
@@ -75,6 +75,7 @@ class CombineJs
 
 		if ( $skipCache || empty($finalCacheList) ) {
             $preserveInlineHandles = array();
+            $duplicateKeys         = CombineTagIndex::getDuplicateKeys($domTag, 'script');
             foreach ((new \DOMXPath($domTag))->query('//script[not(@src) and not(ancestor::template)]') as $inlineTag) {
                 $inlineHandle = self::getInlineScriptHandle($inlineTag);
                 if ($inlineHandle && isset($wpacuRegisteredScripts[$inlineHandle])
@@ -146,6 +147,10 @@ class CombineJs
                     if (isset($preserveInlineHandles[$handleToCheck])) { $scriptNotCombinable = true; }
                     $hasSrc         = isset($scriptAttributes['src']) && trim($scriptAttributes['src']); // No valid SRC attribute? It's not combinable (e.g. an inline tag)
                     $src            = $hasSrc ? (string)$scriptAttributes['src'] : '';
+                    $tagKey         = $hasSrc ? CombineTagIndex::key($scriptAttributes) : '';
+                    if (isset($duplicateKeys[$tagKey])) {
+                        $scriptNotCombinable = true;
+                    }
                     if ($hasSrc && isset($inertSources[OptimizeCommon::getCombineSourceKey($src)])) { $scriptNotCombinable = true; }
                     $isPluginScript = isset($scriptAttributes['data-wpacu-plugin-script']); // Only of the user is logged-in (skip it as it belongs to the Asset CleanUp (Pro) plugin)
 
@@ -236,6 +241,7 @@ class CombineJs
 
 							$combinableList[$docLocationScript][$groupByType][] = array(
 								'src'   => $src,
+                                'tag_key' => $tagKey,
 								'local' => $localAssetPath,
 								'info'  => array(
 									'is_jquery'         => $isJQueryLib,
@@ -278,7 +284,7 @@ class CombineJs
 						continue;
 					}
 
-					$localAssetsPaths = $groupScriptSrcs = array();
+					$localAssetsPaths = $groupScriptSrcs = $groupTagKeys = array();
 					$localAssetsExtra = array();
 					$jQueryIsIncludedInGroup = false;
 
@@ -295,6 +301,7 @@ class CombineJs
 
 						$src                    = $groupFileData['src'];
 						$groupScriptSrcs[]      = $src;
+                        $groupTagKeys[]         = $groupFileData['tag_key'];
 						$localAssetsPaths[$src] = $groupFileData['local'];
 						$localAssetsExtra[$src] = $groupFileData['extra'];
 					}
@@ -315,6 +322,7 @@ class CombineJs
 						return $htmlSource; // something is not right as the file wasn't created, we will return the original HTML source
 					}
 
+                    $tagKeys = array();
                     foreach ($groupScriptSrcs as $originalIndexKey => $src) {
                         $indexKey = $originalIndexKey; // default
 
@@ -329,11 +337,13 @@ class CombineJs
 
                         unset($groupScriptSrcs[$originalIndexKey]);
                         $groupScriptSrcs[$indexKey] = $src;
+                        $tagKeys[$indexKey]         = $groupTagKeys[$originalIndexKey];
                     }
 
 					$finalCacheList[$docLocationScript][$groupNo] = array(
 						'source_signature' => $sourceSignature,
 						'uri_to_final_js_file' => $uriToFinalJsFile,
+						'tag_keys'             => $tagKeys,
 						'script_srcs'          => $groupScriptSrcs
 					);
 
@@ -364,14 +374,24 @@ class CombineJs
 			$cdnUrls = OptimizeCommon::getAnyCdnUrls();
 			$cdnUrlForJs = isset($cdnUrls['js']) ? $cdnUrls['js'] : false;
 
-            $clearCombinedJsCache = false; // default
+            $tagIndex = new CombineTagIndex($htmlSource, 'js');
+            $edits    = array();
 
 			foreach ( $finalCacheList as $docLocationScript => $cachedGroupsList ) {
 				foreach ($cachedGroupsList as $groupNo => $cachedValues) {
-					$htmlSourceBeforeGroupReplacement = $htmlSource;
-
 					$uriToFinalJsFile = $cachedValues['uri_to_final_js_file'];
+                    if (empty($cachedValues['tag_keys']) || empty($cachedValues['script_srcs'])) {
+                        continue;
+                    }
 					$filesSources = $cachedValues['script_srcs'];
+                    $group        = $tagIndex->getGroup($filesSources, $cachedValues['tag_keys'], 'js', $sourceHashes);
+                    if ( ! $group ) {
+                        continue;
+                    }
+                    // The bundle generator stores file contents by URL. Repeated executions must stay separate.
+                    if (count(array_unique($filesSources)) !== count($filesSources)) {
+                        continue;
+                    }
 
 					// Basic Combining (1) -> replace "first" tag with the final combination tag (there would be most likely multiple groups)
 					// Enhanced Combining (2) -> replace "last" tag with the final combination tag (most likely one group)
@@ -415,54 +435,32 @@ class CombineJs
 					// Reference: https://stackoverflow.com/questions/2368539/php-replacing-multiple-spaces-with-a-single-space
 					$finalJsTag = preg_replace('!\s+!', ' ', $finalJsTag);
 
-					$scriptTagsStrippedNo = 0;
-
-					$scriptTags = OptimizeJs::getScriptTagsFromSrcs($filesSources, $htmlSource);
-
-					foreach ($scriptTags as $groupScriptTagIndex => $scriptTag) {
-						$replaceWith = ($groupScriptTagIndex === $indexReplacement) ? $finalJsTag : '';
-						$htmlSourceBeforeTagReplacement = $htmlSource;
-
-                        $srcTagAttr = Misc::getValueFromTag($scriptTag, 'src');
-                        $srcRelCleanPath = trim(OptimizeCommon::getSourceRelPath($srcTagAttr, true));
-
-                        $indexKey = array_search($srcRelCleanPath, $filesSources);
-
-                        // Check the SHA1 value of the file if it's in the original location (not within the caching directory)
-                        if ($indexKey !== false &&
-                            strpos($indexKey, '_') !== false &&
-                            strpos($srcRelCleanPath, OptimizeCommon::getRelPathPluginCacheDir()) === false) {
-                            list($sha1File) = explode('_', $indexKey);
-
-                            if ($sha1File !== OptimizeCommon::getCombineFileHash(OptimizeCommon::getLocalAssetPath($srcRelCleanPath, 'js'), $sourceHashes)) {
-                                // The contents of one of the files from the combined CSS were changed
-                                $clearCombinedJsCache = true;
-                                break 3;
-                            }
+                    $groupEdits = array();
+                    foreach ($group as $index => $script) {
+                        $groupEdits[$script['offset']] = array($script['length'], $index === $indexReplacement ? $finalJsTag : '');
+                        if ( ! isset($script['attributes']['data-wpacu-script-handle']) || ! OptimizeCommon::appendInlineCodeToCombineAssetType('js') ) {
+                            continue;
                         }
 
-						// 1) Strip any inline code associated with tag
-						// 2) Finally, strip the actual tag
-						$htmlSource = self::stripTagAndAnyInlineAssocCode( $scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource, $resolvedTranslations );
-
-						if ($htmlSource !== $htmlSourceBeforeTagReplacement) {
-							$scriptTagsStrippedNo ++;
-						}
-						}
-
-					// At least two tags have to be stripped from the group to consider doing the group replacement
-					// If the tags weren't replaced it's likely there were changes to their structure after they were cached for the group merging
-					if (count($filesSources) !== $scriptTagsStrippedNo) {
-						$htmlSource = $htmlSourceBeforeGroupReplacement;
-
-                        $clearCombinedJsCache = true;
-					}
+                        $handle    = $script['attributes']['data-wpacu-script-handle'];
+                        $scriptTag = substr($htmlSource, $script['offset'], $script['length']);
+                        foreach ($tagIndex->getInlineScripts($handle) as $inline) {
+                            $original = substr($htmlSource, $inline['offset'], $inline['length']);
+                            // Restrict legacy inline-serialization handling to the live script for this handle.
+                            $updated = self::stripTagAndAnyInlineAssocCode(
+                                $scriptTag, $wpacuRegisteredScripts, '', $original . "\n", $resolvedTranslations, $handle
+                            );
+                            if ($updated === $original . "\n") {
+                                continue 3;
+                            }
+                            $groupEdits[$inline['offset']] = array($inline['length'], rtrim($updated, "\n"));
+                        }
+                    }
+                    $edits += $groupEdits;
 				}
 			}
 
-            if ($clearCombinedJsCache) {
-                OptimizeCommon::clearAssetCachedData(self::$jsonStorageFile);
-                }
+            $htmlSource = CombineTagIndex::applyEdits($htmlSource, $edits);
 		}
 
 		// Apply BODY defer only after bundle replacement, when we know which inline scripts
@@ -769,22 +767,29 @@ JS;
 	 * @param $wpacuRegisteredScripts
 	 * @param $replaceWith
 	 * @param $htmlSource
+     * @param array|null $resolvedTranslations
+     * @param string $scriptHandle
 	 *
 	 * @return mixed
 	 */
-	public static function stripTagAndAnyInlineAssocCode($scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource, &$resolvedTranslations = null)
+	public static function stripTagAndAnyInlineAssocCode($scriptTag, $wpacuRegisteredScripts, $replaceWith, $htmlSource, &$resolvedTranslations = null, $scriptHandle = '')
 	{
 		if (OptimizeCommon::appendInlineCodeToCombineAssetType('js')) {
-			$scriptExtrasValue      = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'value', $resolvedTranslations);
+            $lookup = $scriptHandle === '' ? $scriptTag : $scriptHandle;
+            $from   = $scriptHandle === '' ? 'tag' : 'handle';
+
+            $scriptExtrasValue = OptimizeJs::getInlineAssociatedWithScriptHandle($lookup, $wpacuRegisteredScripts, $from, 'value', $resolvedTranslations);
 
 			$scriptExtraTranslationsValue  = (isset($scriptExtrasValue['translations']) && $scriptExtrasValue['translations']) ? $scriptExtrasValue['translations']   : '';
 			$scriptExtraCdataValue         = (isset($scriptExtrasValue['data'])   && $scriptExtrasValue['data'])   ? $scriptExtrasValue['data']   : '';
 			$scriptExtraBeforeValue        = (isset($scriptExtrasValue['before']) && $scriptExtrasValue['before']) ? $scriptExtrasValue['before'] : '';
 			$scriptExtraAfterValue         = (isset($scriptExtrasValue['after'])  && $scriptExtrasValue['after'])  ? $scriptExtrasValue['after']  : '';
 
-			$scriptExtrasHtml       = OptimizeJs::getInlineAssociatedWithScriptHandle($scriptTag, $wpacuRegisteredScripts, 'tag', 'html', $resolvedTranslations);
-			preg_match_all('#data-wpacu-script-handle=([\'])' . '(.*)' . '(\1)#Usmi', $scriptTag, $outputMatches);
-			$scriptHandle = (isset($outputMatches[2][0]) && $outputMatches[2][0]) ? trim($outputMatches[2][0], '"\'') : '';
+			$scriptExtrasHtml = OptimizeJs::getInlineAssociatedWithScriptHandle($lookup, $wpacuRegisteredScripts, $from, 'html', $resolvedTranslations);
+            if ($scriptHandle === '') {
+                preg_match_all('#data-wpacu-script-handle=([\'])' . '(.*)' . '(\1)#Usmi', $scriptTag, $outputMatches);
+                $scriptHandle = (isset($outputMatches[2][0]) && $outputMatches[2][0]) ? trim($outputMatches[2][0], '"\'') : '';
+            }
 
 			$scriptExtraTranslationsHtml = (isset($scriptExtrasHtml['translations']) && $scriptExtrasHtml['translations']) ? $scriptExtrasHtml['translations'] : '';
 			$scriptExtraCdataHtml        = (isset($scriptExtrasHtml['data'])   && $scriptExtrasHtml['data'])   ? $scriptExtrasHtml['data']   : '';

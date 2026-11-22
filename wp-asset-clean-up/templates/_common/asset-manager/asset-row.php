@@ -69,11 +69,11 @@ if (isset($data['handle_rows_contracted'][$assetType][$data['row']['obj']->handl
 $hideTrRow = $isCoreFile && $hideCoreFiles;
 ?>
 <tr data-<?php echo $assetTypeS; ?>-handle-row="<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
-    id="wpacu_<?php echo $assetTypeS; ?>_row_<?php echo htmlentities(esc_attr($data['row']['obj']->handle), ENT_QUOTES); ?>"
+    id="wpacu_<?php echo $assetTypeS; ?>_row_<?php echo esc_attr($data['row']['obj']->handle); ?>"
     <?php
     if (defined('WPACU_PRO_PLUGIN_VERSION') && $assetType === 'scripts' && count($childHandles) > 0) {
     ?>
-        data-script-child-handles="<?php echo rtrim(implode(', ', $childHandles)); ?>"
+        data-script-child-handles="<?php echo esc_attr(rtrim(implode(', ', $childHandles))); ?>"
     <?php
     }
     ?>
@@ -119,7 +119,7 @@ $hideTrRow = $isCoreFile && $hideCoreFiles;
 
 		    require WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/_asset-single-row/_asset-single-row-handle-deps.php';
 
-		    $extraInfo[] = esc_html__('Version:', 'wp-asset-clean-up').' '.$ver;
+		    $extraInfo[] = esc_html__('Version:', 'wp-asset-clean-up') . ' ' . esc_html($ver);
 
 		    require WPACU_PLUGIN_DIR . '/templates/meta-box-loaded-assets/_asset-single-row/_asset-single-row-position.php';
 

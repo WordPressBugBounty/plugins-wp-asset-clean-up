@@ -92,27 +92,22 @@ class SettingsAdminOnlyForAdmin
         // This action should be taken when ONLY the admin (e.g. not a "subscriber" powered to access the plugin area) submits the actual "Settings" form
         // This is because the list is cleared if there are no records, and this should happen only in "Settings" area
 
-        // [START] Allow managing assets
-        global $wpdb;
+        // Single-site installations also maintain legacy user markers. Multisite
+        // stores visibility in each site's settings, including on export/import.
+        if ( ! is_multisite() ) {
+            global $wpdb;
+            $metaKeyTargeted = WPACU_PLUGIN_ID . '_user_chosen_for_access_to_assets_manager';
+            $wpdb->delete($wpdb->usermeta, array('meta_key' => $metaKeyTargeted));
 
-        $metaKeyTargeted = WPACU_PLUGIN_ID . '_user_chosen_for_access_to_assets_manager';
-
-        $clearQuery = <<<SQL
-DELETE FROM `{$wpdb->usermeta}` WHERE meta_key='{$metaKeyTargeted}';
-SQL;
-        $wpdb->query($clearQuery);
-
-        if (isset($settings['allow_manage_assets_to'], $settings['allow_manage_assets_to_list']) &&
-            in_array($settings['allow_manage_assets_to'], array('chosen', 'selected'), true) &&
-            ! empty($settings['allow_manage_assets_to_list'])) {
-            $allowManageAssetsTo = $settings['allow_manage_assets_to_list'];
-
-            foreach ($allowManageAssetsTo as $specificUserId) {
-                delete_user_meta($specificUserId, $metaKeyTargeted);
-                add_user_meta($specificUserId, $metaKeyTargeted, 1);
+            if (isset($settings['allow_manage_assets_to'], $settings['allow_manage_assets_to_list']) &&
+                in_array($settings['allow_manage_assets_to'], array('chosen', 'selected'), true) &&
+                ! empty($settings['allow_manage_assets_to_list'])) {
+                foreach ($settings['allow_manage_assets_to_list'] as $specificUserId) {
+                    delete_user_meta($specificUserId, $metaKeyTargeted);
+                    add_user_meta($specificUserId, $metaKeyTargeted, 1);
+                }
             }
         }
-        // [END] Allow managing assets
 
         // [START] plugin access via user roles
         // Here, the drop-down is already populated with any extra users (e.g. the capability could be added by a 3rd party plugin such as "User Role Editor")
@@ -698,6 +693,17 @@ SQL;
      */
     public static function filterAnySpecifiedAdminsForAccessToAssetsManager($data = array())
     {
+        if (is_multisite()) {
+            // Legacy markers in shared usermeta cannot identify the originating site.
+            if ( empty($data['allow_manage_assets_to']) ) {
+                $data['allow_manage_assets_to'] = 'any_admin';
+            }
+            if ( ! isset($data['allow_manage_assets_to_list']) || ! is_array($data['allow_manage_assets_to_list']) ) {
+                $data['allow_manage_assets_to_list'] = array();
+            }
+            return $data;
+        }
+
         if ( isset($data['allow_manage_assets_to']) && in_array($data['allow_manage_assets_to'], array('any_admin', 'selected', 'selected_roles'), true) ) {
             return $data;
         }

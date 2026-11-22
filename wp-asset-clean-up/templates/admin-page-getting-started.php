@@ -102,6 +102,11 @@ $wpacu_gs_test_mode_text    = $wpacu_gs_test_mode_enabled
     id="wpacu-getting-started-page-wrap"
     data-progress-storage-key="<?php echo esc_attr($wpacu_gs_config['progress_storage_key']); ?>"
 >
+    <?php
+    if (isset($_GET['wpacu_reset_done'])) {
+        do_action('wpacu_admin_notices');
+    }
+    ?>
     <?php do_action('wpacu_internal_getting_started_before_hero', $wpacu_gs_config); ?>
 
     <section class="wpacu-gs-hero" aria-labelledby="wpacu-gs-page-title">
@@ -148,6 +153,8 @@ $wpacu_gs_test_mode_text    = $wpacu_gs_test_mode_enabled
                 <a class="wpacu-gs-button wpacu-gs-button--ghost-light" href="<?php echo esc_url($wpacu_gs_urls['manager']); ?>">
                     <?php esc_html_e('Open CSS & JS Manager', 'wp-asset-clean-up'); ?>
                 </a>
+                <?php
+                ?>
             </div>
 
             <ul class="wpacu-gs-hero-trust">

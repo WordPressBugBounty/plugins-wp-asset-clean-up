@@ -47,7 +47,13 @@ class FontsGoogle
 		add_filter('wp_resource_hints', array($this, 'resourceHints'), PHP_INT_MAX, 2);
 
 		if (FontsGoogleRemove::hasSpecificRules()) {
-			add_filter('style_loader_src', array(FontsGoogleRemove::class, 'rewriteStylesheetUrlForSpecificRemoval'), PHP_INT_MAX - 1);
+			add_filter('style_loader_src', static function ($src) {
+				if (is_admin() || OptimizeCommon::preventAnyFrontendOptimization()) {
+					return $src;
+				}
+
+				return FontsGoogleRemove::rewriteStylesheetUrlForSpecificRemoval($src);
+			}, PHP_INT_MAX - 1);
 		}
 
 		add_action('wp_head',   array($this, 'preloadFontFiles'), 1);
@@ -642,56 +648,45 @@ class FontsGoogle
 	{
 		$fontsArray = array();
 
-		foreach ($finalLinks as $finalLinkIndex => $finalLinkData) {
+		foreach ($finalLinks as $finalLinkData) {
 			$finalLinkHref = $finalLinkData['href'];
 
 			if ( ! self::isLegacyCombinableGoogleFontsUrl($finalLinkHref) ) {
 				continue;
 			}
 
-            // Make sure all have the same common delimiters
-            // They will be restored later on for "W3 Validator Compatibility"
-			$finalLinkHref = str_replace(array('&#038;', '%7C'), array('&', '|'), $finalLinkHref);
+			// WordPress can serialize query separators as named or numeric HTML entities.
+			$finalLinkHref = str_replace(array('&amp;', '&#038;', '&#38;', '&#x26;'), '&', $finalLinkHref);
 
 			$queries = parse_url($finalLinkHref, PHP_URL_QUERY);
 			parse_str($queries, $fontQueries);
 
-			if (! array_key_exists('family', $fontQueries) || array_key_exists('text', $fontQueries)) {
+			if (! isset($fontQueries['family']) || ! is_string($fontQueries['family']) || array_key_exists('text', $fontQueries)) {
 				continue;
 			}
 
-			// Strip the existing tag, leave a mark where the final combined LINK will be placed
-			$stripTagWith = ($finalLinkIndex === 0) ? self::COMBINED_LINK_DEL : '';
-			$finalLinkTag = $finalLinkData['tag'];
-
-			$htmlSource = str_ireplace(array($finalLinkTag."\n", $finalLinkTag), $stripTagWith, $htmlSource);
-
-			$family = trim($fontQueries['family']);
-			$family = trim($family, '|');
-
-			if (! $family) {
+			$family = trim(trim($fontQueries['family']), '|');
+			$tag    = $finalLinkData['tag'];
+			$offset = strpos($htmlSource, $tag);
+			if ($family === '' || $offset === false || $offset !== strrpos($htmlSource, $tag)) {
 				continue;
 			}
 
-			if (strpos($family, '|') !== false) {
-				// More than one family per request?
-				foreach (explode('|', $family) as $familyOne) {
-					if (strpos($familyOne, ':') !== false) {
-						// They have types
-						list ($familyRaw, $familyTypes) = explode(':', $familyOne);
-						$fontsArray['families'][$familyRaw]['types'] = self::buildSortTypesList($familyTypes);
-					} else {
-						// They do not have types
-						$familyRaw = $familyOne;
-						$fontsArray['families'][$familyRaw]['types'] = false;
+			// Anchor the bundle at the first link that actually contributes a family.
+			$htmlSource = substr_replace($htmlSource, empty($fontsArray['families']) ? self::COMBINED_LINK_DEL : '', $offset, strlen($tag));
+
+			foreach (explode('|', $family) as $familyOne) {
+				$parts = explode(':', $familyOne, 2);
+				$name  = $parts[0];
+				$types = isset($parts[1]) && $parts[1] !== '' ? $parts[1] : false;
+				if (isset($fontsArray['families'][$name])) {
+					$previous = $fontsArray['families'][$name]['types'];
+					if ($previous !== false || $types !== false) {
+						// A bare family requests its regular (400) variant.
+						$types = ($previous === false ? '400' : $previous) . ',' . ($types === false ? '400' : $types);
 					}
 				}
-			} elseif (strpos($family, ':') !== false) {
-				list ($familyRaw, $familyTypes) = explode(':', $family);
-				$fontsArray['families'][$familyRaw]['types'] = self::buildSortTypesList($familyTypes);
-			} else {
-				$familyRaw = $family;
-				$fontsArray['families'][$familyRaw]['types'] = false;
+				$fontsArray['families'][$name]['types'] = $types === false ? false : self::buildSortTypesList($types);
 			}
 
 			if (array_key_exists('subset', $fontQueries)) {
@@ -882,12 +877,11 @@ LINK;
 			$newTypes[] = $types;
 		}
 
-		$newTypes = array_unique($newTypes);
-
         $newTypes = array_map(function($type) {
             return ($type === 'bold') ? '700' : $type;
         }, $newTypes);
 
+		$newTypes = array_unique($newTypes);
 		sort($newTypes);
 
 		return implode(',', $newTypes);

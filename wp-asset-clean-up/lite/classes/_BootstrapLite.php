@@ -131,6 +131,22 @@ class _BootstrapLite
         }
 
         if ($class === 'PluginLite') {
+            add_filter('wpacu_internal_use_default_activation_redirect', array(PluginLite::class, 'prepareGettingStartedOnActivation'), 10, 3);
+            add_filter('wpacu_internal_tools_reset_redirect_url', array(PluginLite::class, 'gettingStartedAfterReset'), 10, 3);
+            add_filter('wpacu_internal_options_to_keep_with_settings', static function ($options) {
+                $options[] = WPACU_PLUGIN_ID . '_first_usage';
+                return $options;
+            });
+
+            // CLI and REST activations run outside wp-admin. Register the same first-use initialization there.
+            if ( ! is_admin() ) {
+                add_action('activate_plugin', static function ($plugin) {
+                    if ($plugin === WPACU_PLUGIN_BASE) {
+                        new \WpAssetCleanUp\Admin\Plugin();
+                    }
+                });
+            }
+
             add_filter('admin_footer_text',                  array(PluginLite::class, 'adminFooterText'), 1, 1);
             add_filter('wpacu_internal_plugin_action_links', static function ($links) {
                 /** @var PluginLite $instance */
@@ -142,6 +158,8 @@ class _BootstrapLite
 
         if ($class === 'UpgradeNotices') {
             add_action('current_screen', array(UpgradeNotices::class, 'currentScreen'));
+            add_filter('wpacu_internal_upgrade_label', array(UpgradeNotices::class, 'upgradeLabel'));
+            add_filter('wpacu_internal_bundled_announcements', array(UpgradeNotices::class, 'bundledAnnouncements'), 10, 2);
         }
 
         if ($class === 'MainAdminLite') {
@@ -165,7 +183,6 @@ class _BootstrapLite
         if ($class === 'CourseOptIn') {
             /** @var CourseOptIn $instance */
             $instance = self::getLazyInternalLiteInstance(CourseOptIn::class);
-            add_action('admin_init', array($instance, 'prepareOnboarding'), 0);
             add_action('wpacu_internal_getting_started_before_hero', array($instance, 'renderOnboarding'), 10, 1);
             add_action('wpacu_internal_getting_started_before_final_cta', array($instance, 'renderGettingStarted'), 10, 1);
             add_action('wpacu_internal_lite_help_course', array($instance, 'renderHelp'));

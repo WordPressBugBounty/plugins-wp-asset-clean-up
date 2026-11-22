@@ -240,7 +240,7 @@ class Settings
 
 	        'hide_meta_boxes_for_post_types' => array(),
 
-            // Remote announcements require an explicit administrator opt-in.
+            // PluginAnnouncements resolves the edition default when no choice was saved.
             'announcements' => array(
                 'global' => array(
                     'enabled' => 0,

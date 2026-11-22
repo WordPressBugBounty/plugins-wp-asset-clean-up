@@ -298,15 +298,180 @@ class SettingsAdmin
         $savedSettings = apply_filters('wpacu_settings_form_submit_before_save', $savedSettings);
         $savedSettings = stripslashes_deep($savedSettings);
 
+        $storedSettings = $settingsClass->getAllStored();
+
+        $savedSettings['announcements'] = self::getAnnouncementsFromSettingsForm(
+            isset($savedSettings['announcements']) ? $savedSettings['announcements'] : array(),
+            $storedSettings['announcements']
+        );
+
         // Hooks can be attached here,
         // e.g. from PluginTracking.php (check if "Allow Usage Tracking" has been enabled)
         do_action('wpacu_before_save_settings', $savedSettings);
 
-        $storedSettings    = $settingsClass->getAllStored();
         $preservedSettings = array_diff_key($storedSettings, $managedSettingKeys, $savedSettings);
         $savedSettings     = self::preserveUnrepresentedNoLoadFeatures($savedSettings, $storedSettings);
 
         $this->update($savedSettings, true, $preservedSettings);
+    }
+
+    /**
+     * Read the saved choice before Settings supplies the default disabled value.
+     *
+     * @return string 'on' for all announcements, 'important', 'off' or 'undecided'.
+     */
+    public static function getStoredAnnouncementPreference()
+    {
+        $option = get_option(WPACU_PLUGIN_ID . '_settings');
+        $stored = is_string($option) ? json_decode($option, true) : $option;
+        $global = isset($stored['announcements']['global']) && is_array($stored['announcements']['global'])
+            ? $stored['announcements']['global'] : array();
+
+        if ( ! empty($global['never_show_any']) ) {
+            return 'off';
+        }
+
+        if (isset($global['enabled'])) {
+            if (in_array($global['enabled'], array(1, '1', true), true)) {
+                return isset($global['mode']) && $global['mode'] === 'important' ? 'important' : 'on';
+            }
+
+            return 'off';
+        }
+
+        return 'undecided';
+    }
+
+    /**
+     * @param array $announcements Stored announcement settings.
+     *
+     * @return array Selected screen groups in display order.
+     */
+    public static function getAnnouncementLocations($announcements)
+    {
+        return self::normalizeAnnouncementLocations(
+            isset($announcements['global']['locations']) ? $announcements['global']['locations'] : null
+        );
+    }
+
+    /**
+     * @param mixed $locations A missing preference uses all three supported screen groups.
+     *
+     * @return array
+     */
+    private static function normalizeAnnouncementLocations($locations)
+    {
+        $allowed = array('dashboard', 'plugins', 'plugin_pages');
+
+        if ($locations === null) {
+            return $allowed;
+        }
+
+        return is_array($locations) ? array_values(array_intersect($allowed, array_filter($locations, 'is_string'))) : array();
+    }
+
+    /**
+     * Apply deliberate changes to the latest stored choices. Other tabs, an old
+     * form, or a feed without a previously dismissed campaign must retain them.
+     *
+     * @param array $submitted
+     * @param array $stored
+     *
+     * @return array
+     */
+    private static function getAnnouncementsFromSettingsForm($submitted, $stored)
+    {
+        $submitted  = is_array($submitted) ? $submitted : array();
+        $stored     = is_array($stored) ? $stored : array();
+        $preference = self::getStoredAnnouncementPreference();
+
+        if ( ! isset($stored['global']) || ! is_array($stored['global']) ) {
+            $stored['global'] = array();
+        }
+
+        $currentForm = isset($submitted['previous_preference'], $submitted['preference'])
+            && $submitted['previous_preference'] === $preference;
+
+        if ($currentForm
+            && $submitted['preference'] !== $preference
+            && in_array($submitted['preference'], array('on', 'important', 'off'), true)) {
+            $preference = $submitted['preference'];
+
+            if ($preference === 'off') {
+                $stored['global']['off_source'] = 'settings';
+            }
+        }
+
+        if ($preference === 'off') {
+            $stored['global']['enabled']        = 0;
+            $stored['global']['never_show_any'] = 1;
+        } elseif ($preference === 'on' || $preference === 'important') {
+            $stored['global']['enabled'] = 1;
+            unset($stored['global']['never_show_any'], $stored['global']['off_source']);
+        }
+
+        if ($preference === 'important') {
+            $stored['global']['mode'] = 'important';
+        } else {
+            unset($stored['global']['mode']);
+        }
+
+        if ($currentForm && isset($submitted['previous_locations'])
+            && in_array($submitted['preference'], array('on', 'important'), true)) {
+            $locations = self::normalizeAnnouncementLocations(isset($submitted['locations']) ? $submitted['locations'] : array());
+            if (empty($locations)) {
+                wp_die(
+                    esc_html__('Choose at least one place to show announcements, or select “Keep announcements off”.', 'wp-asset-clean-up'),
+                    '', array('response' => 400, 'back_link' => true)
+                );
+            }
+
+            $currentLocations = self::getAnnouncementLocations($stored);
+            if ($locations !== $currentLocations && implode(',', $locations) !== $submitted['previous_locations']) {
+                if (implode(',', $currentLocations) !== $submitted['previous_locations']) {
+                    wp_die(
+                        esc_html__('Announcement locations changed after you opened Settings. Reload the page to review the current choices.', 'wp-asset-clean-up'),
+                        '', array('response' => 409, 'back_link' => true)
+                    );
+                }
+
+                $stored['global']['locations'] = $locations;
+            }
+        }
+
+        if (empty($submitted['list']) || ! is_array($submitted['list'])) {
+            return $stored;
+        }
+
+        foreach ($submitted['list'] as $formId => $row) {
+            if ( ! is_array($row) || ! isset($row['was_seen']) || ! in_array($row['was_seen'], array('0', '1'), true) ) {
+                continue;
+            }
+
+            $seen = isset($row['seen']) && $row['seen'] === '1';
+
+            if ($seen === ($row['was_seen'] === '1')) {
+                continue;
+            }
+
+            // Form names encode the ID so literal brackets survive PHP's array-field parsing.
+            $id = rawurldecode((string)$formId);
+
+            if ($seen) {
+                if ( ! isset($stored['list']) || ! is_array($stored['list']) ) {
+                    $stored['list'] = array();
+                }
+                if ( ! isset($stored['list'][$id]) || ! is_array($stored['list'][$id]) ) {
+                    $stored['list'][$id] = array();
+                }
+                $stored['list'][$id]['seen'] = 1;
+                unset($stored['list'][$id]['snoozed']);
+            } elseif (isset($stored['list'][$id]) && is_array($stored['list'][$id])) {
+                unset($stored['list'][$id]['seen']);
+            }
+        }
+
+        return $stored;
     }
 
     /**
@@ -536,12 +701,29 @@ class SettingsAdmin
                     ? 1
                     : 0;
 
-                if ( $settings[$settingKey]['global']['enabled'] === 1 ) {
+                if ( ! empty($settingValue['global']['never_show_any']) ) {
+                    $settings[$settingKey]['global']['enabled'] = 0;
+                } elseif ($settings[$settingKey]['global']['enabled'] === 1) {
                     unset($settings[$settingKey]['global']['never_show_any']);
+                } elseif (isset($settingValue['global']['enabled']) && self::getStoredAnnouncementPreference() === 'off') {
+                    // Even an unrelated background write filters integer zero out
+                    // of the settings. Preserve an existing refusal in the durable flag.
+                    $settings[$settingKey]['global']['never_show_any'] = 1;
                 }
 
                 if ( isset($settingValue['global']['never_show_any']) && (int)$settingValue['global']['never_show_any'] === 0 ) {
                     unset($settings[$settingKey]['global']['never_show_any']);
+                }
+
+                if ( isset($settings[$settingKey]['global']['off_source'])
+                    && (empty($settings[$settingKey]['global']['never_show_any'])
+                        || ! in_array($settings[$settingKey]['global']['off_source'], array('notice', 'settings'), true)) ) {
+                    unset($settings[$settingKey]['global']['off_source']);
+                }
+
+                if ( $settings[$settingKey]['global']['enabled'] !== 1 || ! isset($settingValue['global']['mode'])
+                    || $settingValue['global']['mode'] !== 'important' ) {
+                    unset($settings[$settingKey]['global']['mode']);
                 }
 
                 if ( MiscArray::isValid($settingValue, 'list', true) ) {

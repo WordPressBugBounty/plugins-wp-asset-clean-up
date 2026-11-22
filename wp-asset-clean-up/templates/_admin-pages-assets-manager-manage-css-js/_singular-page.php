@@ -103,7 +103,7 @@ if ( ! (isset($data['is_homepage_tab']) && $data['is_homepage_tab']) ) {
             <p class="wpacu-warning"
                style="margin: 15px 0 0; padding: 10px; font-size: inherit; width: 99%;">
             <span style="color: red;"
-                  class="dashicons dashicons-info"></span> <?php echo sprintf(__('This page\'s URI is matched by the rule you have in the "Page Options", thus %s is not loaded on that page and no CSS/JS are to be managed. If you wish to view the CSS/JS manager, please uncheck the following option shown below: <em>"Do not load Asset CleanUp Pro on this page (this will disable any functionality of the plugin"</em>.', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE); ?>
+                  class="dashicons dashicons-info"></span> <?php echo sprintf(__('This page\'s URI is matched by the rule you have in the "Page Options", thus %1$s is not loaded on that page and no CSS/JS are to be managed. If you wish to view the CSS/JS manager, please uncheck the following option shown below: <em>"Do not load %1$s on this page"</em>.', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE); ?>
             </p>
 		    <?php
 	    }

@@ -974,7 +974,7 @@ class MainAdmin
                 echo '<!-- Hardcoded List: '."\n".'{wpacu_hardcoded_assets_printed}'."\n".' -->';
             }
 
-            echo Main::START_DEL_ENQUEUED  . base64_encode(wp_json_encode($list)) . Main::END_DEL_ENQUEUED; // Loaded via wp_enqueue_scripts()
+            echo Main::START_DEL_ENQUEUED  . Main::encodeFetchList($list, Main::START_DEL_ENQUEUED) . Main::END_DEL_ENQUEUED; // Loaded via wp_enqueue_scripts()
             echo Main::START_DEL_HARDCODED . '{wpacu_hardcoded_assets}' . Main::END_DEL_HARDCODED; // Make the user aware of any hardcoded CSS/JS (if any)
 
             add_action('shutdown', static function() {
@@ -1096,48 +1096,43 @@ class MainAdmin
 		// If the post status is 'private' only direct method can be used to fetch the assets
 		// as the remote post one will return a 404 error since the page is accessed as a guest visitor
 		if (Main::$domGetType === 'direct' || $postStatus === 'private') {
-			$wpacuListE = Misc::getVar('post', 'wpacu_list_e');
-			$wpacuListH = Misc::getVar('post', 'wpacu_list_h');
+            if (isset($_POST['wpacu_prepare_direct'])) {
+                $challenge = Main::newDirectFetchChallenge($fetchUrl);
+                if ($challenge === '') {
+                    wp_send_json_error();
+                }
+                wp_send_json_success($challenge);
+            }
+
+            $challenge = Misc::getVar('post', Main::FETCH_CHALLENGE_KEY);
+            $blocksE   = Misc::getVar('post', 'wpacu_list_e');
+            $blocksH   = Misc::getVar('post', 'wpacu_list_h');
+            if (is_string($blocksE) && is_string($blocksH) && Main::consumeDirectFetchChallenge($challenge, $fetchUrl)) {
+                $wpacuListE = Main::extractVerifiedFetchList($blocksE, Main::START_DEL_ENQUEUED, Main::END_DEL_ENQUEUED, $challenge);
+                $wpacuListH = Main::extractVerifiedFetchList($blocksH, Main::START_DEL_HARDCODED, Main::END_DEL_HARDCODED, $challenge);
+            }
+
+            if ($wpacuListE === '' || $wpacuListH === '') {
+                echo '<div class="wpacu-ajax-error" data-wpacu-ajax-error="1"><p>';
+                esc_html_e('The asset list could not be verified. Refresh the manager and try again.', 'wp-asset-clean-up');
+                echo '</p></div>';
+                exit;
+            }
 		} elseif (Main::$domGetType === 'wp_remote_post') {
-            /*
-             * wp_safe_remote_post() validates the requested URL. Inspect the
-             * first redirect before allowing WordPress to follow a harmless
-             * canonical redirect through its normal HTTP handling.
-             */
-			$requestArgs = array(
-				'body' => array(
-					WPACU_LOAD_ASSETS_REQ_KEY => 1
-				),
-                // Inspect the first response before WordPress follows it. Some
-                // HTTP transports do not expose the effective URL afterwards.
-                'redirection' => 0
-			);
+            // A private post may have become public since the manager chose Direct.
+            if (isset($_POST['wpacu_prepare_direct']) && $_POST['wpacu_prepare_direct'] === 'direct') {
+                wp_send_json_success('wp_remote_post');
+            }
 
-			$wpRemotePost = wp_safe_remote_post($fetchUrl, $requestArgs);
-
-            $redirectLocation = wp_remote_retrieve_header($wpRemotePost, 'location');
-            $redirectUrl      = is_string($redirectLocation) && $redirectLocation !== ''
-                ? \WP_Http::make_absolute_url($redirectLocation, $fetchUrl)
-                : '';
-
-            if (
-                $redirectUrl !== ''
-                && self::fetchedUrlRedirectedToDifferentLocation($fetchUrl, $redirectUrl)
-            ) {
+            $challenge    = Main::newFetchChallenge();
+            $wpRemotePost = self::requestAssetList($fetchUrl, $challenge, true);
+            if (is_wp_error($wpRemotePost) && $wpRemotePost->get_error_code() === 'wpacu_asset_list_redirect') {
                 if ($selectedContextIsHomePage === null) {
                     $selectedContextIsHomePage = self::selectedDashboardContextRepresentsHomePage($pageType, $postId, $pageUrl);
                 }
 
-                self::printDashboardFetchRedirectNotice($fetchUrl, $redirectUrl, $selectedContextIsHomePage);
+                self::printDashboardFetchRedirectNotice($fetchUrl, $wpRemotePost->get_error_data(), $selectedContextIsHomePage);
                 exit();
-            }
-
-            // Follow harmless canonical redirects (for example, an added
-            // trailing slash) and retain the existing final-URL safeguard for
-            // any meaningful redirect occurring later in the chain.
-            if ($redirectUrl !== '') {
-                unset($requestArgs['redirection']);
-                $wpRemotePost = wp_safe_remote_post($fetchUrl, $requestArgs);
             }
 
             $finalUrl = self::getWpRemoteFinalUrl($wpRemotePost);
@@ -1157,25 +1152,8 @@ class MainAdmin
 			$contents = (is_array($wpRemotePost) && isset($wpRemotePost['body']) && (! is_wp_error($wpRemotePost))) ? $wpRemotePost['body'] : '';
 
             if ($contents) {
-                // Enqueued List
-                if (strpos($contents, Main::START_DEL_ENQUEUED) !== false && strpos($contents, Main::END_DEL_ENQUEUED) !== false) {
-                    // Enqueued CSS/JS (most of them or all)
-                    $wpacuListE = Misc::extractBetween(
-                        $contents,
-                        Main::START_DEL_ENQUEUED,
-                        Main::END_DEL_ENQUEUED
-                    );
-                }
-
-                // Hardcoded List
-                if (strpos($contents, Main::START_DEL_HARDCODED) !== false && strpos($contents, Main::END_DEL_HARDCODED) !== false) {
-                    // Hardcoded (if any)
-                    $wpacuListH = Misc::extractBetween(
-                        $contents,
-                        Main::START_DEL_HARDCODED,
-                        Main::END_DEL_HARDCODED
-                    );
-                }
+                $wpacuListE = Main::extractVerifiedFetchList($contents, Main::START_DEL_ENQUEUED, Main::END_DEL_ENQUEUED, $challenge);
+                $wpacuListH = Main::extractVerifiedFetchList($contents, Main::START_DEL_HARDCODED, Main::END_DEL_HARDCODED, $challenge);
             }
 
 			// The list of assets COULD NOT be retrieved via "WP Remote POST" for this server
@@ -1218,7 +1196,7 @@ class MainAdmin
         $data['plugin_settings']   = $settings->getAll();
         $data['redirected_to_url'] = $redirectedToUrl;
 
-        if ( Main::$domGetType === 'wp_remote_post' ) {
+        if (isset($wpRemotePost)) {
             $data['wp_remote_post'] = $wpRemotePost;
         }
 
@@ -1359,6 +1337,147 @@ class MainAdmin
 	}
 
     /**
+     * Follow each permitted redirect explicitly so a change to GET keeps the
+     * fetch flag and challenge, even when the transport discards the POST body.
+     *
+     * @param string $pageUrl
+     * @param string $challenge
+     * @param bool $canonicalOnly Whether a change of page context must stop the scan.
+     * @param string $finalUrl Last requested page URL without scan parameters.
+     *
+     * @return array|\WP_Error
+     */
+    public static function requestAssetList($pageUrl, $challenge, $canonicalOnly, &$finalUrl = null)
+    {
+        $fetchArgs = array(WPACU_LOAD_ASSETS_REQ_KEY => 1, Main::FETCH_CHALLENGE_KEY => $challenge);
+        $fetchKeys = array_keys($fetchArgs);
+        $finalUrl  = Misc::removeManagerQueryArgs($pageUrl, $fetchKeys);
+
+        if ( ! self::isAllowedAjaxFetchUrl($finalUrl) ) {
+            return new \WP_Error('wpacu_alt_assets_url_not_allowed', __('The requested or redirected page URL is not allowed.', 'wp-asset-clean-up'));
+        }
+
+        $method       = 'POST';
+        $maxRedirects = $canonicalOnly ? 5 : 3;
+        $requestArgs  = array('redirection' => 0);
+        $guestCookies = array();
+        if ( ! $canonicalOnly ) {
+            $requestArgs['timeout'] = 25;
+        }
+
+        for ($hop = 0; $hop <= $maxRedirects; ++$hop) {
+            if ($method === 'POST') {
+                $response = wp_safe_remote_post($finalUrl, $requestArgs + array('body' => $fetchArgs));
+            } else {
+                // add_query_arg() would normalize the visitor's repeated or dotted keys.
+                list($requestUrl) = explode('#', $finalUrl, 2);
+                $requestUrl      .= (strpos($requestUrl, '?') === false ? '?' : '&') . http_build_query($fetchArgs, '', '&');
+                $response         = wp_safe_remote_get($requestUrl, $requestArgs);
+            }
+
+            $status   = (int)wp_remote_retrieve_response_code($response);
+            $location = wp_remote_retrieve_header($response, 'location');
+            if ( ! in_array($status, array(301, 302, 303, 307, 308), true) || ! is_string($location) || $location === '' ) {
+                return $response;
+            }
+
+            $nextUrl = Misc::removeManagerQueryArgs(\WP_Http::make_absolute_url($location, $finalUrl), $fetchKeys);
+            $allowed = self::isAllowedAjaxFetchUrl($nextUrl);
+            if ( $canonicalOnly && ( ! $allowed || self::fetchedUrlRedirectedToDifferentLocation($pageUrl, $nextUrl)) ) {
+                return new \WP_Error('wpacu_asset_list_redirect', __('The selected page redirects to a different URL.', 'wp-asset-clean-up'), $nextUrl);
+            }
+
+            if ( ! $allowed ) {
+                return new \WP_Error('wpacu_alt_assets_redirect_not_allowed', __('The page redirected to a URL that cannot be fetched safely.', 'wp-asset-clean-up'));
+            }
+
+            if ($canonicalOnly) {
+                $requestArgs['headers'] = self::getDashboardRedirectCookieHeaders($response, $finalUrl, $nextUrl, $guestCookies);
+            }
+
+            $finalUrl = $nextUrl;
+            if (in_array($status, array(301, 302, 303), true)) {
+                $method = 'GET';
+            }
+        }
+
+        return new \WP_Error('http_request_failed', __('Too many redirects.'));
+    }
+
+    /**
+     * Retain cookies issued to this guest scan across same-origin canonical redirects.
+     * Read Set-Cookie with Requests so its original Secure, path and expiry attributes survive.
+     *
+     * @param array $response
+     * @param string $from
+     * @param string $to
+     * @param array $jar Cookies issued during this scan.
+     *
+     * @return array HTTP headers containing only the cookies eligible for the next request.
+     */
+    private static function getDashboardRedirectCookieHeaders($response, $from, $to, &$jar)
+    {
+        $setCookie = wp_remote_retrieve_header($response, 'set-cookie');
+        if ( ! $jar && ! $setCookie ) {
+            return array();
+        }
+
+        // WordPress 6.2 introduced the namespaced version of Requests.
+        $iriClass = class_exists('WpOrg\\Requests\\Iri') ? 'WpOrg\\Requests\\Iri' : 'Requests_IRI';
+        $source   = new $iriClass($from);
+        $target   = new $iriClass($to);
+        if ($source->scheme !== $target->scheme || $source->authority !== $target->authority) {
+            $jar = array();
+            return array();
+        }
+
+        $now = time();
+        if ($setCookie && isset($response['http_response']) && $response['http_response'] instanceof \WP_HTTP_Requests_Response) {
+            $raw         = $response['http_response']->get_response_object();
+            $cookieClass = class_exists('WpOrg\\Requests\\Cookie') ? 'WpOrg\\Requests\\Cookie' : 'Requests_Cookie';
+            $headerClass = get_class($raw->headers);
+            // Requests keys parsed cookies by name. Parse each header separately to retain distinct scopes.
+            foreach ($raw->headers->getValues('Set-Cookie') as $line) {
+                $headers               = new $headerClass();
+                $headers['Set-Cookie'] = $line;
+                foreach ($cookieClass::parse_from_headers($headers, $source, $now) as $cookie) {
+                    $scope       = serialize(array(strtolower($cookie->attributes['domain']), $cookie->attributes['path'], $cookie->name));
+                    $jar[$scope] = $cookie;
+                }
+            }
+        }
+
+        $byPathLength = array();
+        foreach ($jar as $key => $cookie) {
+            // Requests normalizes both expiry attributes to absolute times when it parses the response.
+            $deadline = isset($cookie->attributes['max-age']) ? $cookie->attributes['max-age'] : null;
+            if ($deadline === null && isset($cookie->attributes['expires'])) {
+                $deadline = $cookie->attributes['expires'];
+            }
+            if ($deadline !== null && $deadline <= $now) {
+                unset($jar[$key]);
+                continue;
+            }
+            if ($cookie->uri_matches($target)) {
+                $byPathLength[strlen($cookie->attributes['path'])][] = $cookie->format_for_header();
+            }
+        }
+
+        if ( ! $byPathLength ) {
+            return array();
+        }
+
+        // More specific paths go first. A name-keyed WP HTTP cookies array would discard duplicates.
+        krsort($byPathLength, SORT_NUMERIC);
+        $pairs = array();
+        foreach ($byPathLength as $group) {
+            $pairs[] = implode('; ', $group);
+        }
+
+        return array('Cookie' => implode('; ', $pairs));
+    }
+
+    /**
      * Retrieves the final URL after WP HTTP API redirects were followed.
      *
      * @param array|\WP_Error $response
@@ -1467,25 +1586,37 @@ class MainAdmin
             return true;
         }
 
-        $requestedQuery = array();
-        $finalQuery     = array();
-
-        if (isset($requestedParts['query'])) {
-            parse_str($requestedParts['query'], $requestedQuery);
+        $requestedQuery = isset($requestedParts['query']) ? $requestedParts['query'] : '';
+        $finalQuery     = isset($finalParts['query']) ? $finalParts['query'] : '';
+        if ($requestedQuery === $finalQuery) {
+            return false;
         }
 
-        if (isset($finalParts['query'])) {
-            parse_str($finalParts['query'], $finalQuery);
-        }
+        $ignoredArgs = array_flip(self::getRedirectComparisonIgnoredQueryArgs());
+        $queryValuesByName = static function ($query) use ($ignoredArgs) {
+            $values = array();
 
-        foreach (self::getRedirectComparisonIgnoredQueryArgs() as $queryArg) {
-            unset($requestedQuery[$queryArg], $finalQuery[$queryArg]);
-        }
+            foreach (explode('&', $query) as $argument) {
+                if ($argument === '') {
+                    continue;
+                }
+                $pair = explode('=', $argument, 2);
+                // PHP processes filter, filter[] and filter[0] in arrival order.
+                // Group by their PHP key but retain every literal name and value.
+                $phpKey = array();
+                parse_str($pair[0] . '=1', $phpKey);
+                $root = (string)key($phpKey);
+                if (isset($ignoredArgs[$root])) {
+                    continue;
+                }
+                $values[$root][] = array(urldecode($pair[0]), isset($pair[1]) ? urldecode($pair[1]) : '');
+            }
 
-        ksort($requestedQuery);
-        ksort($finalQuery);
+            ksort($values, SORT_STRING);
+            return $values;
+        };
 
-        return $requestedQuery !== $finalQuery;
+        return $queryValuesByName($requestedQuery) !== $queryValuesByName($finalQuery);
     }
 
     /**
@@ -1532,6 +1663,7 @@ class MainAdmin
     {
         return array(
             WPACU_LOAD_ASSETS_REQ_KEY,
+            Main::FETCH_CHALLENGE_KEY,
             'wpacu_time_r',
             '_', // jQuery cache-busting parameter
             'wpacu_cache_cleared',
@@ -1596,7 +1728,7 @@ class MainAdmin
     {
         // A direct browser fetch can carry WPACU-only query arguments through the redirect.
         // Do not show or reuse those arguments as part of the destination page URL.
-        $redirectedFetchUrl = remove_query_arg(self::getRedirectFetchQueryArgsToStrip(), $finalUrl);
+        $redirectedFetchUrl = Misc::removeManagerQueryArgs($finalUrl, self::getRedirectFetchQueryArgsToStrip());
 
         $redirectedUrlIsAllowed = self::isAllowedAjaxFetchUrl($redirectedFetchUrl);
 
@@ -1914,8 +2046,8 @@ class MainAdmin
 			}
 
 			if (Main::instance()->settings['test_mode']) {
-				$consoleMessage = sprintf(__('%s: "TEST MODE" ENABLED (any settings or unloads will be visible ONLY to you, the logged-in administrator)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
-				$testModeNotice = __('"Test Mode" is ENABLED. Any settings or unloads will be visible ONLY to you, the logged-in administrator.', 'wp-asset-clean-up');
+				$testModeNotice = __('Test Mode is enabled. Unload rules and optimizations apply only to logged-in users who can access Asset CleanUp.', 'wp-asset-clean-up');
+				$consoleMessage = WPACU_PLUGIN_TITLE . ': ' . $testModeNotice;
 			} else {
 				$consoleMessage = sprintf(__('%s: "LIVE MODE" (test mode is not enabled, thus, all the plugin changes are visible for everyone: you, the logged-in administrator and the regular visitors)', 'wp-asset-clean-up'), WPACU_PLUGIN_TITLE);
 				$testModeNotice = __('The website is in LIVE MODE as "Test Mode" is not enabled. All the plugin changes are visible for everyone: logged-in administrators and regular visitors.', 'wp-asset-clean-up');

@@ -96,10 +96,12 @@ class Tools
 	    add_action('admin_init', array($this, 'onAdminInit'), 1);
     }
 
-	/**
-	 *
-	 */
-	public function onAdminInit()
+    /**
+     * Process Tools requests and display confirmations on their destination page.
+     *
+     * @return void
+     */
+    public function onAdminInit()
 	{
 		if (Misc::getVar('post', 'wpacu-tools-reset')) {
 			$this->doReset();
@@ -149,27 +151,30 @@ class Tools
 				// Show the confirmation that the import was completed
 				add_action('wpacu_admin_notices', array($this, 'importDone'));
 			}
+        }
 
-			// "Reset" Completed
-			if (Misc::getVar('get', 'wpacu_reset_done') && $resetDoneInfo = get_transient(WPACU_PLUGIN_ID . '_reset_done')) {
-				$resetDoneInfoArray = @json_decode($resetDoneInfo, ARRAY_A);
+        if ( ! Misc::getVar('get', 'wpacu_reset_done') || ! isset($_GET['page']) || ! Menu::userCanAccessPlugin() ) {
+            return;
+        }
 
-				if (! is_array($resetDoneInfoArray)) {
-					return;
-				}
+        $resetPages = array(WPACU_PLUGIN_ID . '_tools', WPACU_PLUGIN_ID . '_getting_started');
+        if ( ! in_array($_GET['page'], $resetPages, true) ) {
+            return;
+        }
 
-				$this->resetChoice         = isset($resetDoneInfoArray['reset_choice']) ? $resetDoneInfoArray['reset_choice'] : '';
-				$this->licenseDataRemoved  = isset($resetDoneInfoArray['license_data_removed']) ? $resetDoneInfoArray['license_data_removed'] : '';
-				$this->cachedAssetsRemoved = isset($resetDoneInfoArray['cached_assets_removed']) ? $resetDoneInfoArray['cached_assets_removed'] : '';
-				$this->resetResult         = isset($resetDoneInfoArray['result']) && is_array($resetDoneInfoArray['result']) ? $resetDoneInfoArray['result'] : array();
+        $resetDoneInfo = get_transient(WPACU_PLUGIN_ID . '_reset_done');
+        $resetData     = is_string($resetDoneInfo) ? json_decode($resetDoneInfo, true) : false;
+        if ( ! is_array($resetData) ) {
+            return;
+        }
 
-				delete_transient(WPACU_PLUGIN_ID . '_reset_done');
+        $this->resetChoice         = isset($resetData['reset_choice']) ? $resetData['reset_choice'] : '';
+        $this->licenseDataRemoved  = isset($resetData['license_data_removed']) ? $resetData['license_data_removed'] : '';
+        $this->cachedAssetsRemoved = isset($resetData['cached_assets_removed']) ? $resetData['cached_assets_removed'] : '';
+        $this->resetResult         = isset($resetData['result']) && is_array($resetData['result']) ? $resetData['result'] : array();
 
-				// Show the confirmation that the reset was completed
-				add_action('wpacu_admin_notices', array($this, 'resetDone'));
-			}
-
-		}
+        delete_transient(WPACU_PLUGIN_ID . '_reset_done');
+        add_action('wpacu_admin_notices', array($this, 'resetDone'));
 	}
 
 	/**
@@ -752,10 +757,12 @@ class Tools
 	    exit();
     }
 
-	/**
-	 *
-	 */
-	public function doReset()
+    /**
+     * Run the confirmed reset and redirect with its result.
+     *
+     * @return void
+     */
+    public function doReset()
 	{
 		// Several security checks before proceeding with the chosen action
 		if ( ! Menu::userCanAccessPlugin() ) {
@@ -940,11 +947,15 @@ class Tools
 			);
 			$wpacuOptionNames = $wpdb->get_col($sqlQueryGetOptions);
 
+            $preservedOptions = array();
+            if ($wpacuResetValue === 'reset_everything_except_settings') {
+                $preservedOptions = apply_filters('wpacu_internal_options_to_keep_with_settings', array($wpacuPluginId . '_settings'));
+            }
+
 			foreach ($wpacuOptionNames as $wpacuOptionName) {
-				$isSettingsOption = $wpacuOptionName === $wpacuPluginId . '_settings';
 				$isLicenseOption = strpos($wpacuOptionName, $wpacuPluginId . '_pro_license_') === 0;
 
-				if ($wpacuResetValue === 'reset_everything_except_settings' && $isSettingsOption) {
+				if (in_array($wpacuOptionName, $preservedOptions, true)) {
 					continue;
 				}
 
@@ -964,7 +975,7 @@ class Tools
             $remainingOptionNames = $wpdb->get_col($sqlQueryGetOptions);
 
             foreach ($remainingOptionNames as $remainingOptionName) {
-                $isPreservedSettings = $wpacuResetValue === 'reset_everything_except_settings' && $remainingOptionName === $wpacuPluginId . '_settings';
+                $isPreservedSettings = in_array($remainingOptionName, $preservedOptions, true);
                 $isPreservedLicense = ! $removeLicenseData && strpos($remainingOptionName, $wpacuPluginId . '_pro_license_') === 0;
 
                 if (! $isPreservedSettings && ! $isPreservedLicense) {
@@ -1089,7 +1100,8 @@ class Tools
             30
         );
 
-        wp_redirect(admin_url('admin.php?page=wpassetcleanup_tools&wpacu_reset_done=1&wpacu_time='.time()));
+        $redirectUrl = admin_url('admin.php?page=' . WPACU_PLUGIN_ID . '_tools&wpacu_reset_done=1&wpacu_time=' . time());
+        wp_safe_redirect(apply_filters('wpacu_internal_tools_reset_redirect_url', $redirectUrl, $wpacuResetValue, $this->resetResult));
         exit;
 	}
 

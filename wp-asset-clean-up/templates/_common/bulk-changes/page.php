@@ -89,7 +89,8 @@ do_action('wpacu_below_menu_admin_notices');
 			$srcKey = isset($data['assets_info'][ $assetType ][ $handle ]['src_origin']) ? 'src_origin' : 'src';
 			$verKey = isset($data['assets_info'][ $assetType ][ $handle ]['ver_origin']) ? 'ver_origin' : 'ver';
 
-			$src = (isset( $data['assets_info'][ $assetType ][ $handle ][$srcKey] ) && $data['assets_info'][ $assetType ][ $handle ][$srcKey]) ? $data['assets_info'][ $assetType ][ $handle ][$srcKey] : false;
+			$src = isset($data['assets_info'][$assetType][$handle][$srcKey]) && is_string($data['assets_info'][$assetType][$handle][$srcKey])
+                ? $data['assets_info'][$assetType][$handle][$srcKey] : '';
 
 			$isExternalSrc = true;
 
@@ -117,7 +118,7 @@ do_action('wpacu_below_menu_admin_notices');
 					: $data['assets_info'][ $assetType ][ $handle ][$verKey];
 				$verToAppend = is_array($data['assets_info'][ $assetType ][ $handle ][$verKey])
                     ? http_build_query(array('ver' => $data['assets_info'][ $assetType ][ $handle ][$verKey]))
-                    : 'ver='.$data['assets_info'][ $assetType ][ $handle ][$verKey];
+                    : 'ver=' . rawurlencode($verToPrint);
 			} else {
 				$verToAppend = 'ver='.$wp_version;
                 $verToPrint = $wp_version;
@@ -152,9 +153,9 @@ do_action('wpacu_below_menu_admin_notices');
 					$maxCharsToShow = 400;
 
 					if (strlen($hardcodedTagOutput) > $maxCharsToShow) {
-						echo '<code><small>' . htmlentities2( substr($hardcodedTagOutput, 0, $maxCharsToShow) ) . '</small></code>... &nbsp;<a data-wpacu-modal-target="wpacu-'.$handle.'-modal-target" href="#wpacu-'.$handle.'-modal" class="button button-secondary">View All</a>';
+						echo '<code><small>' . htmlentities2( substr($hardcodedTagOutput, 0, $maxCharsToShow) ) . '</small></code>... &nbsp;<a data-wpacu-modal-target="wpacu-' . esc_attr($handle) . '-modal-target" href="#wpacu-' . esc_attr($handle) . '-modal" class="button button-secondary">View All</a>';
 						?>
-						<div id="<?php echo 'wpacu-'.$handle.'-modal'; ?>" class="wpacu-modal wpacu-source-viewer-modal">
+						<div id="wpacu-<?php echo esc_attr($handle); ?>-modal" class="wpacu-modal wpacu-source-viewer-modal">
 							<div class="wpacu-modal-content wpacu-source-viewer-modal__content">
 								<button type="button" class="wpacu-close wpacu-source-viewer-modal__close" aria-label="<?php esc_attr_e('Close', 'wp-asset-clean-up'); ?>">&times;</button>
 								<header class="wpacu-source-viewer-modal__header">
@@ -192,7 +193,7 @@ do_action('wpacu_below_menu_admin_notices');
             if ( $src ) {
 			    $appendAfterSrc = strpos($src, '?') === false ? '?'.$verToAppend : '&'.$verToAppend;
 			    ?>
-                <div><a <?php if ($isExternalSrc) { ?> data-wpacu-external-source="<?php echo esc_attr($src . $appendAfterSrc); ?>" <?php } ?> href="<?php echo esc_html($src . $appendAfterSrc); ?>" target="_blank"><small><?php echo str_replace( site_url(), '', $src ); ?></small></a> <?php if ($isExternalSrc) { ?><span data-wpacu-external-source-status></span><?php } ?></div>
+                <div><a <?php if ($isExternalSrc) { ?> data-wpacu-external-source="<?php echo esc_url($src . $appendAfterSrc); ?>" <?php } ?> href="<?php echo esc_url($src . $appendAfterSrc); ?>" target="_blank"><small><?php echo esc_html(str_replace(site_url(), '', $src)); ?></small></a> <?php if ($isExternalSrc) { ?><span data-wpacu-external-source-status></span><?php } ?></div>
                 <?php
 			    $maybeInactiveAsset = MiscAdmin::maybeIsInactiveAsset($src);
 

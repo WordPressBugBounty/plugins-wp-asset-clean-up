@@ -1022,6 +1022,7 @@ class HardcodedAssets
 		$dataSettingsFrontEnd['page_unload_text'] = esc_html($data['page_unload_text']);
 		// The following string will be replaced by the values got from the AJAX call to /?wpassetcleanup_load=1&wpacu_just_hardcoded
 		$dataWpacuSettingsFrontend = base64_encode(wp_json_encode($dataSettingsFrontEnd));
+        $challenge = Main::newDirectFetchChallenge('hardcoded|' . hash('sha256', $dataWpacuSettingsFrontend));
 
 		$currentHardcodedAssetRules = '';
 
@@ -1057,7 +1058,7 @@ class HardcodedAssets
 								if ( $ruleKey === 'current_unloaded_page_level' ) {
 									$currentHardcodedAssetRules .= '<input type="hidden" name="wpassetcleanup[' . $assetType . '][]" value="' . $assetHandle . '" />';
 								} elseif ( $ruleKey === 'load_exceptions' ) {
-									$currentHardcodedAssetRules .= '<input type="hidden" name="wpacu_styles_load_it[]" value="' . $assetHandle . '" />';
+									$currentHardcodedAssetRules .= '<input type="hidden" name="wpacu_' . $assetType . '_load_it[]" value="' . esc_attr($assetHandle) . '" />';
 								} elseif ($ruleKey === 'handle_load_logged_in') {
 									$currentHardcodedAssetRules .= '<input type="hidden" name="wpacu_load_it_logged_in['.$assetType.']['.$assetHandle.']" value="1" />';
 								}
@@ -1070,7 +1071,7 @@ class HardcodedAssets
 
         $appendClass = $dataSettingsFrontEnd['plugin_settings']['assets_list_layout'] === 'by-location' ? 'wpacu-by-location' : '';
 
-		return '<div class="wpacu-assets-collapsible-wrap wpacu-wrap-area '.$appendClass.' wpacu-hardcoded" id="wpacu-assets-collapsible-wrap-hardcoded-list" data-wpacu-settings-frontend="'.esc_attr($dataWpacuSettingsFrontend).'">
+		return '<div class="wpacu-assets-collapsible-wrap wpacu-wrap-area '.$appendClass.' wpacu-hardcoded" id="wpacu-assets-collapsible-wrap-hardcoded-list" data-wpacu-direct-challenge="'.esc_attr($challenge).'" data-wpacu-settings-frontend="'.esc_attr($dataWpacuSettingsFrontend).'">
     <a class="wpacu-assets-collapsible wpacu-assets-collapsible-active" href="#" style="padding: 15px 15px 15px 44px;"><span class="dashicons dashicons-code-standards"></span> Hardcoded (non-enqueued) Styles &amp; Scripts</a>
     <div class="wpacu-assets-collapsible-content" style="max-height: inherit;">
         <div style="padding: 20px 15px; margin: 0;"><img style="margin: 0;" src="'.esc_url(admin_url('images/spinner.gif')).'" align="top" width="20" height="20" alt="" />&nbsp; The list of hardcoded assets is fetched... Please wait...</div>

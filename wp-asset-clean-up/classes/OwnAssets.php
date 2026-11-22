@@ -1677,6 +1677,7 @@ HTML;
             'list_show_status' => Main::instance()->settings['assets_list_show_status'],
 
             'start_del_e'      => Main::START_DEL_ENQUEUED,
+            'direct_verification_error' => __('The asset list could not be verified. Refresh the manager and try again.', 'wp-asset-clean-up'),
             'end_del_e'        => Main::END_DEL_ENQUEUED,
 
             'start_del_h'      => Main::START_DEL_HARDCODED,

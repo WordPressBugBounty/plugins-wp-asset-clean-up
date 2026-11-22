@@ -25,7 +25,15 @@ $dashboardLoadingType = isset($data['plugins_manage_dash_restore_left_sidebar_op
         <div class="wpacu-warning" style="font-size: inherit; padding: 12px; line-height: 22px; margin: 0 0 24px;">
             <img style="margin: 0 6px 0 0; opacity: .65; vertical-align: text-bottom;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL . '/assets/icons/icon-lock.svg'); ?>" alt="" />
             <strong><?php esc_html_e('Plugins Manager rule delivery is available in Asset CleanUp Pro.', 'wp-asset-clean-up'); ?></strong>
-            <a href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=plugin_usage_preferences&utm_medium=plugins_manager')); ?>"><?php esc_html_e('Unlock it', 'wp-asset-clean-up'); ?></a>
+            <?php
+            $discount    = \WpAssetCleanUpLite\Admin\UpgradeNotices::getUpgradeDiscount();
+            $unlockLabel = __('Unlock it', 'wp-asset-clean-up');
+            if ($discount > 0) {
+                /* translators: %d is the current upgrade discount percentage. */
+                $unlockLabel = sprintf(__('Unlock it for %d%% off', 'wp-asset-clean-up'), $discount);
+            }
+            ?>
+            <a href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=plugin_usage_preferences&utm_medium=plugins_manager')); ?>"><?php echo esc_html($unlockLabel); ?></a>
         </div>
         <fieldset disabled="disabled" style="border: 0; margin: 0; padding: 0; opacity: .55;">
     <?php } ?>
@@ -49,7 +57,6 @@ $dashboardLoadingType = isset($data['plugins_manage_dash_restore_left_sidebar_op
             </section>
 
             <div class="wpacu-pm-settings-section-heading">
-                <span class="wpacu-pm-settings-step">1</span>
                 <div>
                     <h3><?php esc_html_e('Front-end rules', 'wp-asset-clean-up'); ?></h3>
                     <p><?php esc_html_e('Control plugin unload rules that affect public pages viewed by visitors and logged-in users.', 'wp-asset-clean-up'); ?></p>
@@ -73,14 +80,9 @@ $dashboardLoadingType = isset($data['plugins_manage_dash_restore_left_sidebar_op
                             <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
                         </label>
                         <label class="wpacu-pm-settings-control-label" for="wpacu_plugins_manager_front_disable_checkbox">
-                            <strong><?php esc_html_e('Apply front-end rules', 'wp-asset-clean-up'); ?></strong>
+                            <strong id="wpacuPmFrontTitle"><?php esc_html_e('Apply front-end rules', 'wp-asset-clean-up'); ?></strong>
                             <span><?php esc_html_e('Save after changing this switch.', 'wp-asset-clean-up'); ?></span>
                         </label>
-                    </div>
-                    <div class="wpacu-pm-settings-master-copy">
-                        <span class="wpacu-pm-settings-kicker"><?php esc_html_e('Main setting', 'wp-asset-clean-up'); ?></span>
-                        <h3 id="wpacuPmFrontTitle"><?php esc_html_e('Keep visitor-facing unload rules enabled', 'wp-asset-clean-up'); ?></h3>
-                        <p><?php esc_html_e('Turn this off temporarily when checking whether a Plugins Manager rule is responsible for a front-end problem. The same switch is available on the Plugins Manager page.', 'wp-asset-clean-up'); ?></p>
                     </div>
                 </div>
 
@@ -141,7 +143,6 @@ $dashboardLoadingType = isset($data['plugins_manage_dash_restore_left_sidebar_op
             </section>
 
             <div class="wpacu-pm-settings-section-heading">
-                <span class="wpacu-pm-settings-step">2</span>
                 <div>
                     <h3><?php esc_html_e('WordPress Dashboard rules', 'wp-asset-clean-up'); ?></h3>
                     <p><?php esc_html_e('Control plugin unload rules configured specifically for admin pages under /wp-admin/.', 'wp-asset-clean-up'); ?></p>
@@ -177,14 +178,9 @@ $dashboardLoadingType = isset($data['plugins_manage_dash_restore_left_sidebar_op
                                 <span class="wpacu_slider wpacu_round" aria-hidden="true"></span>
                             </label>
                             <label class="wpacu-pm-settings-control-label" for="wpacu_plugins_manager_dash_enable_checkbox">
-                                <strong><?php esc_html_e('Apply Dashboard rules', 'wp-asset-clean-up'); ?></strong>
+                                <strong id="wpacuPmDashboardTitle"><?php esc_html_e('Apply Dashboard rules', 'wp-asset-clean-up'); ?></strong>
                                 <span><?php esc_html_e('Save after changing this switch.', 'wp-asset-clean-up'); ?></span>
                             </label>
-                        </div>
-                        <div class="wpacu-pm-settings-master-copy">
-                            <span class="wpacu-pm-settings-kicker"><?php esc_html_e('Main setting', 'wp-asset-clean-up'); ?></span>
-                            <h3 id="wpacuPmDashboardTitle"><?php esc_html_e('Keep /wp-admin/ unload rules enabled', 'wp-asset-clean-up'); ?></h3>
-                            <p><?php esc_html_e('Pause these rules first if an admin screen becomes incomplete or stops responding. The same switch is available in the Dashboard area of Plugins Manager.', 'wp-asset-clean-up'); ?></p>
                         </div>
                     </div>
 

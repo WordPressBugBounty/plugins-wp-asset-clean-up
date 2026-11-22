@@ -33,7 +33,7 @@ if (isset($data['row']['obj']->deps) && ! empty($data['row']['obj']->deps)) {
     $depsOutput .= $dependsOnText . ' ';
 
     foreach ($data['row']['obj']->deps as $depHandle) {
-        $depHandleText = $depHandle;
+        $depHandleText = esc_html($depHandle);
 
         $color = in_array($depHandle, $data['unloaded_'.$assetTypeAbbr.'_handles']) ? '#cc0000' : 'green';
 
@@ -43,7 +43,7 @@ if (isset($data['row']['obj']->deps) && ! empty($data['row']['obj']->deps)) {
             $depHandleText .= '&nbsp;' . $jqueryIconHtmlDepends;
         }
 
-        $depsOutput .= '<a style="color:' . $color . ';font-weight:300;" href="#wpacu_' . $assetTypeS . '_row_' . $depHandle . '"><span>' . $depHandleText . '</span></a>, ';
+        $depsOutput .= '<a style="color:' . $color . ';font-weight:300;" href="#wpacu_' . $assetTypeS . '_row_' . esc_attr($depHandle) . '"><span>' . $depHandleText . '</span></a>, ';
     }
 
     $depsOutput = rtrim($depsOutput, ', ');

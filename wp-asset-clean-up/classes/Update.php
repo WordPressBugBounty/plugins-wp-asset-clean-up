@@ -452,6 +452,8 @@ SQL;
      *
      * @param $postId
      * @param mixed $post
+     *
+     * @return void
      */
     public function savePost($postId, $post = '')
     {
@@ -496,27 +498,7 @@ SQL;
         $wpacuNoLoadAssets = Misc::getVar('post', WPACU_PLUGIN_ID, array());
 
         if (is_array($wpacuNoLoadAssets)) {
-            global $wpdb;
-
-            $noUpdate = false;
-
-            // Is the list empty?
-            if (empty($wpacuNoLoadAssets)) {
-                // Remove any row with no results
-                $wpdb->delete(
-                    $wpdb->postmeta,
-                    array('post_id' => $postId, 'meta_key' => '_' . WPACU_PLUGIN_ID . '_no_load')
-                );
-                $noUpdate = true;
-            }
-
-            if (! $noUpdate) {
-                $jsonNoAssetsLoadList = wp_json_encode($wpacuNoLoadAssets);
-
-	            if (! add_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_no_load', $jsonNoAssetsLoadList, true)) {
-                    update_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_no_load', $jsonNoAssetsLoadList);
-                }
-            }
+            self::savePageAssetList('post', $postId, 'no_load', $wpacuNoLoadAssets);
         }
 
         // Was the Assets' List Layout changed?
@@ -594,6 +576,8 @@ SQL;
 
     /**
      * @param $wpacuNoLoadAssets
+     *
+     * @return void
      */
     public function updateFrontPage($wpacuNoLoadAssets)
     {
@@ -616,8 +600,7 @@ SQL;
 
         do_action('wpacu_internal_front_page_update_before_common_updates');
 
-        $jsonNoAssetsLoadList = wp_json_encode( $wpacuNoLoadAssets );
-	    Misc::addUpdateOption( WPACU_PLUGIN_ID . '_front_page_no_load', $jsonNoAssetsLoadList );
+        self::savePageAssetList('front_page', 0, 'no_load', $wpacuNoLoadAssets);
 
 	    // If globally disabled, make an exception to load for submitted assets
         $this->saveLoadExceptions('front_page');
@@ -718,84 +701,98 @@ SQL;
         <?php
     }
 
-	/**
-	 * Lite: For Singular Page (Post, Page, Custom Post Type), Front Page (Home Page), On All Pages of a specific post type (post, page or custom)
-	 * Pro: 'for_pro' would trigger the actions from the premium extension (if available)
-     * UPDATE: Since v1.2.9.5, no fallback for both the lite and pro version activated at the same time would work anymore
-     * Users need to only keep the PRO version since it's standalone since v1.0.3
-	 *
-	 * This is the function that clears and updates the load exceptions for any of the requested pages
-	 *
-	 * This method SHOULD NOT be triggered within an AJAX call
-	 *
-	 * @param string $type
-	 * @param string $postId
-	 */
-	public function saveLoadExceptions($type = 'post', $postId = '')
+    /**
+     * Keep rules whose controls were absent or disabled in the submitted form.
+     * Each translated post can have its own stored handles.
+     *
+     * @param string $type
+     * @param int|string $postId
+     * @param string $rule
+     * @param array $submitted
+     *
+     * @return void
+     */
+    private static function savePageAssetList($type, $postId, $rule, $submitted)
+    {
+        $isPost   = $type === 'post';
+        $key      = $isPost ? '_' . WPACU_PLUGIN_ID . '_' . $rule : WPACU_PLUGIN_ID . '_front_page_' . $rule;
+        $stored   = wpacuJsonDecodeToArray($isPost ? get_post_meta($postId, $key, true) : get_option($key));
+        $form     = Misc::getVar('post', WPACU_FORM_ASSETS_POST_KEY, array());
+        $editable = $rule === 'no_load' ? 'unload_editable' : 'load_exception_editable';
+        $list     = array();
+
+        foreach (array('styles', 'scripts') as $assetType) {
+            $selected = isset($submitted[$assetType]) && is_array($submitted[$assetType])
+                ? wp_unslash(array_filter($submitted[$assetType], 'is_string')) : array();
+            $previous = isset($stored[$assetType]) && is_array($stored[$assetType]) ? $stored[$assetType] : array();
+
+            foreach ($previous as $handle) {
+                if ( ! is_string($handle) && ! is_int($handle) ) {
+                    continue;
+                }
+
+                $handle = (string)$handle;
+                if (isset($form[$assetType][$handle][$editable]) && $form[$assetType][$handle][$editable] === '1') {
+                    continue;
+                }
+
+                $selected[] = $handle;
+            }
+
+            if ($selected) {
+                $list[$assetType] = array_values(array_unique($selected));
+            }
+        }
+
+        if ($isPost) {
+            if ($list) {
+                update_post_meta($postId, $key, wp_slash(wp_json_encode($list)));
+            } else {
+                delete_post_meta($postId, $key);
+            }
+        } else {
+            Misc::addUpdateOption($key, wp_json_encode($list));
+        }
+    }
+
+    /**
+     * Save page-level load exceptions or pass archive exceptions to the Pro extension.
+     *
+     * @param string $type
+     * @param int|string $postId
+     *
+     * @return void
+     */
+    public function saveLoadExceptions($type = 'post', $postId = '')
     {
         if ( $type === 'post' && ! $postId ) {
-            // $postId needs to have a value if $type is a 'post' type
             return;
         }
 
-        $loadExceptions = array('styles' => array(), 'scripts' => array());
-
-        // [Start] Clear existing list first
-        if ($type === 'post') {
-            delete_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_load_exceptions');
-        } elseif ($type === 'front_page') {
-            delete_option( WPACU_PLUGIN_ID . '_front_page_load_exceptions');
-        }
-        elseif ($type === 'for_pro') {
-	        // Clear existing list for pages like: taxonomy, 404, search, date etc.
-	        do_action( 'wpacu_internal_clear_load_exceptions' );
-        }
-	    // [End] Clear existing list first
-
-        // Load Exception
-        // On this page or page type such as 404, search, etc.
+        $list = array();
         foreach (array('styles', 'scripts') as $assetType) {
-            $postKey    = ($assetType === 'styles') ? 'wpacu_styles_load_it' : 'wpacu_scripts_load_it';
-            $optionsKey = ($assetType === 'styles') ? 'wpacu_options_styles' : 'wpacu_options_scripts';
+            $checked = Misc::getVar('post', 'wpacu_' . $assetType . '_load_it', array());
+            $options = Misc::getVar('post', 'wpacu_options_' . $assetType, array());
 
-	        if ( ! empty( $_POST[$postKey] ) ) {
-		        foreach ( $_POST[$postKey] as $wpacuHandle ) {
-			        // Do not append it if the global unload is removed
-			        if ( isset( $_POST[$optionsKey][ $wpacuHandle ] ) && $_POST[$optionsKey][ $wpacuHandle ] === 'remove' ) {
-				        continue;
-			        }
-			        $loadExceptions[$assetType][] = $wpacuHandle;
-		        }
-	        }
+            foreach (is_array($checked) ? $checked : array() as $handle) {
+                if ( ! is_string($handle) || (isset($options[wp_unslash($handle)]) && $options[wp_unslash($handle)] === 'remove') ) {
+                    continue;
+                }
+
+                $list[$assetType][] = $handle;
+            }
         }
 
-        if (! empty($loadExceptions['styles']) || ! empty($loadExceptions['scripts'])) {
-            // Default
-            $list =  array('styles' => array(), 'scripts' => array());
+        if ($type === 'post' || $type === 'front_page') {
+            self::savePageAssetList($type, $postId, 'load_exceptions', $list);
+        } elseif ($type === 'for_pro') {
+            do_action('wpacu_internal_clear_load_exceptions');
+            if ($list) {
+                foreach ($list as $assetType => $handles) {
+                    $list[$assetType] = array_values(array_unique($handles));
+                }
 
-            // Build list
-            foreach ( array('styles', 'scripts') as $assetType ) {
-	            if ( ! empty( $loadExceptions[$assetType] ) ) {
-		            foreach ( $loadExceptions[$assetType] as $postHandle ) {
-			            $list[$assetType][] = $postHandle;
-		            }
-	            }
-
-	            if (is_array($list[$assetType])) {
-		            $list[$assetType] = array_unique($list[$assetType]);
-	            }
-            }
-
-            $jsonLoadExceptions = wp_json_encode(MiscArray::filterList($list));
-
-            if ( $type === 'post' && (! add_post_meta($postId, '_' . WPACU_PLUGIN_ID . '_load_exceptions', $jsonLoadExceptions, true)) ) {
-                update_post_meta( $postId, '_' . WPACU_PLUGIN_ID . '_load_exceptions', $jsonLoadExceptions );
-            } elseif ($type === 'front_page') {
-	            Misc::addUpdateOption( WPACU_PLUGIN_ID . '_front_page_load_exceptions', $jsonLoadExceptions );
-            }
-            elseif ($type === 'for_pro') {
-	            // Update any load exceptions for pages like: custom poty type archive, taxonomy, 404, search, date etc.
-	            do_action( 'wpacu_internal_update_load_exceptions', $jsonLoadExceptions );
+                do_action('wpacu_internal_update_load_exceptions', wp_json_encode(MiscArray::filterList($list)));
             }
         }
     }

@@ -49,9 +49,9 @@ class CombineCss
             }
         }
 
-        $registeredInlineSignature = sha1(wp_json_encode($registeredInline));
+        $registeredInlineSignature = sha1('combine-tag-identity-v1' . wp_json_encode($registeredInline));
         // Older indices may have moved attached inline CSS without removing its real tag.
-        $documentSignature = sha1('css-inline-removal-v1' . $registeredInlineSignature . OptimizeCommon::getCombineDocumentSignature($htmlSource));
+        $documentSignature = sha1('css-import-order-url-v3' . $registeredInlineSignature . OptimizeCommon::getCombineDocumentSignature($htmlSource));
 
 		if (isset($_GET['wpacu_no_cache']) || wpacuIsDefinedConstant('WPACU_NO_CACHE')) {
 			$skipCache = true;
@@ -95,7 +95,7 @@ class CombineCss
 
                 // WordPress and HTML filters can change quotes, whitespace or sourceURL
                 // comments. Preserve the original position unless removal is exact.
-                if ( ! self::canRemoveAttachedInlineStyle($inlineTag, $htmlSource, $wpacuRegisteredStyles, $inlineTagCounts, $linkTagCounts) ) {
+                if ( OptimizeCss::hasImportRule($inlineTag->textContent) || ! self::canRemoveAttachedInlineStyle($inlineTag, $htmlSource, $wpacuRegisteredStyles, $inlineTagCounts, $linkTagCounts) ) {
                     $preserveInlineHandles[$handle] = true;
                 }
 
@@ -107,7 +107,7 @@ class CombineCss
                     }
                 }
             }
-            $sourceSignature = sha1('css-inline-removal-v1' . $registeredInlineSignature . wp_json_encode(array_keys($preserveInlineHandles)) . OptimizeCommon::getCombineSourceSignature($domTag, 'css', $sourceHashes, $inertSources, $sourceFiles));
+            $sourceSignature = sha1('css-import-order-url-v3' . $registeredInlineSignature . wp_json_encode(array_keys($preserveInlineHandles)) . OptimizeCommon::getCombineSourceSignature($domTag, 'css', $sourceHashes, $inertSources, $sourceFiles));
             if (! OptimizeCommon::combineCacheMatchesSource($storageJsonContents, $sourceSignature)) {
                 $storageJsonContents = array();
             }
@@ -119,6 +119,7 @@ class CombineCss
 		if ( $skipCache || empty($storageJsonContents) ) {
 
 			$storageJsonContentsToSave = array();
+            $duplicateKeys = CombineTagIndex::getDuplicateKeys($domTag, 'link');
 
 			/*
 			 * NO CACHING? Parse the DOM
@@ -131,6 +132,7 @@ class CombineCss
 			foreach (array('head', 'body') as $docLocationTag) {
 				$combinedUriPathsGroup = $localAssetsPathsGroup = $linkHrefsGroup = array();
 				$localAssetsExtraGroup = array();
+                $tagKeysByHref = array();
 				$groupMedia = array();
 				$groupIndex = 0;
 				$previousMedia = null;
@@ -166,6 +168,10 @@ class CombineCss
 					// rel="preload" is there for a reason to make sure the CSS code is made available earlier prior to the one from rel="stylesheet" which is render-blocking
 					if (isset($linkAttributes['rel'], $linkAttributes['href']) && $linkAttributes['href']) {
 						$href = (string) $linkAttributes['href'];
+                        $tagKey = CombineTagIndex::key($linkAttributes);
+                        if (isset($duplicateKeys[$tagKey])) {
+                            continue;
+                        }
                         if (isset($inertSources[OptimizeCommon::getCombineSourceKey($href)])) { continue; }
 
 						if (self::skipCombine($linkAttributes['href'])) {
@@ -247,6 +253,9 @@ class CombineCss
 
 						// It will skip external stylesheets (from a different domain)
 						if ( $localAssetPath ) {
+                            if (isset($sourceHashes['imports:' . $localAssetPath]) && $sourceHashes['imports:' . $localAssetPath] === false) {
+                                continue;
+                            }
 							if ($precedingMedia !== $mediaValue) { $groupIndex++; }
 							$groupKey = (string)$groupIndex;
 							$groupMedia[$groupKey] = $mediaValue;
@@ -266,6 +275,7 @@ class CombineCss
 							}
 
 							$localAssetsPathsGroup[$groupKey][$href] = $localAssetPath;
+                            $tagKeysByHref[$groupKey][$href][] = $tagKey;
 
 							$alreadyAddedHref = isset($linkHrefsGroup[$groupKey]) && in_array($href, $linkHrefsGroup[$groupKey]);
 							if (! $alreadyAddedHref) {
@@ -310,6 +320,7 @@ class CombineCss
 					$linkHrefs = $maybeDoCssCombine['link_hrefs'];
 
 					if (is_file($localFinalCssFile)) {
+                        $tagKeys = array();
                         foreach ($linkHrefs as $originalIndexKey => $href) {
                             $indexKey = $originalIndexKey; // default
 
@@ -320,6 +331,9 @@ class CombineCss
                                 $indexKey      = OptimizeCommon::getCombineFileHash($localFilePath, $sourceHashes) . '_'. uniqid('', true);
                             }
 
+                            // CSS generation deduplicates identical URLs. Preserve repeated live stylesheets.
+                            $keysForHref = $tagKeysByHref[$groupKey][$href];
+                            $tagKeys[$indexKey] = count($keysForHref) === 1 ? $keysForHref[0] : '';
                             $href = str_replace('{site_url}', '', OptimizeCommon::getSourceRelPath($href, true));
 
                             unset($linkHrefs[$originalIndexKey]);
@@ -330,6 +344,7 @@ class CombineCss
 							'media' => $mediaValue,
 							'source_signature' => $sourceSignature,
 							'uri_to_final_css_file' => $uriToFinalCssFile,
+							'tag_keys'              => $tagKeys,
 							'link_hrefs'            => $linkHrefs
 						);
 
@@ -337,6 +352,7 @@ class CombineCss
 							'media' => $mediaValue,
 							'source_signature' => $sourceSignature,
 							'uri_to_final_css_file' => $uriToFinalCssFile,
+							'tag_keys'              => $tagKeys,
 							'link_hrefs'            => $linkHrefs
 						);
 					}
@@ -358,12 +374,16 @@ class CombineCss
 		$cdnUrlForCss = isset($cdnUrls['css']) ? $cdnUrls['css'] : false;
 
 		if ( ! empty($storageJsonContents) ) {
+            $tagIndex = new CombineTagIndex($htmlSource, 'css');
+            $edits    = array();
+            $preloads = array();
 			foreach ($storageJsonContents as $docLocationTag => $mediaValues) {
 				$groupLocation = 1;
 
 				foreach ($mediaValues as $mediaValue => $storageJsonContentLocation) {
 					$mediaValue = $storageJsonContentLocation['media'];
-					if (empty($storageJsonContentLocation['link_hrefs'])) {
+					if (empty($storageJsonContentLocation['tag_keys']) || empty($storageJsonContentLocation['link_hrefs'])
+                        || ! is_array($storageJsonContentLocation['link_hrefs'])) {
                         continue;
 					}
 
@@ -372,15 +392,19 @@ class CombineCss
 						continue;
 					}
 
-					$storageJsonContentLocation['link_hrefs'] = array_map(static function($href) {
-						return str_replace('{site_url}', '', $href);
-					}, $storageJsonContentLocation['link_hrefs']);
+					$group = $tagIndex->getGroup(
+                        $storageJsonContentLocation['link_hrefs'], $storageJsonContentLocation['tag_keys'], 'css', $sourceHashes
+                    );
+                    if ( ! $group ) {
+                        continue;
+                    }
 
-					$finalTagUrl = OptimizeCommon::filterWpContentUrl($cdnUrlForCss) . OptimizeCss::getRelPathCssCacheDir() . $storageJsonContentLocation['uri_to_final_css_file'];
+                    $finalTagUrl = OptimizeCommon::filterWpContentUrl($cdnUrlForCss) . OptimizeCss::getRelPathCssCacheDir() . $storageJsonContentLocation['uri_to_final_css_file'];
 
 					$finalCssTagAttrs = array();
 
-                    if (strncmp($mediaValue, 'wpacu_preload_basic_', 20) === 0) {
+                    $isBasicPreload = strncmp($mediaValue, 'wpacu_preload_basic_', 20) === 0;
+                    if ($isBasicPreload) {
 						// Put the right "media" value after cleaning the reference
 						$mediaValueClean = str_replace('wpacu_preload_basic_', '', $mediaValue);
 
@@ -394,8 +418,6 @@ HTML;
 
 						$finalCssTagAttrs['rel']   = 'preload';
 						$finalCssTagAttrs['media'] = $mediaValueClean;
-
-						$htmlSource = str_replace(Preloads::DEL_STYLES_PRELOADS, $finalCssTagRelPreload."\n" . Preloads::DEL_STYLES_PRELOADS, $htmlSource);
 					} else {
 						// Render-blocking CSS
 						$finalCssTag = <<<HTML
@@ -449,38 +471,43 @@ HTML;
 					// Reference: https://stackoverflow.com/questions/2368539/php-replacing-multiple-spaces-with-a-single-space
 					$finalCssTag = preg_replace('!\s+!', ' ', $finalCssTag);
 
-					$htmlSourceBeforeAnyLinkTagReplacement = $htmlSource;
-
-					// Detect the first LINK tag from the <$locationTag> and replace it with the final combined LINK tag
-					$firstLinkTag = OptimizeCss::getFirstLinkTag(reset($storageJsonContentLocation['link_hrefs']), $htmlSource);
-
-					if ($firstLinkTag) {
-						// 1) Strip inline code before/after it (if any)
-						// 2) Finally, strip the actual tag
-						$htmlSource = self::stripTagAndAnyInlineAssocCode( $firstLinkTag, $wpacuRegisteredStyles, $finalCssTag, $htmlSource );
-					}
-
-					if ($htmlSource !== $htmlSourceBeforeAnyLinkTagReplacement) {
-						$htmlSource = self::stripJustCombinedLinkTags(
-							$storageJsonContentLocation['link_hrefs'],
-							$wpacuRegisteredStyles,
-							$htmlSource,
-                            array(reset($storageJsonContentLocation['link_hrefs'])),
-                            $sourceHashes
-						); // Strip the combined files to avoid duplicate code
-
-						// There should be at least two replacements made, AND all the tags should have been replaced
-						// Leave no room for errors, otherwise the page could end up with extra files loaded, leading to a slower website
-						if ($htmlSource === 'do_not_combine') {
-							$htmlSource = $htmlSourceBeforeAnyLinkTagReplacement;
-						} else {
-							$groupLocation++;
-						}
-					} else {
-                        OptimizeCommon::clearAssetCachedData(self::$jsonStorageFile);
+                    $groupEdits = array();
+                    foreach ($group as $index => $link) {
+                        $groupEdits[$link['offset']] = array($link['length'], $index === 0 ? $finalCssTag : '');
+                        $attributes = $link['attributes'];
+                        if ($isBasicPreload) {
+                            foreach ($tagIndex->getBasicPreloads($attributes['href']) as $preload) {
+                                $groupEdits[$preload['offset']] = array($preload['length'], '');
+                            }
                         }
+
+                        if ( ! isset($attributes['data-wpacu-style-handle']) || ! OptimizeCommon::appendInlineCodeToCombineAssetType('css') ) {
+                            continue;
+                        }
+                        $handle = $attributes['data-wpacu-style-handle'];
+                        foreach ($tagIndex->getInlineStyles($handle) as $inline) {
+                            $end      = $link['offset'] + $link['length'];
+                            $gap      = $inline['offset'] - $end;
+                            $expected = trim(OptimizeCss::generateInlineAssocHtmlForHandle($handle));
+                            if (($gap !== 0 && ($gap !== 1 || $htmlSource[$end] !== "\n"))
+                                || $expected !== substr($htmlSource, $inline['offset'], $inline['length'])) {
+                                continue 3;
+                            }
+                            $groupEdits[$inline['offset']] = array($inline['length'], '');
+                        }
+                    }
+
+                    $edits += $groupEdits;
+                    if ($isBasicPreload) {
+                        $preloads[] = $finalCssTagRelPreload;
+                    }
+                    $groupLocation++;
 				}
 			}
+            $htmlSource = CombineTagIndex::applyEdits($htmlSource, $edits);
+            if ($preloads) {
+                $htmlSource = str_replace(Preloads::DEL_STYLES_PRELOADS, implode("\n", $preloads) . "\n" . Preloads::DEL_STYLES_PRELOADS, $htmlSource);
+            }
 		}
 
 		return $htmlSource;
@@ -613,6 +640,11 @@ HTML;
 				if ($cssContent = trim(FileSystem::fileGetContents($localAssetsPath, 'combine_css_imports'))) {
 					$pathToAssetDir = OptimizeCommon::getPathToAssetDir($assetHref);
 
+                    if (OptimizeCss::hasImportRule($cssContent)) {
+                        // A source changed during generation, or a direct caller supplied an unresolved import.
+                        return array('uri_final_css_file' => '', 'local_final_css_file' => '', 'link_hrefs' => array());
+                    }
+
 					// Does it have a source map? Strip it
 					if (strpos($cssContent, '/*# sourceMappingURL=') !== false) {
 						$cssContent = OptimizeCommon::stripSourceMap($cssContent, 'css');
@@ -628,7 +660,7 @@ HTML;
 				}
 			}
 
-			// Move any @imports to the top; This also strips any @imports to Google Fonts if the option is chosen
+			// Apply the configured Google Fonts import removal.
 			$finalCombinedCssContent = trim(OptimizeCss::importsUpdate($finalCombinedCssContent));
 
 			if (Main::instance()->settings['google_fonts_remove']) {

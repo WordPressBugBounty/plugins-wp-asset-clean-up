@@ -84,7 +84,7 @@ $unloadViaRegExText = sprintf(__('Unload %s if the request URI matches any of th
             <input class="wpacu_unload_it_regex_checkbox wpacu_unload_rule_input wpacu_bulk_unload" type="checkbox" disabled="disabled" />
             <span><?php echo esc_html($unloadViaRegExText); ?>:</span>
         </label>
-        <a class="go-pro-link-no-style wpacu-locked-checkbox-overlay" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=manage_asset&utm_medium=unload_'.$assetTypeS.'_by_regex')); ?>"><span class="wpacu-tooltip wpacu-larger"><?php esc_html_e('This advanced rule is available in Asset CleanUp Pro. Upgrade to apply it to matching pages or requests.', 'wp-asset-clean-up'); ?></span><img style="margin: 0;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-lock.svg" alt="" /></a>
+        <a class="go-pro-link-no-style wpacu-locked-checkbox-overlay" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL.'?utm_source=manage_asset&utm_medium=unload_'.$assetTypeS.'_by_regex')); ?>"><span class="wpacu-tooltip wpacu-larger"><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('This advanced rule is available in Asset CleanUp Pro. Upgrade to apply it to matching pages or requests.', 'wp-asset-clean-up'))); ?></span><img style="margin: 0;" width="20" height="20" src="<?php echo esc_url(WPACU_PLUGIN_URL); ?>/assets/icons/icon-lock.svg" alt="" /></a>
         <a style="text-decoration: none; color: inherit; vertical-align: middle;" target="_blank" href="https://www.assetcleanup.com/docs/?p=313#wpacu-unload-by-regex"><span class="dashicons dashicons-editor-help"></span></a>
     </li></ul>
 </div>

@@ -16,7 +16,7 @@ $wpacuBulkPreviewMedium = isset($wpacuBulkPreviewMedium) ? $wpacuBulkPreviewMedi
             <h2 style="margin: 5px 0 8px;"><?php echo esc_html($wpacuBulkPreviewTitle); ?></h2>
             <?php if ($wpacuBulkPreviewDescription !== '') { ?><p style="margin: 0; line-height: 1.6;"><?php echo wp_kses($wpacuBulkPreviewDescription, array('code' => array(), 'em' => array(), 'strong' => array())); ?></p><?php } ?>
             <?php if ($wpacuBulkPreviewHelp !== '') { ?><p style="margin: 12px 0 0; color: #52636b; line-height: 1.6;"><?php echo wp_kses($wpacuBulkPreviewHelp, array('em' => array(), 'strong' => array())); ?></p><?php } ?>
-            <p style="margin: 16px 0 0;"><a class="button button-secondary" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=plugin_bulk_changes&utm_medium=' . rawurlencode($wpacuBulkPreviewMedium))); ?>"><?php esc_html_e('View Asset CleanUp Pro', 'wp-asset-clean-up'); ?></a></p>
+            <p style="margin: 16px 0 0;"><a class="button button-secondary" href="<?php echo esc_url(apply_filters('wpacu_go_pro_affiliate_link', WPACU_PLUGIN_GO_PRO_URL . '?utm_source=plugin_bulk_changes&utm_medium=' . rawurlencode($wpacuBulkPreviewMedium))); ?>"><?php echo esc_html(apply_filters('wpacu_internal_upgrade_label', __('View Asset CleanUp Pro', 'wp-asset-clean-up'))); ?></a></p>
         </div>
     </div>
 </section>

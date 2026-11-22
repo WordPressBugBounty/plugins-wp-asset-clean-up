@@ -207,12 +207,13 @@ class Misc
 	 */
 	public static function getPageUri($postId)
     {
-	    $parseUrl = parse_url(get_site_url());
-	    $rootUrl = $parseUrl['scheme'].'://'.$parseUrl['host'];
+        $parts = parse_url((string)get_permalink($postId));
+        if ( empty($parts) || (empty($parts['host']) && empty($parts['path'])) ) {
+            return '';
+        }
 
-	    $dbPageUrl = get_permalink($postId);
-
-	    return str_replace( $rootUrl, '', $dbPageUrl );
+        $path = isset($parts['path']) ? $parts['path'] : '/';
+        return isset($parts['query']) ? $path . '?' . $parts['query'] : $path;
     }
 
 	/**
@@ -378,10 +379,11 @@ class Misc
      * Repeated names, dots, brackets and their original encoding can be meaningful.
      *
      * @param string $url
+     * @param string[]|null $internal Optional list of manager keys to remove.
      *
      * @return string
      */
-    public static function removeManagerQueryArgs($url)
+    public static function removeManagerQueryArgs($url, $internal = null)
     {
         $fragmentParts = explode('#', $url, 2);
         $urlParts      = explode('?', $fragmentParts[0], 2);
@@ -390,11 +392,13 @@ class Misc
             return $url;
         }
 
-        $internal = array(
-            'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
-            'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
-            'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
-        );
+        if ($internal === null) {
+            $internal = array(
+                'wpacu_manager', 'wpacu_plugins_updated', 'wpacu_switched_to', 'lite_enabled', 'pro_enabled',
+                'wpacu_updated', 'wpacu_time', 'wpacu_no_cache', 'wpacu_debug', 'wpacu_load', 'wpacu_unload',
+                'wpacu_skip_test_mode', 'wpacu_ignore_nocache', 'wpacu_no_frontend_show'
+            );
+        }
         $arguments = array();
         $removed   = false;
 
